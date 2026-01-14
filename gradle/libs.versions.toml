@@ -12,12 +12,28 @@ composeBom = "2024.09.00"
 activity = "1.12.2"
 constraintlayout = "2.2.1"
 
+# New dependencies
+lifecycleJava = "2.7.0"
+activityJava = "1.8.2"
+fragment = "1.6.2"
+media3 = "1.9.0"
+retrofit = "2.11.0"
+gson = "2.10.1"
+okhttp = "4.12.0"
+glide = "4.16.0"
+materialDesign = "1.11.0"
+junitTest = "1.1.5"
+espressoTest = "3.5.1"
+mockito = "5.7.0"
+mockitoInline = "5.2.0"
+robolectric = "4.11.1"
+jsoup = "1.21.2"
+cronetApi = "66.3359.158"
+cronetEmbedded = "143.7445.0"
+
 [libraries]
 junit = { group = "junit", name = "junit", version.ref = "junit" }
-ext-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
 appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
-material = { group = "com.google.android.material", name = "material", version.ref = "material" }
 lifecycle-runtime-ktx = { group = "androidx.lifecycle", name = "lifecycle-runtime-ktx", version.ref = "lifecycleRuntimeKtx" }
 activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }
 compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "composeBom" }
@@ -28,11 +44,55 @@ ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-tooling-preview
 ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest" }
 ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4" }
 material3 = { group = "androidx.compose.material3", name = "material3" }
-activity = { group = "androidx.activity", name = "activity", version.ref = "activity" }
 constraintlayout = { group = "androidx.constraintlayout", name = "constraintlayout", version.ref = "constraintlayout" }
+
+# AndroidX Lifecycle - JAVA versions
+lifecycle-runtime = { group = "androidx.lifecycle", name = "lifecycle-runtime", version.ref = "lifecycleJava" }
+lifecycle-common = { group = "androidx.lifecycle", name = "lifecycle-common", version.ref = "lifecycleJava" }
+lifecycle-process = { group = "androidx.lifecycle", name = "lifecycle-process", version.ref = "lifecycleJava" }
+lifecycle-livedata = { group = "androidx.lifecycle", name = "lifecycle-livedata", version.ref = "lifecycleJava" }
+lifecycle-viewmodel = { group = "androidx.lifecycle", name = "lifecycle-viewmodel", version.ref = "lifecycleJava" }
+
+# AndroidX Activity & Fragment
+activity-java = { group = "androidx.activity", name = "activity", version.ref = "activityJava" }
+fragment = { group = "androidx.fragment", name = "fragment", version.ref = "fragment" }
+
+# Media3 ExoPlayer
+media3-exoplayer = { group = "androidx.media3", name = "media3-exoplayer", version.ref = "media3" }
+media3-ui = { group = "androidx.media3", name = "media3-ui", version.ref = "media3" }
+media3-common = { group = "androidx.media3", name = "media3-common", version.ref = "media3" }
+media3-exoplayer-dash = { group = "androidx.media3", name = "media3-exoplayer-dash", version.ref = "media3" }
+media3-exoplayer-hls = { group = "androidx.media3", name = "media3-exoplayer-hls", version.ref = "media3" }
+media3-session = { group = "androidx.media3", name = "media3-session", version.ref = "media3" }
+media3-datasource-cronet = { group = "androidx.media3", name = "media3-datasource-cronet", version.ref = "media3" }
+
+# Retrofit & Gson
+retrofit = { group = "com.squareup.retrofit2", name = "retrofit", version.ref = "retrofit" }
+retrofit-converter-gson = { group = "com.squareup.retrofit2", name = "converter-gson", version.ref = "retrofit" }
+gson = { group = "com.google.code.gson", name = "gson", version.ref = "gson" }
+okhttp-logging-interceptor = { group = "com.squareup.okhttp3", name = "logging-interceptor", version.ref = "okhttp" }
+okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
+
+# Glide
+glide = { group = "com.github.bumptech.glide", name = "glide", version.ref = "glide" }
+glide-compiler = { group = "com.github.bumptech.glide", name = "compiler", version.ref = "glide" }
+
+# Material Design
+material-design = { group = "com.google.android.material", name = "material", version.ref = "materialDesign" }
+
+# Testing
+junit-test = { group = "androidx.test.ext", name = "junit", version.ref = "junitTest" }
+espresso-test = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoTest" }
+mockito-core = { group = "org.mockito", name = "mockito-core", version.ref = "mockito" }
+mockito-inline = { group = "org.mockito", name = "mockito-inline", version.ref = "mockitoInline" }
+robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
+
+# Other dependencies
+jsoup = { group = "org.jsoup", name = "jsoup", version.ref = "jsoup" }
+cronet-api = { group = "org.chromium.net", name = "cronet-api", version.ref = "cronetApi" }
+cronet-embedded = { group = "org.chromium.net", name = "cronet-embedded", version.ref = "cronetEmbedded" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
-

@@ -1,4 +1,4 @@
-package com.kiduyu.klaus.kiduyutv.Ui.home.ui;
+package com.kiduyu.klaus.kiduyutv.Ui;
 
 import android.os.Bundle;
 

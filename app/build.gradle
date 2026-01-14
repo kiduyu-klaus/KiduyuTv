@@ -6,9 +6,7 @@ plugins {
 
 android {
     namespace 'com.kiduyu.klaus.kiduyutv'
-    compileSdk {
-        version = release(36)
-    }
+    compileSdk 36
 
     defaultConfig {
         applicationId "com.kiduyu.klaus.kiduyutv"
@@ -27,8 +25,8 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_11
-        targetCompatibility JavaVersion.VERSION_11
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
     }
     buildFeatures {
         compose true
@@ -36,8 +34,9 @@ android {
 }
 
 dependencies {
+    // Original dependencies
     implementation libs.appcompat
-    implementation libs.material
+    //implementation libs.material
     implementation libs.lifecycle.runtime.ktx
     implementation libs.activity.compose
     implementation platform(libs.compose.bom)
@@ -45,13 +44,61 @@ dependencies {
     implementation libs.ui.graphics
     implementation libs.ui.tooling.preview
     implementation libs.material3
-    implementation libs.activity
+    //implementation libs.activity
     implementation libs.constraintlayout
+
+    // AndroidX Lifecycle - JAVA versions (NOT -ktx)
+    implementation libs.lifecycle.runtime
+    implementation libs.lifecycle.common
+    implementation libs.lifecycle.process
+    implementation libs.lifecycle.livedata
+    implementation libs.lifecycle.viewmodel
+
+    // AndroidX Activity & Fragment
+    implementation libs.activity.java
+    implementation libs.fragment
+
+    // Media3 ExoPlayer
+    implementation libs.media3.exoplayer
+    implementation libs.media3.ui
+    implementation libs.media3.common
+    implementation libs.media3.exoplayer.dash
+    implementation libs.media3.exoplayer.hls
+    implementation libs.media3.session
+    implementation libs.media3.datasource.cronet
+
+    // Retrofit & Gson
+    implementation libs.retrofit
+    implementation libs.retrofit.converter.gson
+    implementation libs.gson
+    implementation libs.okhttp.logging.interceptor
+    implementation libs.okhttp
+
+    // Glide for image loading
+    implementation libs.glide
+    annotationProcessor libs.glide.compiler
+
+    // Material Design
+    implementation libs.material.design
+
+    // Other dependencies
+    implementation libs.jsoup
+    implementation libs.cronet.api
+    implementation libs.cronet.embedded
+
+    // Testing
     testImplementation libs.junit
+    testImplementation libs.mockito.core
+    testImplementation libs.mockito.inline
+    testImplementation libs.robolectric
+/**
     androidTestImplementation libs.ext.junit
     androidTestImplementation libs.espresso.core
+    androidTestImplementation libs.junit.test
+    androidTestImplementation libs.espresso.test
     androidTestImplementation platform(libs.compose.bom)
     androidTestImplementation libs.ui.test.junit4
+
     debugImplementation libs.ui.tooling
-    debugImplementation libs.ui.test.manifest
+    debugImplementation libs.ui.test.manifest **/
 }
