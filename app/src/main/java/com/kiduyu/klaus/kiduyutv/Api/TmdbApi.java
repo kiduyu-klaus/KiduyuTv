@@ -5,6 +5,7 @@ package com.kiduyu.klaus.kiduyutv.Api;
 import android.util.Log;
 
 import com.kiduyu.klaus.kiduyutv.model.MediaItems;
+import com.kiduyu.klaus.kiduyutv.model.Season;
 import com.kiduyu.klaus.kiduyutv.utils;
 
 import org.json.JSONArray;
@@ -19,14 +20,13 @@ import java.util.List;
 
 public class TmdbApi {
     private static final String TAG = "TmdbApi";
-    private static final String IMAGE_BASE_URL = "https://image.tmdb.org/t/p/";
-    private static final String BEARER_TOKEN = "eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiI0MTAzZmMzMDY1YzEyMmViNWRiNmJkY2ZmNzQ5ZmRlNyIsIm5iZiI6MTY2ODA2NDAzNC4yNDk5OTk4LCJzdWIiOiI2MzZjYTMyMjA0OTlmMjAwN2ZlYjA4MWEiLCJzY29wZXMiOlsiYXBpX3JlYWQiXSwidmVyc2lvbiI6MX0.tjvtYPTPfLOyMdOouQ14GGgOzmfnZRW4RgvOzfoq19w";
+    public static final String IMAGE_BASE_URL = "https://image.tmdb.org/t/p/";
+    public static final String BEARER_TOKEN = "eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiI0MTAzZmMzMDY1YzEyMmViNWRiNmJkY2ZmNzQ5ZmRlNyIsIm5iZiI6MTY2ODA2NDAzNC4yNDk5OTk4LCJzdWIiOiI2MzZjYTMyMjA0OTlmMjAwN2ZlYjA4MWEiLCJzY29wZXMiOlsiYXBpX3JlYWQiXSwidmVyc2lvbiI6MX0.tjvtYPTPfLOyMdOouQ14GGgOzmfnZRW4RgvOzfoq19w";
 
-    private static final String POSTER_SIZE = "w500";
-    private static final String BACKDROP_SIZE = "w1280";
+    public static final String POSTER_SIZE = "w500";
+    public static final String BACKDROP_SIZE = "w1280";
     private static final String ORIGINAL_SIZE = "original";
-    private static final int TIMEOUT_MS = 10000;
-
+    public static final int TIMEOUT_MS = 10000;
 
 
     public enum ContentType {
@@ -64,7 +64,7 @@ public class TmdbApi {
         return movies;
     }
 
-    private static MediaItems createMediaItemFromTMDB(JSONObject tmdbItem, ContentType contentType) {
+    public static MediaItems createMediaItemFromTMDB(JSONObject tmdbItem, ContentType contentType) {
         try {
             MediaItems mediaItems = new MediaItems();
 
@@ -225,4 +225,6 @@ public class TmdbApi {
 
         return recommendations;
     }
+
+
 }
