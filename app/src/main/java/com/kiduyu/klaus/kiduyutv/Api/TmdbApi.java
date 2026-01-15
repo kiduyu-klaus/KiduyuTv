@@ -147,4 +147,39 @@ public class TmdbApi {
             return null;
         }
     }
+
+    /**
+     * Common method to fetch TV shows from TMDB API - runs on background thread
+     */
+    public static List<MediaItems> fetchTVShowsFromTMDB(String urlString) throws IOException, JSONException {
+        List<MediaItems> tvShows = new ArrayList<>();
+
+        Connection.Response response = Jsoup.connect(urlString)
+                .header("accept", "application/json")
+                .header("Authorization", "Bearer " + BEARER_TOKEN)
+                .ignoreContentType(true)
+                .timeout(TIMEOUT_MS)
+                .method(Connection.Method.GET)
+                .execute();
+
+        if (response.statusCode() == 200) {
+            Log.i(TAG, "fetchTVShowsFromTMDB: Success");
+
+            JSONObject jsonResponse = new JSONObject(response.body());
+            JSONArray results = jsonResponse.getJSONArray("results");
+
+            for (int i = 0; i < results.length() && i < 20; i++) { // Limit to 20 items
+                JSONObject tvShowJson = results.getJSONObject(i);
+                MediaItems tvShow = createMediaItemFromTMDB(tvShowJson, ContentType.TV);
+                if (tvShow != null) {
+                    tvShows.add(tvShow);
+                }
+            }
+        } else {
+            Log.e(TAG, "fetchTVShowsFromTMDB: Failed with status " + response.statusCode());
+            throw new IOException("Failed to fetch data: " + response.statusCode());
+        }
+
+        return tvShows;
+    }
 }

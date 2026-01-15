@@ -171,18 +171,18 @@ public class MainActivity extends AppCompatActivity {
         });
 
         homeIcon.setOnClickListener(v -> {
-            //loadContent();
+            loadContent();
             Toast.makeText(this, "Home", Toast.LENGTH_SHORT).show();
         });
 
         moviesIcon.setOnClickListener(v -> {
-            //loadContent();
+            loadContent();
             Toast.makeText(this, "Movies - Coming Soon", Toast.LENGTH_SHORT).show();
         });
 
         tvIcon.setOnClickListener(v -> {
-            //loadTvShows();
-            //Toast.makeText(this, "TV Shows - Coming Soon", Toast.LENGTH_SHORT).show();
+            loadTvShows();
+            Toast.makeText(this, "TV Shows - Coming Soon", Toast.LENGTH_SHORT).show();
         });
 
         apiIcon.setOnClickListener(v -> {
@@ -225,8 +225,8 @@ public class MainActivity extends AppCompatActivity {
 
         // Load all categories from TMDB asynchronously
         loadFeaturedMovies();
-//        loadTopRatedMovies();
-//        loadActionMovies();
+        loadTopRatedMovies();
+        loadActionMovies();
 //        loadComedyMovies();
 //        loadDramaMovies();
 //        loadDocumentaries();
@@ -261,6 +261,51 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
+    private void loadActionMovies() {
+        tmdbRepository.getActionMoviesAsync(new TmdbRepository.TMDBCallback() {
+            @Override
+            public void onSuccess(List<MediaItems> movies) {
+                Log.d(TAG, "Successfully loaded " + movies.size() + " action movies");
+
+                if (!movies.isEmpty()) {
+                    CategorySection section = new CategorySection("Action & Adventure", movies);
+                    categories.add(section);
+                    categoryAdapter.notifyDataSetChanged();
+                }
+
+                checkLoadingComplete();
+            }
+
+            @Override
+            public void onError(String error) {
+                Log.e(TAG, "Failed to load action movies: " + error);
+                checkLoadingComplete();
+            }
+        });
+    }
+
+    private void loadTopRatedMovies() {
+        tmdbRepository.getTopRatedMoviesAsync(new TmdbRepository.TMDBCallback() {
+            @Override
+            public void onSuccess(List<MediaItems> movies) {
+                Log.d(TAG, "Successfully loaded " + movies.size() + " top rated movies");
+
+                if (!movies.isEmpty()) {
+                    CategorySection section = new CategorySection("Top Rated Movies", movies);
+                    categories.add(section);
+                    categoryAdapter.notifyDataSetChanged();
+                }
+
+                checkLoadingComplete();
+            }
+
+            @Override
+            public void onError(String error) {
+                Log.e(TAG, "Failed to load top rated movies: " + error);
+                checkLoadingComplete();
+            }
+        });
+    }
     private void checkLoadingComplete() {
         loadedCategories++;
 
@@ -280,6 +325,144 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         }
+    }
+
+    private void loadTvShows() {
+        if (isLoadingContent) {
+            Log.d(TAG, "Already loading content, skipping duplicate request");
+            return;
+        }
+
+        categoryAdapter= null;
+        isLoadingContent = true;
+        loadedCategories = 0;
+        loadingOverlay.setVisibility(View.VISIBLE);
+
+        categories.clear();
+
+        // Add API content category
+        //categories.add(new CategorySection("🎆 Live API Content", apiRepository.getAPISampleContent()));
+
+        tmdbRepository.getPopularTVShowsAsync(new TmdbRepository.TMDBCallback() {
+            @Override
+            public void onSuccess(List<MediaItems> tvShows) {
+                // Handle successful load
+                Log.d(TAG, "Successfully loaded " + tvShows.size() + " featured Tv series");
+                if (!tvShows.isEmpty()) {
+                    CategorySection featuredSection = new CategorySection("Featured Tv Series", tvShows);
+                    categories.add(0, featuredSection);
+                    categoryAdapter.notifyDataSetChanged();
+                    currentSelectedItem = tvShows.get(0);
+                    updateHeroContent(currentSelectedItem, 0);
+
+                    // Update hero content with first featured tv show if it's the first category loaded
+                    if (currentSelectedItem == null) {
+                        currentSelectedItem = tvShows.get(0);
+                        updateHeroContent(currentSelectedItem, 0);
+                    }
+                }
+            }
+
+            @Override
+            public void onError(String error) {
+                // Handle error
+                Log.e(TAG, "Failed to load featured movies: " + error);
+            }
+        });
+
+        tmdbRepository.getTopRatedTVShowsAsync(new TmdbRepository.TMDBCallback() {
+            @Override
+            public void onSuccess(List<MediaItems> tvShows) {
+                // Handle successful load
+                Log.d(TAG, "Successfully loaded " + tvShows.size() + " top rated Tv series");
+                if (!tvShows.isEmpty()) {
+                    CategorySection featuredSection = new CategorySection("Top Rated Tv Series", tvShows);
+                    categories.add(0, featuredSection);
+                    categoryAdapter.notifyDataSetChanged();
+                    currentSelectedItem = tvShows.get(0);
+                    updateHeroContent(currentSelectedItem, 0);
+
+                    // Update hero content with first featured tv show if it's the first category loaded
+                    if (currentSelectedItem == null) {
+                        currentSelectedItem = tvShows.get(0);
+                        updateHeroContent(currentSelectedItem, 0);
+                    }
+                }
+            }
+
+            @Override
+            public void onError(String error) {
+                // Handle error
+                Log.e(TAG, "Failed to load featured movies: " + error);
+            }
+        });
+
+        tmdbRepository.getTrendingTVShowsAsync(new TmdbRepository.TMDBCallback() {
+            @Override
+            public void onSuccess(List<MediaItems> tvShows) {
+                // Handle successful load
+                Log.d(TAG, "Successfully loaded " + tvShows.size() + " Trending Tv series");
+                if (!tvShows.isEmpty()) {
+                    CategorySection featuredSection = new CategorySection("Trending Tv Series", tvShows);
+                    categories.add(0, featuredSection);
+                    categoryAdapter.notifyDataSetChanged();
+                    currentSelectedItem = tvShows.get(0);
+                    updateHeroContent(currentSelectedItem, 0);
+
+                    // Update hero content with first featured tv show if it's the first category loaded
+                    if (currentSelectedItem == null) {
+                        currentSelectedItem = tvShows.get(0);
+                        updateHeroContent(currentSelectedItem, 0);
+                    }
+                }
+            }
+
+            @Override
+            public void onError(String error) {
+                // Handle error
+                Log.e(TAG, "Failed to load featured movies: " + error);
+            }
+        });
+
+        tmdbRepository.getActionAdventureTVShowsAsync(new TmdbRepository.TMDBCallback() {
+            @Override
+            public void onSuccess(List<MediaItems> tvShows) {
+                // Handle successful load
+                Log.d(TAG, "Successfully loaded " + tvShows.size() + " action Tv series");
+                if (!tvShows.isEmpty()) {
+                    CategorySection featuredSection = new CategorySection("Action & Adventure Tv Series", tvShows);
+                    categories.add(0, featuredSection);
+                    categoryAdapter.notifyDataSetChanged();
+                    currentSelectedItem = tvShows.get(0);
+                    updateHeroContent(currentSelectedItem, 0);
+
+                    // Update hero content with first featured tv show if it's the first category loaded
+                    if (currentSelectedItem == null) {
+                        currentSelectedItem = tvShows.get(0);
+                        updateHeroContent(currentSelectedItem, 0);
+                    }
+                }
+            }
+
+            @Override
+            public void onError(String error) {
+                // Handle error
+                Log.e(TAG, "Failed to load featured movies: " + error);
+            }
+        });
+
+
+        // Setup adapter with initial empty structure
+        if (categoryAdapter == null) {
+            categoryAdapter = new CategoryAdapter(categories);
+            categoriesRecyclerView.setAdapter(categoryAdapter);
+            setupCategoryListeners();
+        } else {
+            categoryAdapter.notifyDataSetChanged();
+        }
+
+        isLoadingContent = false;
+        loadingOverlay.setVisibility(View.GONE);
     }
 
     private void setupCategoryListeners() {
