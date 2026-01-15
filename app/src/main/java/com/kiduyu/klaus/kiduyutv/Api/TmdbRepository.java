@@ -21,7 +21,7 @@ import java.util.concurrent.Executors;
 
 public class TmdbRepository {
     private static final String TAG = "TmdbRepository";
-    private static final String TMDB_BASE_URL = "https://api.themoviedb.org/3";
+    public static final String TMDB_BASE_URL = "https://api.themoviedb.org/3";
 
     private static TmdbRepository instance;
 
@@ -404,6 +404,67 @@ public class TmdbRepository {
                 Log.e(TAG, "Error fetching TV show stars", e);
                 mainHandler.post(() -> callback.onError(e.getMessage()));
             }
+        });
+    }
+
+    public interface TMDBSCallback<T> {
+        void onSuccess(T result);
+        void onError(String error);
+    }
+
+    /**
+     * Search for all content (movies and TV shows combined)
+     */
+    public void searchAllContent(String query, int page, TMDBSCallback<List<MediaItems>> callback) {
+        searchContent(query, TmdbApi.ContentType.ALL, page, callback);
+    }
+
+    /**
+     * Search specifically for movies
+     */
+    public void searchMovies(String query, int page, TMDBSCallback<List<MediaItems>> callback) {
+        searchContent(query, TmdbApi.ContentType.MOVIE, page, callback);
+    }
+
+    /**
+     * Search specifically for TV shows
+     */
+    public void searchTVShows(String query, int page, TMDBSCallback<List<MediaItems>> callback) {
+        searchContent(query, TmdbApi.ContentType.TV, page, callback);
+    }
+
+    /**
+     * Search for content by title (general search)
+     */
+    public void searchContent(String query, TmdbApi.ContentType contentType,
+                              int page, TMDBSCallback<List<MediaItems>> callback) {
+
+        // Don't cache search results
+        executorService.execute(() -> {
+            try {
+                List<MediaItems> results = TmdbApi.searchContent(query, contentType, page);
+                mainHandler.post(() -> callback.onSuccess(results));
+            } catch (Exception e) {
+                Log.e(TAG, "Error searching content", e);
+                mainHandler.post(() -> callback.onError("Failed to search content: " + e.getMessage()));
+            }
+        });
+    }
+
+    public void getTrendingSearches(TMDBSCallback<List<String>> callback) {
+        mainHandler.post(() -> {
+            List<String> trending = new ArrayList<>();
+            trending.add("Avengers");
+            trending.add("Star Wars");
+            trending.add("Spider-Man");
+            trending.add("Marvel");
+            trending.add("DC");
+            trending.add("Stranger Things");
+            trending.add("Breaking Bad");
+            trending.add("The Crown");
+            trending.add("James Bond");
+            trending.add("Fast & Furious");
+            callback.onSuccess(trending);
         });
     }
 }

@@ -28,6 +28,7 @@ public class TmdbApi {
     public static final int TIMEOUT_MS = 10000;
 
 
+
     public enum ContentType {
         MOVIE, TV, ALL
     }
@@ -225,5 +226,61 @@ public class TmdbApi {
         return recommendations;
     }
 
+    public static List<MediaItems> searchContent(String query, ContentType contentType, int page) {
+        List<MediaItems> results = new ArrayList<>();
+
+        try {
+            String endpoint = contentType == ContentType.MOVIE ? "movie" : "tv";
+            String url = String.format("%s/search/%s?query=%s&page=%d",
+                    TmdbRepository.TMDB_BASE_URL, endpoint, query.replace(" ", "%20"), page);
+            String response = makeRequest(url);
+
+            if (response != null) {
+                JSONObject jsonObject = new JSONObject(response);
+                JSONArray resultsArray = jsonObject.getJSONArray("results");
+
+                for (int i = 0; i < resultsArray.length(); i++) {
+                    JSONObject item = resultsArray.getJSONObject(i);
+                    MediaItems mediaItems = createMediaItemFromTMDB(item, contentType);
+                    if (mediaItems != null) {
+                        results.add(mediaItems);
+                    }
+                }
+            }
+        } catch (JSONException e) {
+            Log.e(TAG, "Error parsing search results", e);
+        } catch (Exception e) {
+            Log.e(TAG, "Error searching content", e);
+        }
+
+        return results;
+    }
+
+    /**
+     * Make HTTP request to TMDB API using Jsoup
+     */
+    private static String makeRequest(String urlString) {
+        try {
+            Connection.Response response = Jsoup.connect(urlString)
+                    .header("accept", "application/json")
+                    .header("Authorization", "Bearer " + BEARER_TOKEN)
+                    .ignoreContentType(true)  // Important: allows Jsoup to fetch JSON
+                    .timeout(TIMEOUT_MS)
+                    .method(Connection.Method.GET)
+                    .execute();
+
+            if (response.statusCode() == 200) {
+                return response.body();
+            } else {
+                Log.e(TAG, "HTTP Error: " + response.statusCode() + " - " + response.statusMessage());
+                System.out.println("HTTP Error: " + response.statusCode() + " - " + response.statusMessage());
+                return null;
+            }
+
+        } catch (IOException e) {
+            Log.e(TAG, "Error making HTTP request", e);
+            return null;
+        }
+    }
 
 }

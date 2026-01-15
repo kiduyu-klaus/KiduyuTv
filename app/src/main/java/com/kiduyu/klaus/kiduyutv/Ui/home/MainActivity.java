@@ -25,6 +25,8 @@ import com.kiduyu.klaus.kiduyutv.Api.TmdbRepository;
 import com.kiduyu.klaus.kiduyutv.R;
 import com.kiduyu.klaus.kiduyutv.Ui.details.movie.DetailsActivity;
 import com.kiduyu.klaus.kiduyutv.Ui.details.tv.DetailsActivityTv;
+import com.kiduyu.klaus.kiduyutv.Ui.search.SearchActivity;
+import com.kiduyu.klaus.kiduyutv.Ui.settings.SettingsActivity;
 import com.kiduyu.klaus.kiduyutv.adapter.CategoryAdapter;
 import com.kiduyu.klaus.kiduyutv.adapter.VerticalSpaceItemDecoration;
 import com.kiduyu.klaus.kiduyutv.model.CategorySection;
@@ -168,8 +170,8 @@ public class MainActivity extends AppCompatActivity {
         });*/
 
         searchIcon.setOnClickListener(v -> {
-            //Intent intent = new Intent(MainActivity.this, SearchActivity.class);
-            //startActivity(intent);
+            Intent intent = new Intent(MainActivity.this, SearchActivity.class);
+            startActivity(intent);
         });
 
         homeIcon.setOnClickListener(v -> {
@@ -196,8 +198,8 @@ public class MainActivity extends AppCompatActivity {
         });
 
         settingsIcon.setOnClickListener(v -> {
-            //Intent intent = new Intent(NetflixMainActivity.this, SettingsActivity.class);
-            //startActivity(intent);
+            Intent intent = new Intent(MainActivity.this, SettingsActivity.class);
+            startActivity(intent);
         });
     }
 

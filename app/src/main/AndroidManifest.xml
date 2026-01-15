@@ -21,6 +21,12 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.KiduyuTv">
         <activity
+            android:name=".Ui.search.SearchActivity"
+            android:exported="false" />
+        <activity
+            android:name=".Ui.settings.SettingsActivity"
+            android:exported="false" />
+        <activity
             android:name=".Ui.player.PlayerActivity"
             android:exported="false" />
         <activity
