@@ -1,22 +1,381 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
-    android:id="@+id/main"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".Ui.player.PlayerActivity">
+    android:background="@android:color/black">
 
-    <androidx.media3.ui.PlayerView
-        android:id="@+id/player_view"
+    <!-- Video Surface -->
+    <SurfaceView
+        android:id="@+id/videoSurface"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:focusable="true"
-        android:focusableInTouchMode="true"
-        app:controller_layout_id="@layout/exo_player_control_view"
-        app:show_buffering="when_playing"
-        app:use_controller="true" />
+        android:layout_height="match_parent" />
 
+    <!-- Loading Indicator -->
+    <ProgressBar
+        android:id="@+id/loadingIndicator"
+        android:layout_width="80dp"
+        android:layout_height="80dp"
+        android:layout_centerInParent="true"
+        android:indeterminateTint="@android:color/white"
+        android:visibility="gone" />
 
+    <!-- Loading Status Text -->
+    <LinearLayout
+        android:id="@+id/loadingStatusContainer"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:layout_alignParentStart="true"
+        android:layout_marginStart="95dp"
+        android:layout_marginBottom="65dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:visibility="gone">
 
-</androidx.constraintlayout.widget.ConstraintLayout>
+        <ProgressBar
+            android:layout_width="15dp"
+            android:layout_height="15dp"
+            android:indeterminateTint="@android:color/white"
+            style="?android:attr/progressBarStyleSmall" />
+
+        <TextView
+            android:id="@+id/loadingStatusText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="LOADING SERVER"
+            android:textColor="@android:color/white"
+            android:textSize="10sp"
+            android:textStyle="bold"
+            android:layout_marginStart="12dp" />
+
+    </LinearLayout>
+
+    <!-- Pause Icon Center -->
+    <ImageView
+        android:id="@+id/centerPauseIcon"
+        android:layout_width="120dp"
+        android:layout_height="120dp"
+        android:layout_centerInParent="true"
+        android:src="@android:drawable/ic_media_pause"
+        android:alpha="0.9"
+        android:visibility="gone"
+        app:tint="@android:color/white" />
+
+    <!-- Top Info Overlay (Shows when controls visible) -->
+    <LinearLayout
+        android:id="@+id/topInfoContainer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        android:orientation="vertical"
+        android:padding="32dp"
+        android:background="@drawable/gradient_top"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/videoTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="[Oshi No Ko] Season 3"
+            android:textColor="@android:color/white"
+            android:textSize="32sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="16dp" />
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="8dp">
+
+            <TextView
+                android:id="@+id/tag1"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Watchlist"
+                android:textColor="@android:color/white"
+                android:background="#55666666"
+                android:padding="8dp"
+                android:layout_marginEnd="8dp"
+                android:textSize="14sp" />
+
+            <TextView
+                android:id="@+id/tag2"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Tracking"
+                android:textColor="@android:color/white"
+                android:background="#55666666"
+                android:padding="8dp"
+                android:layout_marginEnd="8dp"
+                android:textSize="14sp" />
+
+            <TextView
+                android:id="@+id/tag3"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="TV"
+                android:textColor="@android:color/white"
+                android:background="#55666666"
+                android:padding="8dp"
+                android:layout_marginEnd="8dp"
+                android:textSize="14sp" />
+
+            <TextView
+                android:id="@+id/tag4"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Mystery"
+                android:textColor="@android:color/white"
+                android:background="#55666666"
+                android:padding="8dp"
+                android:layout_marginEnd="8dp"
+                android:textSize="14sp" />
+
+            <TextView
+                android:id="@+id/tag5"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Supernatural"
+                android:textColor="@android:color/white"
+                android:background="#55666666"
+                android:padding="8dp"
+                android:textSize="14sp" />
+
+        </LinearLayout>
+        <!-- Top Info Overlay (Shows when controls visible)
+        <TextView
+            android:id="@+id/categoryTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="TV"
+            android:textColor="@android:color/white"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="8dp" />-->
+
+        <TextView
+            android:id="@+id/videoDescription"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="The story moves on to a new stage—half a year has passed since the release of 'POP IN 2.' Thanks to Mem-cho's hard work, B-Komachi are on the verge of their big break. Aqua continues to grow as a personality, while Akane advances on her path to becoming a skilled actress. Meanwhile, Kana has lost her usual cheerfulness. Finally, in her quest to uncover the truth behind Ai and Gorou's deaths, Ruby rises through the entertainment industry—using lies as her weapon."
+            android:textColor="@android:color/white"
+            android:textSize="14sp"
+            android:lineSpacingExtra="4dp"
+            android:maxLines="6" />
+
+    </LinearLayout>
+
+    <!-- Bottom Controls Overlay -->
+    <LinearLayout
+        android:id="@+id/bottomControlsContainer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:orientation="vertical"
+        android:background="@drawable/gradient_bottom"
+        android:paddingStart="32dp"
+        android:paddingEnd="32dp"
+        android:paddingTop="32dp"
+        android:paddingBottom="25dp"
+        android:visibility="gone">
+
+        <!-- Settings Buttons Row -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="13dp">
+
+            <Button
+                android:id="@+id/btnSettings"
+                android:layout_width="wrap_content"
+                android:layout_height="35dp"
+                android:text="⚙ Settings"
+                android:textColor="@android:color/white"
+                android:background="@drawable/tv_control_selector"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:layout_marginEnd="12dp"
+                android:focusable="true"
+                android:textSize="8sp"
+                android:textAllCaps="false" />
+
+            <Button
+                android:id="@+id/btnSpeed"
+                android:layout_width="wrap_content"
+                android:layout_height="35dp"
+                android:text="Speed 1.00x"
+                android:textColor="@android:color/white"
+                android:background="@drawable/tv_control_selector"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:layout_marginEnd="12dp"
+                android:focusable="true"
+                android:textSize="8sp"
+                android:textAllCaps="false" />
+
+            <Button
+                android:id="@+id/btnServer"
+                android:layout_width="wrap_content"
+                android:layout_height="35dp"
+                android:text="Server 1"
+                android:textColor="@android:color/white"
+                android:background="@drawable/tv_control_selector"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:layout_marginEnd="12dp"
+                android:focusable="true"
+                android:textSize="8sp"
+                android:textAllCaps="false" />
+
+            <Button
+                android:id="@+id/btnQuality"
+                android:layout_width="wrap_content"
+                android:layout_height="35dp"
+                android:text="Medium 720p"
+                android:textColor="@android:color/white"
+                android:background="@drawable/tv_control_selector"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:layout_marginEnd="12dp"
+                android:focusable="true"
+                android:textSize="8sp"
+                android:textAllCaps="false" />
+
+            <Button
+                android:id="@+id/btnAudio"
+                android:layout_width="wrap_content"
+                android:layout_height="35dp"
+                android:text="Dub"
+                android:textColor="@android:color/white"
+                android:background="@drawable/tv_control_selector"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:layout_marginEnd="12dp"
+                android:focusable="true"
+                android:textSize="8sp"
+                android:textAllCaps="false" />
+
+            <Button
+                android:id="@+id/btnSubtitles"
+                android:layout_width="wrap_content"
+                android:layout_height="35dp"
+                android:text="🗨 Original"
+                android:textColor="@android:color/white"
+                android:background="@drawable/tv_control_selector"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:focusable="true"
+                android:textSize="8sp"
+                android:textAllCaps="false" />
+
+        </LinearLayout>
+
+        <!-- Progress Bar and Time -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <ImageButton
+                android:id="@+id/btnPlayPause"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:src="@android:drawable/ic_media_pause"
+                android:background="@android:color/transparent"
+                android:contentDescription="Play/Pause"
+                android:focusable="true"
+                android:scaleType="fitCenter"
+                android:layout_marginEnd="16dp"
+                app:tint="@android:color/white" />
+
+            <TextView
+                android:id="@+id/currentTime"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="00:29"
+                android:textColor="@android:color/white"
+                android:textSize="16sp"
+                android:layout_marginEnd="16dp" />
+
+            <SeekBar
+                android:id="@+id/progressBar"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:focusable="true"
+                android:progressTint="#FF0080FF"
+                android:thumbTint="@android:color/white" />
+
+            <TextView
+                android:id="@+id/totalTime"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="23:50"
+                android:textColor="@android:color/white"
+                android:textSize="16sp"
+                android:layout_marginStart="16dp" />
+
+        </LinearLayout>
+
+        <!-- Episode Info -->
+        <TextView
+            android:id="@+id/episodeInfo"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="EPISODE 1. DOWN BAD"
+            android:textColor="@android:color/white"
+            android:textSize="12sp"
+            android:layout_marginTop="8dp"
+            android:visibility="gone"
+            android:alpha="0.8" />
+
+    </LinearLayout>
+
+    <!-- Episodes Button (Bottom Left) -->
+    <TextView
+        android:id="@+id/btnEpisodes"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:layout_alignParentStart="true"
+        android:text="Episodes"
+        android:textColor="@android:color/white"
+        android:textSize="16sp"
+        android:padding="32dp"
+        android:visibility="gone" />
+
+    <!-- HARDSUB Badge (Top Right) -->
+    <TextView
+        android:id="@+id/hardsubBadge"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        android:layout_alignParentEnd="true"
+        android:text="📺 HARDSUB"
+        android:textColor="@android:color/white"
+        android:background="#FF0080FF"
+        android:padding="12dp"
+        android:textSize="14sp"
+        android:layout_margin="16dp"
+        android:textStyle="bold" />
+
+    <!-- Back Button (Top Left) -->
+    <ImageButton
+        android:id="@+id/btnBack"
+        android:layout_width="64dp"
+        android:layout_height="64dp"
+        android:layout_alignParentTop="true"
+        android:layout_alignParentStart="true"
+        android:src="@android:drawable/ic_menu_revert"
+        android:background="@drawable/back_button_bg"
+        android:layout_margin="24dp"
+        android:contentDescription="Back"
+        android:visibility="gone"
+        app:tint="@android:color/white" />
+
+</RelativeLayout>
