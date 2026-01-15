@@ -13,17 +13,20 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
+import androidx.annotation.OptIn;
 import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
+import androidx.media3.common.util.UnstableApi;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
 import com.kiduyu.klaus.kiduyutv.Api.CastRepository;
+import com.kiduyu.klaus.kiduyutv.Api.FetchStreams;
 import com.kiduyu.klaus.kiduyutv.Api.TmdbRepository;
 import com.kiduyu.klaus.kiduyutv.R;
 //import com.kiduyu.klaus.kiduyutv.Ui.details.actor.ActorDetailsActivity;
@@ -218,8 +221,9 @@ public class DetailsActivityTv extends AppCompatActivity {
     }
 
     private void playEpisode(Episode episode) {
+        loadingProgress.setVisibility(View.VISIBLE);
         MediaItems episodeMedia = new MediaItems();
-        episodeMedia.setTitle(tvShow.getTitle());
+        episodeMedia.setTitle(episode.getEpisodeTitle());
         episodeMedia.setDescription(episode.getOverview());
         episodeMedia.setTmdbId(tvShow.getTmdbId());
         episodeMedia.setMediaType("tv");
@@ -232,9 +236,50 @@ public class DetailsActivityTv extends AppCompatActivity {
 
         String season = episodeMedia.getSeason() != null ? episodeMedia.getSeason() : "1";
         String episode1 = episodeMedia.getEpisode() != null ? episodeMedia.getEpisode() : "1";
-        Intent intent = new Intent(this, PlayerActivity.class);
-        intent.putExtra("media_item", episodeMedia);
-        startActivity(intent);
+
+        FetchStreams.getInstance().fetchVideasyStreamsTV(tvShow.getTitle(), String.valueOf(tvShow.getYear()), tvShow.getTmdbId(), season, episode1,
+                new FetchStreams.VideasyCallback() {
+                    @OptIn(markerClass = UnstableApi.class) @Override
+                    public void onSuccess(MediaItems updatedItem) {
+                        //loadingOverlay.setVisibility(View.GONE);
+                        //playButton.setEnabled(true);
+
+                        // Update current media item with video sources and headers
+                        episodeMedia.setVideoSources(updatedItem.getVideoSources());
+                        episodeMedia.setSubtitles(updatedItem.getSubtitles());
+
+                        // Transfer session headers for Cloudflare/protected stream bypass
+                        episodeMedia.setCustomHeaders(updatedItem.getCustomHeaders());
+                        episodeMedia.setResponseHeaders(updatedItem.getResponseHeaders());
+                        episodeMedia.setSessionCookie(updatedItem.getSessionCookie());
+                        episodeMedia.setRefererUrl(updatedItem.getRefererUrl());
+                        episodeMedia.setBackgroundImageUrl(episode.getStillPath());
+                        Log.i(TAG,"Image Poster"+episode.getStillPath());
+
+
+                        Log.i(TAG, "Video sources fetched: " +
+                                episodeMedia.getVideoSources().size());
+                        Log.i(TAG, "Custom headers count: " +
+                                (episodeMedia.getCustomHeaders() != null ? episodeMedia.getCustomHeaders().size() : 0));
+                        loadingProgress.setVisibility(View.GONE);
+
+                        Intent intent = new Intent(DetailsActivityTv.this, PlayerActivity.class);
+                        intent.putExtra("media_item", episodeMedia);
+                        startActivity(intent);
+                    }
+
+                    @Override
+                    public void onError(String error) {
+                        //loadingOverlay.setVisibility(View.GONE);
+                        //playButton.setEnabled(true);
+
+                        Toast.makeText(DetailsActivityTv.this,
+                                "Failed to fetch video sources: " + error,
+                                Toast.LENGTH_LONG).show();
+
+                        Log.e(TAG, "Error fetching video sources: " + error);
+                    }
+                });
 
     }
 

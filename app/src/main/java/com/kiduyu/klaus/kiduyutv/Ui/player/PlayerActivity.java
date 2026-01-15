@@ -119,7 +119,7 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
         // Detailed debugging for headers
         Log.i(TAG, "Loading media:\n" + sourceMediaItem.getVideoSources().toString());
 
-        Log.i(TAG, "Quality options:\n" + qualityOptions.toString());
+        //Log.i(TAG, "Quality options:\n" + qualityOptions.toString());
         Log.i(TAG, "background image url:\n" + sourceMediaItem.getBackgroundImageUrl());
 
 
@@ -166,6 +166,7 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
         loadingStatusText = findViewById(R.id.loadingStatusText);
         loadingIndicator = findViewById(R.id.loadingIndicator);
         centerPauseIcon = findViewById(R.id.centerPauseIcon);
+
 
         videoDescription.setText(sourceMediaItem.getDescription());
         videoTitle.setText(sourceMediaItem.getTitle());

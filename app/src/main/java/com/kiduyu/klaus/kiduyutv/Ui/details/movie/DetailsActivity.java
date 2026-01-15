@@ -2,6 +2,7 @@ package com.kiduyu.klaus.kiduyutv.Ui.details.movie;
 
 import static com.kiduyu.klaus.kiduyutv.Api.FetchStreams.SmashyServer.SMASHYSTREAM;
 import static com.kiduyu.klaus.kiduyutv.Api.FetchStreams.SmashyServer.VIDEOFSH;
+import static com.kiduyu.klaus.kiduyutv.Api.FetchStreams.SmashyServer.VIDEOOPHIM;
 
 import android.content.Intent;
 import android.os.Bundle;
@@ -317,7 +318,7 @@ public class DetailsActivity extends AppCompatActivity {
 
         Log.i(TAG, "Fetching video sources for: " + title + " (" + year + ") [" + tmdbId + "]");
         Log.i(TAG, "fetchVideoSources: " + title + " (" + year + ") [" + tmdbId + "]");
-        //FetchStreams.getInstance().fetchSmashyStreamsMovie(tmdbId,tmdbId,SMASHYSTREAM, new FetchStreams.VideasyCallback() {
+        //FetchStreams.getInstance().fetchSmashyStreamsMovie(tmdbId,tmdbId,VIDEOOPHIM, new FetchStreams.VideasyCallback() {
         //FetchStreams.getInstance().fetchHexaStreamsMovie(tmdbId, new FetchStreams.VideasyCallback() {
         FetchStreams.getInstance().fetchVideasyStreamsMovie(title,year,tmdbId, new FetchStreams.VideasyCallback() {
             @Override

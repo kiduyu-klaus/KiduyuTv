@@ -28,7 +28,7 @@ public class FetchStreams {
     // Add these constants at the top of the class
     private static final String HEXA_API_BASE = "https://themoviedb.hexa.su/api/tmdb";
     private static final String DECRYPT_HEXA_API = "https://enc-dec.app/api/dec-hexa";
-    private static final int TIMEOUT_MS = 10000;
+    private static final int TIMEOUT_MS = 10000; // timeout
 
     private static FetchStreams instance;
 
@@ -112,6 +112,8 @@ public class FetchStreams {
                 .execute();
 
         JSONObject data = new JSONObject(new JSONObject(dec.body()).getString("result"));
+        Log.i(TAG, "Decrypted data: " + data.toString());
+
 
         List<MediaItems.VideoSource> sources = new ArrayList<>();
         List<MediaItems.SubtitleItem> subs = new ArrayList<>();
@@ -123,6 +125,8 @@ public class FetchStreams {
                 sources.add(new MediaItems.VideoSource(o.optString("quality"), o.optString("url")));
             }
         }
+        Log.i(TAG, "Sources count: " + sources.size());
+
 
         JSONArray sub = data.optJSONArray("subtitles");
         if (sub != null) {
@@ -136,6 +140,9 @@ public class FetchStreams {
                 ));
             }
         }
+        Log.i(TAG, "Subtitles count: " + subs.size());
+
+
         MediaItems item = new MediaItems();
         item.setRefererUrl(url);
         // Set comprehensive custom headers
@@ -428,6 +435,9 @@ public class FetchStreams {
     private MediaItems fetchSmashyType2Movie(String tmdbId, Map<String, String> tokenData, SmashyServer server) throws Exception {
         String url = SMASHYSTREAM_API_BASE + "/" + server.endpoint + "/" + tmdbId +
                 "?token=" + tokenData.get("token") + "&user_id=" + tokenData.get("user_id");
+
+        Log.i(TAG, "URL: " + url);
+
 
         Connection.Response response = Jsoup.connect(url)
                 .header("User-Agent", userAgent())
