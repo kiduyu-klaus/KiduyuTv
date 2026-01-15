@@ -20,11 +20,16 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
+import com.kiduyu.klaus.kiduyutv.Api.CastRepository;
 import com.kiduyu.klaus.kiduyutv.Api.TmdbRepository;
 import com.kiduyu.klaus.kiduyutv.R;
+import com.kiduyu.klaus.kiduyutv.Ui.details.actor.ActorDetailsActivity;
+import com.kiduyu.klaus.kiduyutv.adapter.CastAdapter;
 import com.kiduyu.klaus.kiduyutv.adapter.RecommendationsAdapter;
+import com.kiduyu.klaus.kiduyutv.model.CastMember;
 import com.kiduyu.klaus.kiduyutv.model.MediaItems;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class DetailsActivity extends AppCompatActivity {
@@ -48,6 +53,13 @@ public class DetailsActivity extends AppCompatActivity {
     private TextView recommendationsTitle;
     private ProgressBar recommendationsLoadingBar;
 
+    // Cast section components
+    private RecyclerView castRecyclerView;
+    private ProgressBar castLoadingBar;
+    private TextView emptyCastText;
+    private CastAdapter castAdapter;
+    private CastRepository castRepository;
+
     private TmdbRepository mediaRepository;
     private RecommendationsAdapter recommendationsAdapter;
 
@@ -65,11 +77,14 @@ public class DetailsActivity extends AppCompatActivity {
         // Detailed debugging
         Log.i("PlayerActivity", "Loading media:\n" + mediaItems.toString());
         mediaRepository = new TmdbRepository();
+        castRepository = new CastRepository();
 
         initializeViews();
         setupViews();
         setupClickListeners();
+        setupCastSection();
         setupRecommendations();
+        loadCast();
         loadRecommendations();
 
     }
@@ -92,6 +107,11 @@ public class DetailsActivity extends AppCompatActivity {
         recommendationsRecyclerView = findViewById(R.id.recommendationsRecyclerView);
         recommendationsTitle = findViewById(R.id.recommendationsTitle);
         recommendationsLoadingBar = findViewById(R.id.recommendationsLoadingBar);
+
+        // Cast section views
+        castRecyclerView = findViewById(R.id.castRecyclerView);
+        castLoadingBar = findViewById(R.id.castLoadingBar);
+        emptyCastText = findViewById(R.id.emptyCastText);
     }
 
     private void setupViews() {
@@ -138,6 +158,74 @@ public class DetailsActivity extends AppCompatActivity {
 
         creatorsTextView.setText("Loading...");
         starsTextView.setText("Loading...");
+    }
+
+    /**
+     * Setup the cast section with horizontal RecyclerView
+     */
+    private void setupCastSection() {
+        LinearLayoutManager castLayoutManager = new LinearLayoutManager(
+                this, LinearLayoutManager.HORIZONTAL, false);
+        castRecyclerView.setLayoutManager(castLayoutManager);
+        castRecyclerView.setHasFixedSize(true);
+
+        castAdapter = new CastAdapter();
+        castRecyclerView.setAdapter(castAdapter);
+
+        castAdapter.setOnCastClickListener(this::openActorDetails);
+    }
+
+    /**
+     * Open actor details activity when a cast member is clicked
+     */
+    private void openActorDetails(CastMember castMember, int position) {
+        Intent intent = new Intent(this, ActorDetailsActivity.class);
+        intent.putExtra("cast_member", castMember);
+        startActivity(intent);
+    }
+
+    /**
+     * Load cast members for the movie
+     */
+    private void loadCast() {
+        if (mediaItems.getTmdbId() == null || mediaItems.getTmdbId().isEmpty()) {
+            showEmptyCast();
+            return;
+        }
+
+        castLoadingBar.setVisibility(View.VISIBLE);
+        castRecyclerView.setVisibility(View.GONE);
+        emptyCastText.setVisibility(View.GONE);
+
+        castRepository.getMovieCast(mediaItems.getTmdbId(), new CastRepository.CastListCallback() {
+            @Override
+            public void onSuccess(List<CastMember> castList) {
+                castLoadingBar.setVisibility(View.GONE);
+
+                if (castList != null && !castList.isEmpty()) {
+                    castAdapter.setCastList(castList);
+                    castRecyclerView.setVisibility(View.VISIBLE);
+                    emptyCastText.setVisibility(View.GONE);
+                } else {
+                    showEmptyCast();
+                }
+            }
+
+            @Override
+            public void onError(String error) {
+                castLoadingBar.setVisibility(View.GONE);
+                Log.e(TAG, "Error loading cast: " + error);
+                showEmptyCast();
+            }
+        });
+    }
+
+    /**
+     * Show empty cast state
+     */
+    private void showEmptyCast() {
+        castRecyclerView.setVisibility(View.GONE);
+        emptyCastText.setVisibility(View.VISIBLE);
     }
 
     private void setupRecommendations() {

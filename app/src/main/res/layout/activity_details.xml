@@ -185,7 +185,7 @@
                             android:gravity="center"
                             android:minWidth="200dp"
                             android:nextFocusRight="@id/favoriteButton"
-                            android:nextFocusDown="@id/recommendationsRecyclerView"
+                            android:nextFocusDown="@id/castRecyclerView"
                             android:paddingHorizontal="28dp"
                             android:text="Play Now"
                             android:textAllCaps="false"
@@ -203,7 +203,7 @@
                             android:focusableInTouchMode="true"
                             android:gravity="center"
                             android:nextFocusLeft="@id/playButton"
-                            android:nextFocusDown="@id/recommendationsRecyclerView"
+                            android:nextFocusDown="@id/castRecyclerView"
                             android:text="+"
                             android:textColor="@android:color/white"
                             android:textSize="28sp" />
@@ -213,6 +213,56 @@
                 </LinearLayout>
 
             </FrameLayout>
+
+            <!-- Cast Section -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:padding="10dp"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="16dp"
+                    android:text="Cast"
+                    android:textColor="@android:color/white"
+                    android:textSize="24sp"
+                    android:textStyle="bold" />
+
+                <!-- Cast Loading -->
+                <ProgressBar
+                    android:id="@+id/castLoadingBar"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center"
+                    android:visibility="gone" />
+
+                <!-- Cast RecyclerView -->
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/castRecyclerView"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:clipToPadding="false"
+                    android:focusable="true"
+                    android:focusableInTouchMode="true"
+                    android:nextFocusUp="@id/playButton"
+                    android:nextFocusDown="@id/recommendationsRecyclerView"
+                    android:orientation="horizontal" />
+
+                <!-- Empty Cast State -->
+                <TextView
+                    android:id="@+id/emptyCastText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center"
+                    android:layout_marginTop="16dp"
+                    android:text="No cast information available"
+                    android:textColor="@color/gray_light"
+                    android:textSize="16sp"
+                    android:visibility="gone" />
+
+            </LinearLayout>
 
             <!-- Recommendations Section -->
             <LinearLayout
@@ -245,7 +295,7 @@
                     android:clipToPadding="false"
                     android:focusable="true"
                     android:focusableInTouchMode="true"
-                    android:nextFocusUp="@id/playButton" />
+                    android:nextFocusUp="@id/castRecyclerView" />
 
             </LinearLayout>
 
