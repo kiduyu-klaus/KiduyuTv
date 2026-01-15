@@ -318,8 +318,8 @@ public class DetailsActivity extends AppCompatActivity {
         Log.i(TAG, "Fetching video sources for: " + title + " (" + year + ") [" + tmdbId + "]");
         Log.i(TAG, "fetchVideoSources: " + title + " (" + year + ") [" + tmdbId + "]");
         //FetchStreams.getInstance().fetchSmashyStreamsMovie(tmdbId,tmdbId,SMASHYSTREAM, new FetchStreams.VideasyCallback() {
-        FetchStreams.getInstance().fetchHexaStreamsMovie(tmdbId, new FetchStreams.VideasyCallback() {
-        //FetchStreams.getInstance().fetchVideasyStreamsMovie(title,year,tmdbId, new FetchStreams.VideasyCallback() {
+        //FetchStreams.getInstance().fetchHexaStreamsMovie(tmdbId, new FetchStreams.VideasyCallback() {
+        FetchStreams.getInstance().fetchVideasyStreamsMovie(title,year,tmdbId, new FetchStreams.VideasyCallback() {
             @Override
             public void onSuccess(MediaItems updatedItem) {
                 // Handle success
