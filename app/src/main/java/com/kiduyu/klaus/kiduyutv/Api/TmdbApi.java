@@ -26,6 +26,9 @@ public class TmdbApi {
     private static final String BACKDROP_SIZE = "w1280";
     private static final String ORIGINAL_SIZE = "original";
     private static final int TIMEOUT_MS = 10000;
+
+
+
     public enum ContentType {
         MOVIE, TV, ALL
     }
@@ -181,5 +184,45 @@ public class TmdbApi {
         }
 
         return tvShows;
+    }
+
+    /**
+     * Fetch recommendations from TMDB API using Jsoup
+     */
+    public static List<MediaItems> fetchRecommendationsFromTMDB(String urlString, String mediaType) throws IOException, JSONException {
+        List<MediaItems> recommendations = new ArrayList<>();
+
+        Connection.Response response = Jsoup.connect(urlString)
+                .header("accept", "application/json")
+                .header("Authorization", "Bearer " + BEARER_TOKEN)
+                .ignoreContentType(true)
+                .timeout(TIMEOUT_MS)
+                .method(Connection.Method.GET)
+                .execute();
+
+        if (response.statusCode() == 200) {
+            Log.i(TAG, "fetchRecommendationsFromTMDB: Success");
+
+            JSONObject jsonResponse = new JSONObject(response.body());
+            JSONArray results = jsonResponse.getJSONArray("results");
+
+            for (int i = 0; i < results.length() && i < 20; i++) {
+                JSONObject itemJson = results.getJSONObject(i);
+
+                // Determine content type for parsing
+                ContentType contentType = "movie".equals(mediaType) ?
+                        ContentType.MOVIE : ContentType.TV;
+
+                MediaItems item = createMediaItemFromTMDB(itemJson, contentType);
+                if (item != null) {
+                    recommendations.add(item);
+                }
+            }
+        } else {
+            Log.e(TAG, "fetchRecommendationsFromTMDB: Failed with status " + response.statusCode());
+            throw new IOException("Failed to fetch recommendations: " + response.statusCode());
+        }
+
+        return recommendations;
     }
 }

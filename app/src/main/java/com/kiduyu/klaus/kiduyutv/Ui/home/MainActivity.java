@@ -23,6 +23,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.bumptech.glide.Glide;
 import com.kiduyu.klaus.kiduyutv.Api.TmdbRepository;
 import com.kiduyu.klaus.kiduyutv.R;
+import com.kiduyu.klaus.kiduyutv.Ui.details.movie.DetailsActivity;
 import com.kiduyu.klaus.kiduyutv.adapter.CategoryAdapter;
 import com.kiduyu.klaus.kiduyutv.adapter.VerticalSpaceItemDecoration;
 import com.kiduyu.klaus.kiduyutv.model.CategorySection;
@@ -528,9 +529,9 @@ public class MainActivity extends AppCompatActivity {
         //startActivity(intent);
     }
     private void launchDetails(MediaItems mediaItems) {
-//        Intent intent = new Intent(this, DetailsActivity.class);
-//        intent.putExtra("media_item", mediaItems);
-//        startActivity(intent);
+        Intent intent = new Intent(this, DetailsActivity.class);
+        intent.putExtra("media_item", mediaItems);
+        startActivity(intent);
     }
 
 

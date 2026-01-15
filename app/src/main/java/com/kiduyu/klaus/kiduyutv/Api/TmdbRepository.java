@@ -142,4 +142,20 @@ public class TmdbRepository {
             }
         });
     }
+
+    /**
+     * Async method to fetch movie/TV recommendations
+     */
+    public void getRecommendationsAsync(String tmdbId, String mediaType, TMDBCallback callback) {
+        executorService.execute(() -> {
+            try {
+                String urlString = TMDB_BASE_URL + "/" + mediaType + "/" + tmdbId + "/recommendations?language=en-US&page=1";
+                List<MediaItems> recommendations = TmdbApi.fetchRecommendationsFromTMDB(urlString, mediaType);
+                mainHandler.post(() -> callback.onSuccess(recommendations));
+            } catch (Exception e) {
+                Log.e(TAG, "Error fetching recommendations", e);
+                mainHandler.post(() -> callback.onError(e.getMessage()));
+            }
+        });
+    }
 }
