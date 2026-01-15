@@ -1,5 +1,8 @@
 package com.kiduyu.klaus.kiduyutv.Ui.details.movie;
 
+import static com.kiduyu.klaus.kiduyutv.Api.FetchStreams.SmashyServer.SMASHYSTREAM;
+import static com.kiduyu.klaus.kiduyutv.Api.FetchStreams.SmashyServer.VIDEOFSH;
+
 import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
@@ -21,6 +24,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
 import com.kiduyu.klaus.kiduyutv.Api.CastRepository;
+import com.kiduyu.klaus.kiduyutv.Api.FetchStreams;
 import com.kiduyu.klaus.kiduyutv.Api.TmdbRepository;
 import com.kiduyu.klaus.kiduyutv.R;
 import com.kiduyu.klaus.kiduyutv.Ui.details.actor.ActorDetailsActivity;
@@ -302,6 +306,7 @@ public class DetailsActivity extends AppCompatActivity {
     }
 
     private void fetchVideoSources() {
+        //loadingOverlay.setVisibility(View.GONE);
         loadingOverlay.setVisibility(View.VISIBLE);
         playButton.setEnabled(false);
 
@@ -312,15 +317,61 @@ public class DetailsActivity extends AppCompatActivity {
 
         Log.i(TAG, "Fetching video sources for: " + title + " (" + year + ") [" + tmdbId + "]");
         Log.i(TAG, "fetchVideoSources: " + title + " (" + year + ") [" + tmdbId + "]");
+        //FetchStreams.getInstance().fetchSmashyStreamsMovie(tmdbId,tmdbId,SMASHYSTREAM, new FetchStreams.VideasyCallback() {
+        FetchStreams.getInstance().fetchHexaStreamsMovie(tmdbId, new FetchStreams.VideasyCallback() {
+        //FetchStreams.getInstance().fetchVideasyStreamsMovie(title,year,tmdbId, new FetchStreams.VideasyCallback() {
+            @Override
+            public void onSuccess(MediaItems updatedItem) {
+                // Handle success
+                loadingOverlay.setVisibility(View.GONE);
+                playButton.setEnabled(true);
 
-        launchPlayer();
+                // Update current media item with video sources and headers
+                Log.i(TAG, "Video sources fetched: " +
+                        updatedItem.getVideoSources().toString());
+
+                mediaItems.setVideoSources(updatedItem.getVideoSources());
+                mediaItems.setSubtitles(updatedItem.getSubtitles());
+
+                // Transfer session headers for Cloudflare/protected stream bypass
+                mediaItems.setCustomHeaders(updatedItem.getCustomHeaders());
+                mediaItems.setResponseHeaders(updatedItem.getResponseHeaders());
+                mediaItems.setSessionCookie(updatedItem.getSessionCookie());
+                mediaItems.setRefererUrl(updatedItem.getRefererUrl());
+                mediaItems.setDescription(mediaItems.getDescription());
+
+                Log.d(TAG, "Video sources fetched: " +
+                        mediaItems.getVideoSources().size());
+                Log.d(TAG, "Custom headers count: " +
+                        (mediaItems.getCustomHeaders() != null ? mediaItems.getCustomHeaders().size() : 0));
+                Log.d(TAG, "Response headers count: " +
+                        (mediaItems.getResponseHeaders() != null ? mediaItems.getResponseHeaders().size() : 0));
+
+                launchPlayer();
+            }
+
+            @Override
+            public void onError(String error) {
+                // Handle error
+                loadingOverlay.setVisibility(View.GONE);
+                playButton.setEnabled(true);
+
+                Toast.makeText(DetailsActivity.this,
+                        "Failed to fetch video sources: " + error,
+                        Toast.LENGTH_LONG).show();
+
+                Log.e(TAG, "Error fetching video sources: " + error);
+            }
+        });
+
+
     }
 
     private void launchPlayer() {
-//        if (!mediaItems.hasValidVideoSources()) {
-//            Toast.makeText(this, "No video sources available", Toast.LENGTH_SHORT).show();
-//            return;
-//        }
+        if (!mediaItems.hasValidVideoSources()) {
+            Toast.makeText(this, "No video sources available", Toast.LENGTH_SHORT).show();
+            return;
+        }
 
         Intent intent = new Intent(this, PlayerActivity.class);
         intent.putExtra("media_item", mediaItems);

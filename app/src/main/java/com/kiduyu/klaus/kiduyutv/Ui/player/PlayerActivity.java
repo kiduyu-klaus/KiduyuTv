@@ -6,6 +6,7 @@ import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
+import android.util.Log;
 import android.view.KeyEvent;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
@@ -20,6 +21,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 
+
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
@@ -28,12 +30,15 @@ import androidx.media3.common.Player;
 import androidx.media3.exoplayer.ExoPlayer;
 
 import com.kiduyu.klaus.kiduyutv.R;
+import com.kiduyu.klaus.kiduyutv.model.MediaItems;
+import com.kiduyu.klaus.kiduyutv.utils.ImageViewImageLoader;
 
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 
 public class PlayerActivity extends Activity {
+    private static final String TAG = "PlayerActivity";
 
     private SurfaceView videoSurface;
     private ExoPlayer exoPlayer;
@@ -58,12 +63,19 @@ public class PlayerActivity extends Activity {
     private List<Float> speedOptions = Arrays.asList(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f);
     private List<String> audioOptions = Arrays.asList("Sub", "Dub");
 
+    //SurfaceViewImageLoader loader = new SurfaceViewImageLoader();
+
     private int currentSubtitle = 5; // Original
     private int currentQuality = 3; // Medium 720p
     private int currentServer = 0;
+
+
+    private ImageViewImageLoader imageLoader;
+
+    private MediaItems sourceMediaItem;
     private int currentSpeed = 2; // 1.0x
     private int currentAudio = 1; // Dub
-
+    ImageView backgroundImage;
     private static final String VIDEO_URL = "https://rrr.app28base.site/p5qm/c5/h6a90f70b8d237f94866b6cfc2c7f06afdb8423c6639e9e32b074383937a06baeef0f9b8cb9be75c7c50ae72297d2e440790079152e890fea1284d59d53a146e35d/4/aGxzLzEwODAvMTA4MA,Ktm0Vt9-cJyXbGG_O3gV_5vGK-kpiQ.m3u8";
     private static final String VIDEO_URL_SUBTITLES = "https://5qm.megaup.cc/v5/bapD3C40jf5SGa2z8LH8Gr9uEI8Zjnp4ysHQ4OTega67vD5uMub51x8UK5yKV2uhCPlVjTWzBDeJW0JvJTuYJoQVP5d7qAZgZXxD67pvQIuNikLe6H8gyXmcoNmdRsqYZzwNrIbH7nA/subs/eng_4.vtt";
 
@@ -72,13 +84,37 @@ public class PlayerActivity extends Activity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_player);
 
+        // Get media item from intent
+        sourceMediaItem = getIntent().getParcelableExtra("media_item");
+        if (sourceMediaItem == null) {
+            finish();
+            return;
+        }
+
+        imageLoader = new ImageViewImageLoader();
+
+
         initializeViews();
+        loadBackgroundImage();
         setupFocusListeners();
         setupClickListeners();
         setupExoPlayer();
 
         // Start with controls hidden
         //hideControls();
+        showControls();
+
+        //loader.loadImageToSurfaceView(videoSurface, sourceMediaItem.getBackgroundImageUrl());
+
+    }
+    private void loadBackgroundImage() {
+        // Load background image using ImageView (doesn't interfere with ExoPlayer)
+        try {
+            backgroundImage.setVisibility(View.VISIBLE);
+            imageLoader.loadImageToImageView(backgroundImage, sourceMediaItem.getBackgroundImageUrl());
+        } catch (Exception e) {
+            Log.e(TAG, "Error loading background image", e);
+        }
     }
 
     private void initializeViews() {
@@ -87,6 +123,7 @@ public class PlayerActivity extends Activity {
         bottomControlsContainer = findViewById(R.id.bottomControlsContainer);
         loadingStatusContainer = findViewById(R.id.loadingStatusContainer);
         btnPlayPause = findViewById(R.id.btnPlayPause);
+        backgroundImage = findViewById(R.id.backgroundImage);
         btnBack = findViewById(R.id.btnBack);
         btnSettings = findViewById(R.id.btnSettings);
         btnSpeed = findViewById(R.id.btnSpeed);
@@ -208,8 +245,7 @@ public class PlayerActivity extends Activity {
                         showLoadingServer();
                         break;
                     case Player.STATE_READY:
-                        hideLoading();
-                        showControls();
+                        //hideLoading();
                         showStreamingStatus();
                         progressBar.setMax((int) exoPlayer.getDuration());
                         totalTime.setText(formatTime((int) exoPlayer.getDuration()));
@@ -242,38 +278,26 @@ public class PlayerActivity extends Activity {
     }
 
     private void loadVideo() {
-        showControls();
         showLoadingServer();
 
         // Create media item with video
         MediaItem.Builder mediaItemBuilder = new MediaItem.Builder()
-                .setUri(Uri.parse(VIDEO_URL));
+                .setUri(Uri.parse(sourceMediaItem.getVideoSources().get(0).getUrl()));
 
         // Add subtitles if enabled
         if (currentSubtitle > 0) { // Not "Off"
-            // Create a media item with subtitles
-            MediaItem mediaItem = new MediaItem.Builder()
-                    .setUri(VIDEO_URL)
-                    .setSubtitleConfigurations(
-                            java.util.Collections.singletonList(
-                                    new MediaItem.SubtitleConfiguration.Builder(
-                                            android.net.Uri.parse(VIDEO_URL_SUBTITLES))
-                                            .setMimeType(MimeTypes.TEXT_VTT)
-                                            .setLanguage("en")
-                                            .setSelectionFlags(C.SELECTION_FLAG_DEFAULT)
-                                            .build()
-                            )
-                    )
+            MediaItem.SubtitleConfiguration subtitleConfig = new MediaItem.SubtitleConfiguration.Builder(
+                    Uri.parse(VIDEO_URL_SUBTITLES))
+                    .setMimeType(MimeTypes.TEXT_VTT)
+                    .setLanguage("en")
+                    .setSelectionFlags(C.SELECTION_FLAG_DEFAULT)
                     .build();
-            exoPlayer.setMediaItem(mediaItem);
-            exoPlayer.prepare();
-            exoPlayer.play();
+            mediaItemBuilder.setSubtitleConfigurations(Arrays.asList(subtitleConfig));
         }
 
         MediaItem mediaItem = mediaItemBuilder.build();
         exoPlayer.setMediaItem(mediaItem);
         exoPlayer.prepare();
-        exoPlayer.play();
     }
 
     private void showLoadingServer() {
@@ -332,7 +356,7 @@ public class PlayerActivity extends Activity {
     private void hideControls() {
         topInfoContainer.setVisibility(View.GONE);
         bottomControlsContainer.setVisibility(View.GONE);
-        //btnEpisodes.setVisibility(View.GONE);
+        btnEpisodes.setVisibility(View.GONE);
         btnBack.setVisibility(View.GONE);
         areControlsVisible = false;
     }
@@ -472,7 +496,13 @@ public class PlayerActivity extends Activity {
             return true;
         }
 
-
+        // Back button
+        if (keyCode == KeyEvent.KEYCODE_BACK) {
+            if (areControlsVisible) {
+                hideControls();
+                return true;
+            }
+        }
 
         // Play/pause on center when controls visible and no button focused
         if (keyCode == KeyEvent.KEYCODE_DPAD_CENTER && areControlsVisible) {
@@ -507,14 +537,5 @@ public class PlayerActivity extends Activity {
         }
         handler.removeCallbacks(updateProgressTask);
         hideControlsHandler.removeCallbacks(hideControlsTask);
-    }
-
-    @Override
-    public void onBackPressed(){
-        if (areControlsVisible) {
-            hideControls();
-            return;
-        }
-        super.onBackPressed();
     }
 }

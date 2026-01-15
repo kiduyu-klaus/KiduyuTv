@@ -57,6 +57,7 @@ public class TmdbApi {
                 }
             }
         } else {
+
             Log.e(TAG, "fetchMoviesFromTMDB: Failed with status " + response.statusCode());
             throw new IOException("Failed to fetch data: " + response.statusCode());
         }
