@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:layout_marginEnd="24dp"
+    android:focusable="true"
+    android:padding="5dp"
+    android:focusableInTouchMode="true"
+    android:gravity="center_horizontal"
+    android:orientation="vertical">
+
+    <!-- Circular Profile Image -->
+    <ImageView
+        android:id="@+id/profileImage"
+        android:layout_width="100dp"
+        android:layout_height="100dp"
+        android:scaleType="centerCrop"
+        android:background="@drawable/circle_avatar_background"
+        android:padding="3dp" />
+
+    <!-- Actor Name -->
+    <TextView
+        android:id="@+id/nameText"
+        android:layout_width="120dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:ellipsize="end"
+        android:gravity="center"
+        android:maxLines="1"
+        android:text="Actor Name"
+        android:textColor="@color/white"
+        android:textSize="14sp"
+        android:textStyle="bold" />
+
+    <!-- Character Name -->
+    <TextView
+        android:id="@+id/characterText"
+        android:layout_width="120dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:ellipsize="end"
+        android:gravity="center"
+        android:maxLines="2"
+        android:text="Character Name"
+        android:textColor="@color/gray_light"
+        android:textSize="12sp" />
+
+</LinearLayout>

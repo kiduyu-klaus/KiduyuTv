@@ -54,7 +54,7 @@
                 <ImageView
                     android:id="@+id/posterImage"
                     android:layout_width="200dp"
-                    android:layout_height="300dp"
+                    android:layout_height="270dp"
                     android:scaleType="centerCrop"
                     android:background="#333" />
 
@@ -73,7 +73,7 @@
                         android:layout_height="wrap_content"
                         android:text="Stranger Things"
                         android:textColor="@color/white"
-                        android:textSize="52sp"
+                        android:textSize="42sp"
                         android:textStyle="bold" />
 
                     <!-- Meta Info Row -->
@@ -120,6 +120,18 @@
                             android:text="43h13m"
                             android:textColor="@color/white"
                             android:textSize="18sp" />
+
+                        <TextView
+                            android:id="@+id/ratingText"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="16dp"
+                            android:background="@drawable/rating_badge_background"
+                            android:padding="6dp"
+                            android:text="8.5"
+                            android:textColor="@color/white"
+                            android:textSize="14sp"
+                            android:textStyle="bold" />
 
                     </LinearLayout>
 
@@ -237,12 +249,60 @@
 
             </LinearLayout>
 
+            <!-- Cast Section -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="40dp"
+                android:text="Cast"
+                android:textColor="@color/white"
+                android:textSize="24sp"
+                android:textStyle="bold" />
+
+            <!-- Cast Loading -->
+            <ProgressBar
+                android:id="@+id/castLoadingProgress"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:visibility="gone" />
+
+            <!-- Cast RecyclerView -->
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/castRecyclerView"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:clipToPadding="false"
+                android:orientation="horizontal"
+                android:overScrollMode="never" />
+
+            <!-- Empty Cast State -->
+            <TextView
+                android:id="@+id/emptyCastText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="No cast information available"
+                android:textColor="@color/gray_light"
+                android:textSize="16sp"
+                android:visibility="gone" />
+
             <!-- Season Tabs -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="40dp"
+                android:text="Episodes"
+                android:textColor="@color/white"
+                android:textSize="24sp"
+                android:textStyle="bold" />
+
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/seasonTabsRecyclerView"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="20dp"
+                android:layout_marginTop="16dp"
                 android:clipToPadding="false"
                 android:overScrollMode="never" />
 
@@ -251,7 +311,7 @@
                 android:id="@+id/episodesGridRecyclerView"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="24dp"
+                android:layout_marginTop="14dp"
                 android:nestedScrollingEnabled="false"
                 android:overScrollMode="never" />
 
@@ -267,15 +327,6 @@
         android:visibility="gone"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
-
-    <!-- Rating Badge (if needed) -->
-    <TextView
-        android:id="@+id/ratingText"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:visibility="gone"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 

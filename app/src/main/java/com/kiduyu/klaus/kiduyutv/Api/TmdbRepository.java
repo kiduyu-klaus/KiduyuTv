@@ -300,4 +300,110 @@ public class TmdbRepository {
             }
         });
     }
+
+    public interface CreatorsCallback {
+        void onSuccess(List<String> creators);
+        void onError(String error);
+    }
+
+    public interface StarsCallback {
+        void onSuccess(List<String> stars);
+        void onError(String error);
+    }
+
+    /**
+     * Get TV show creators (created_by field)
+     * @param tmdbId The TMDB ID of the TV show
+     * @param callback Callback with list of creator names
+     */
+    public void getTVShowCreators(String tmdbId, CreatorsCallback callback) {
+        executorService.execute(() -> {
+            try {
+                String url = TMDB_BASE_URL + "/tv/" + tmdbId + "?language=en-US";
+
+                Connection.Response response = Jsoup.connect(url)
+                        .header("accept", "application/json")
+                        .header("Authorization", "Bearer " + TmdbApi.BEARER_TOKEN)
+                        .ignoreContentType(true)
+                        .timeout(TmdbApi.TIMEOUT_MS)
+                        .method(Connection.Method.GET)
+                        .execute();
+
+                if (response.statusCode() == 200) {
+                    JSONObject jsonResponse = new JSONObject(response.body());
+                    List<String> creators = new ArrayList<>();
+
+                    JSONArray createdByArray = jsonResponse.optJSONArray("created_by");
+                    if (createdByArray != null) {
+                        for (int i = 0; i < createdByArray.length(); i++) {
+                            JSONObject creator = createdByArray.getJSONObject(i);
+                            String name = creator.optString("name", "");
+                            if (!name.isEmpty()) {
+                                creators.add(name);
+                            }
+                        }
+                    }
+
+                    List<String> finalCreators = creators;
+                    mainHandler.post(() -> callback.onSuccess(finalCreators));
+
+                } else {
+                    throw new IOException("Failed with status: " + response.statusCode());
+                }
+
+            } catch (Exception e) {
+                Log.e(TAG, "Error fetching TV show creators", e);
+                mainHandler.post(() -> callback.onError(e.getMessage()));
+            }
+        });
+    }
+
+    /**
+     * Get TV show stars (main cast members from credits)
+     * @param tmdbId The TMDB ID of the TV show
+     * @param callback Callback with list of star names (limited to top 10)
+     */
+    public void getTVShowStars(String tmdbId, StarsCallback callback) {
+        executorService.execute(() -> {
+            try {
+                String url = TMDB_BASE_URL + "/tv/" + tmdbId + "/credits?language=en-US";
+
+                Connection.Response response = Jsoup.connect(url)
+                        .header("accept", "application/json")
+                        .header("Authorization", "Bearer " + TmdbApi.BEARER_TOKEN)
+                        .ignoreContentType(true)
+                        .timeout(TmdbApi.TIMEOUT_MS)
+                        .method(Connection.Method.GET)
+                        .execute();
+
+                if (response.statusCode() == 200) {
+                    JSONObject jsonResponse = new JSONObject(response.body());
+                    List<String> stars = new ArrayList<>();
+
+                    JSONArray castArray = jsonResponse.optJSONArray("cast");
+                    if (castArray != null) {
+                        // Get top 10 cast members (main stars)
+                        int limit = Math.min(castArray.length(), 10);
+                        for (int i = 0; i < limit; i++) {
+                            JSONObject castMember = castArray.getJSONObject(i);
+                            String name = castMember.optString("name", "");
+                            if (!name.isEmpty()) {
+                                stars.add(name);
+                            }
+                        }
+                    }
+
+                    List<String> finalStars = stars;
+                    mainHandler.post(() -> callback.onSuccess(finalStars));
+
+                } else {
+                    throw new IOException("Failed with status: " + response.statusCode());
+                }
+
+            } catch (Exception e) {
+                Log.e(TAG, "Error fetching TV show stars", e);
+                mainHandler.post(() -> callback.onError(e.getMessage()));
+            }
+        });
+    }
 }

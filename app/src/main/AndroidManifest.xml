@@ -21,6 +21,9 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.KiduyuTv">
         <activity
+            android:name=".Ui.details.actor.ActorDetailsActivity"
+            android:exported="false" />
+        <activity
             android:name=".Ui.details.tv.DetailsActivityTv"
             android:exported="false" />
         <activity

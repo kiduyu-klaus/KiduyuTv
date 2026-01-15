@@ -4,10 +4,10 @@
     android:height="108dp"
     android:viewportWidth="512"
     android:viewportHeight="512">
-  <group android:scaleX="0.5377778"
-      android:scaleY="0.5377778"
-      android:translateX="118.32889"
-      android:translateY="118.32889">
+  <group android:scaleX="0.88"
+      android:scaleY="0.88"
+      android:translateX="30.72"
+      android:translateY="30.72">
     <path
         android:pathData="M115,0L397,0A115,115 0,0 1,512 115L512,397A115,115 0,0 1,397 512L115,512A115,115 0,0 1,0 397L0,115A115,115 0,0 1,115 0z">
       <aapt:attr name="android:fillColor">

@@ -81,6 +81,10 @@ dependencies {
     // Material Design
     implementation libs.material.design
 
+    // CardView and RecyclerView
+    implementation libs.cardview
+    implementation libs.recyclerview
+
     // Other dependencies
     implementation libs.jsoup
     implementation libs.cronet.api
@@ -91,6 +95,7 @@ dependencies {
     testImplementation libs.mockito.core
     testImplementation libs.mockito.inline
     testImplementation libs.robolectric
+
 /**
     androidTestImplementation libs.ext.junit
     androidTestImplementation libs.espresso.core

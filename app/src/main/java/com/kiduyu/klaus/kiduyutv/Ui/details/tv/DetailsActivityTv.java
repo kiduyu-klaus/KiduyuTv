@@ -1,5 +1,6 @@
 package com.kiduyu.klaus.kiduyutv.Ui.details.tv;
 
+import android.content.Intent;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
@@ -22,10 +23,15 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
+import com.kiduyu.klaus.kiduyutv.Api.CastRepository;
 import com.kiduyu.klaus.kiduyutv.Api.TmdbRepository;
 import com.kiduyu.klaus.kiduyutv.R;
+//import com.kiduyu.klaus.kiduyutv.Ui.details.actor.ActorDetailsActivity;
+import com.kiduyu.klaus.kiduyutv.Ui.details.actor.ActorDetailsActivity;
+import com.kiduyu.klaus.kiduyutv.adapter.CastAdapter;
 import com.kiduyu.klaus.kiduyutv.adapter.EpisodeGridAdapter;
 import com.kiduyu.klaus.kiduyutv.adapter.SeasonTabAdapter;
+import com.kiduyu.klaus.kiduyutv.model.CastMember;
 import com.kiduyu.klaus.kiduyutv.model.Episode;
 import com.kiduyu.klaus.kiduyutv.model.MediaItems;
 import com.kiduyu.klaus.kiduyutv.model.Season;
@@ -50,6 +56,13 @@ public class DetailsActivityTv extends AppCompatActivity {
     private Button watchButton;
     private ImageView favoriteButton;
 
+    // Cast Section
+    private RecyclerView castRecyclerView;
+    private ProgressBar castLoadingProgress;
+    private TextView emptyCastText;
+    private CastAdapter castAdapter;
+    private CastRepository castRepository;
+
     // Season Tabs
     private RecyclerView seasonTabsRecyclerView;
 
@@ -63,6 +76,7 @@ public class DetailsActivityTv extends AppCompatActivity {
     private MediaItems tvShow;
     private List<Season> seasons = new ArrayList<>();
     private List<Episode> currentEpisodes = new ArrayList<>();
+    private List<CastMember> castList = new ArrayList<>();
     private SeasonTabAdapter seasonTabAdapter;
     private EpisodeGridAdapter episodeGridAdapter;
     private TmdbRepository mediaRepository;
@@ -74,8 +88,8 @@ public class DetailsActivityTv extends AppCompatActivity {
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_details_tv);
 
-
         mediaRepository = new TmdbRepository();
+        castRepository = new CastRepository();
 
         // Get TV show from intent
         tvShow = getIntent().getParcelableExtra("media_item");
@@ -89,7 +103,6 @@ public class DetailsActivityTv extends AppCompatActivity {
         loadTvShowDetails();
 
     }
-
 
     private void initializeViews() {
         // Hero section
@@ -105,6 +118,11 @@ public class DetailsActivityTv extends AppCompatActivity {
         starsText = findViewById(R.id.starsText);
         //watchButton = findViewById(R.id.watchButton);
         favoriteButton = findViewById(R.id.favoriteButton);
+
+        // Cast section
+        castRecyclerView = findViewById(R.id.castRecyclerView);
+        castLoadingProgress = findViewById(R.id.castLoadingProgress);
+        emptyCastText = findViewById(R.id.emptyCastText);
 
         // Season tabs and episodes
         seasonTabsRecyclerView = findViewById(R.id.seasonTabsRecyclerView);
@@ -158,6 +176,17 @@ public class DetailsActivityTv extends AppCompatActivity {
     }
 
     private void setupRecyclerViews() {
+        // Cast - horizontal layout
+        LinearLayoutManager castLayoutManager = new LinearLayoutManager(
+                this, LinearLayoutManager.HORIZONTAL, false);
+        castRecyclerView.setLayoutManager(castLayoutManager);
+        castRecyclerView.setHasFixedSize(true);
+
+        castAdapter = new CastAdapter();
+        castRecyclerView.setAdapter(castAdapter);
+
+        castAdapter.setOnCastClickListener(this::openActorDetails);
+
         // Season tabs - horizontal
         LinearLayoutManager tabsLayoutManager = new LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false);
         seasonTabsRecyclerView.setLayoutManager(tabsLayoutManager);
@@ -179,6 +208,12 @@ public class DetailsActivityTv extends AppCompatActivity {
         episodesGridRecyclerView.setAdapter(episodeGridAdapter);
 
         episodeGridAdapter.setOnEpisodeClickListener(this::playEpisode);
+    }
+
+    private void openActorDetails(CastMember castMember, int position) {
+        Intent intent = new Intent(this, ActorDetailsActivity.class);
+        intent.putExtra("cast_member", castMember);
+       startActivity(intent);
     }
 
     private void playEpisode(Episode episode) {
@@ -217,6 +252,9 @@ public class DetailsActivityTv extends AppCompatActivity {
                 // Update season tabs
                 seasonTabAdapter.notifyDataSetChanged();
 
+                // Load cast
+                loadCast();
+
                 // Load first season
                 if (!seasons.isEmpty()) {
                     selectedSeasonNumber = seasons.get(0).getSeasonNumber();
@@ -234,12 +272,58 @@ public class DetailsActivityTv extends AppCompatActivity {
         });
     }
 
+    /**
+     * Load cast members for the TV show
+     */
+    private void loadCast() {
+        if (tvShow.getTmdbId() == null || tvShow.getTmdbId().isEmpty()) {
+            showEmptyCast();
+            return;
+        }
+
+        castLoadingProgress.setVisibility(View.VISIBLE);
+        castRecyclerView.setVisibility(View.GONE);
+        emptyCastText.setVisibility(View.GONE);
+
+        castRepository.getTVShowCast(tvShow.getTmdbId(), new CastRepository.CastListCallback() {
+            @Override
+            public void onSuccess(List<CastMember> castMembers) {
+                castLoadingProgress.setVisibility(View.GONE);
+
+                castList.clear();
+                castList.addAll(castMembers);
+
+                if (castList != null && !castList.isEmpty()) {
+                    castAdapter.setCastList(castList);
+                    castRecyclerView.setVisibility(View.VISIBLE);
+                    emptyCastText.setVisibility(View.GONE);
+                } else {
+                    showEmptyCast();
+                }
+            }
+
+            @Override
+            public void onError(String error) {
+                castLoadingProgress.setVisibility(View.GONE);
+                Log.e(TAG, "Error loading cast: " + error);
+                showEmptyCast();
+            }
+        });
+    }
+
+    private void showEmptyCast() {
+        castRecyclerView.setVisibility(View.GONE);
+        emptyCastText.setVisibility(View.VISIBLE);
+    }
+
     @RequiresApi(api = Build.VERSION_CODES.M)
     private void updateDetailedInfo(MediaItems show) {
         // Rating
         if (show.getRating() > 0) {
             ratingText.setText(String.format("%.1f", show.getRating()));
             ratingText.setVisibility(View.VISIBLE);
+        } else {
+            ratingText.setVisibility(View.GONE);
         }
 
         // Duration
@@ -266,11 +350,56 @@ public class DetailsActivityTv extends AppCompatActivity {
 
                 genresLayout.addView(genreChip);
             }
+        }else{
+            genresLayout.setVisibility(View.GONE);
         }
 
-        // Creators and Stars (placeholder)
-        creatorsText.setText("Lampton Enochs, Rand Ge...");
-        starsText.setText("Millie Bobby Brown, Finn...");
+        // Get creators
+        mediaRepository.getTVShowCreators(show.getTmdbId(), new TmdbRepository.CreatorsCallback() {
+            @Override
+            public void onSuccess(List<String> creators) {
+                // Handle creators list
+                Log.d(TAG, "Creators: " + creators.toString());
+
+                if (creators != null && !creators.isEmpty()) {
+                    // Join creators with comma and space
+                    String creatorsString = String.join(", ", creators);
+                    creatorsText.setText(creatorsString);
+                } else {
+                    creatorsText.setText("Unknown");
+                }
+            }
+
+            @Override
+            public void onError(String error) {
+                Log.e(TAG, "Error: " + error);
+            }
+        });
+
+        mediaRepository.getTVShowStars(show.getTmdbId(), new TmdbRepository.StarsCallback() {
+            @Override
+            public void onSuccess(List<String> stars) {
+                // Handle stars list
+                Log.d(TAG, "Stars: " + stars.toString());
+                if (stars != null && !stars.isEmpty()) {
+                    // Join stars with comma and space
+                    String starsString = String.join(", ", stars);
+                    // Truncate if too long (e.g., max 50 characters)
+                    if (starsString.length() > 50) {
+                        starsString = starsString.substring(0, 47) + "...";
+                    }
+                    starsText.setText(starsString);
+                } else {
+                    starsText.setText("Unknown");
+                }
+            }
+
+            @Override
+            public void onError(String error) {
+                Log.e(TAG, "Error: " + error);
+            }
+        });
+
     }
 
     private void loadEpisodes(int seasonNumber) {

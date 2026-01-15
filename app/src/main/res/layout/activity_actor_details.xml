@@ -1,0 +1,225 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#000000">
+
+    <!-- Background Image -->
+    <ImageView
+        android:id="@+id/backgroundImage"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:scaleType="centerCrop"
+        android:alpha="0.3"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <!-- Gradient Overlay -->
+    <View
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:background="@drawable/gradient_overlay"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <!-- Scrollable Content -->
+    <ScrollView
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:fillViewport="true"
+        android:scrollbars="none"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="48dp">
+
+            <!-- Header Section -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <!-- Profile Image -->
+                <androidx.cardview.widget.CardView
+                    android:layout_width="200dp"
+                    android:layout_height="260dp"
+                    app:cardCornerRadius="12dp"
+                    app:cardElevation="8dp">
+
+                    <ImageView
+                        android:id="@+id/profileImage"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:scaleType="centerCrop"
+                        android:background="#333" />
+
+                </androidx.cardview.widget.CardView>
+
+                <!-- Info Section -->
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginStart="32dp"
+                    android:orientation="vertical">
+
+                    <!-- Name -->
+                    <TextView
+                        android:id="@+id/nameText"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Actor Name"
+                        android:textColor="@color/white"
+                        android:textSize="42sp"
+                        android:textStyle="bold" />
+
+                    <!-- Known For -->
+                    <TextView
+                        android:id="@+id/knownForText"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:text="Acting"
+                        android:textColor="@color/gray_light"
+                        android:textSize="16sp" />
+
+                    <!-- Birth Info -->
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/birthInfoText"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Born: January 1, 1990"
+                            android:textColor="@color/white"
+                            android:textSize="16sp" />
+
+                        <TextView
+                            android:id="@+id/placeOfBirthText"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:text="Los Angeles, California"
+                            android:textColor="@color/gray_light"
+                            android:textSize="14sp" />
+
+                    </LinearLayout>
+
+                    <!-- Popularity -->
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <ImageView
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
+                            android:src="@drawable/ic_favorite"
+                            app:tint="@color/teal_200" />
+
+                        <TextView
+                            android:id="@+id/popularityText"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:text="Popularity: 85.5"
+                            android:textColor="@color/white"
+                            android:textSize="16sp" />
+
+                    </LinearLayout>
+
+                </LinearLayout>
+
+            </LinearLayout>
+
+            <!-- Biography Section -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="32dp"
+                android:text="Biography"
+                android:textColor="@color/white"
+                android:textSize="24sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/biographyText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:lineSpacingExtra="4dp"
+                android:text="Biography text goes here..."
+                android:textColor="@color/gray_light"
+                android:textSize="16sp" />
+
+            <!-- Filmography Section -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="32dp"
+                android:text="Filmography"
+                android:textColor="@color/white"
+                android:textSize="24sp"
+                android:textStyle="bold" />
+
+            <!-- Filmography Loading -->
+            <ProgressBar
+                android:id="@+id/filmographyLoading"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:visibility="gone" />
+
+            <!-- Filmography RecyclerView -->
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/filmographyRecyclerView"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:clipToPadding="false"
+                android:overScrollMode="never" />
+
+            <!-- Empty State for Filmography -->
+            <TextView
+                android:id="@+id/emptyFilmographyText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="No filmography available"
+                android:textColor="@color/gray_light"
+                android:textSize="16sp"
+                android:visibility="gone" />
+
+        </LinearLayout>
+
+    </ScrollView>
+
+    <!-- Loading Progress -->
+    <ProgressBar
+        android:id="@+id/loadingProgress"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>
