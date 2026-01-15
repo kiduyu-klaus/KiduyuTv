@@ -1,4 +1,4 @@
-package com.kiduyu.klaus.kiduyutv;
+package com.kiduyu.klaus.kiduyutv.utils;
 
 public class utils {
 

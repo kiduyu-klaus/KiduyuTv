@@ -24,6 +24,7 @@ import com.kiduyu.klaus.kiduyutv.Api.CastRepository;
 import com.kiduyu.klaus.kiduyutv.Api.TmdbRepository;
 import com.kiduyu.klaus.kiduyutv.R;
 import com.kiduyu.klaus.kiduyutv.Ui.details.actor.ActorDetailsActivity;
+import com.kiduyu.klaus.kiduyutv.Ui.player.PlayerActivity;
 import com.kiduyu.klaus.kiduyutv.adapter.CastAdapter;
 import com.kiduyu.klaus.kiduyutv.adapter.RecommendationsAdapter;
 import com.kiduyu.klaus.kiduyutv.model.CastMember;
@@ -288,7 +289,7 @@ public class DetailsActivity extends AppCompatActivity {
 
         playButton.setOnClickListener(v -> {
             // Check if we need to fetch video sources
-            //fetchVideoSources();
+            fetchVideoSources();
         });
         playButton.setOnFocusChangeListener(focusChangeListener);
 
@@ -298,5 +299,31 @@ public class DetailsActivity extends AppCompatActivity {
                     Toast.LENGTH_SHORT).show();
         });
         favoriteButton.setOnFocusChangeListener(focusChangeListener);
+    }
+
+    private void fetchVideoSources() {
+        loadingOverlay.setVisibility(View.VISIBLE);
+        playButton.setEnabled(false);
+
+        String title = mediaItems.getTitle();
+        String year = String.valueOf(mediaItems.getYear());
+        String tmdbId = mediaItems.getTmdbId();
+        String mediaType = mediaItems.getMediaType();
+
+        Log.i(TAG, "Fetching video sources for: " + title + " (" + year + ") [" + tmdbId + "]");
+        Log.i(TAG, "fetchVideoSources: " + title + " (" + year + ") [" + tmdbId + "]");
+
+        launchPlayer();
+    }
+
+    private void launchPlayer() {
+//        if (!mediaItems.hasValidVideoSources()) {
+//            Toast.makeText(this, "No video sources available", Toast.LENGTH_SHORT).show();
+//            return;
+//        }
+
+        Intent intent = new Intent(this, PlayerActivity.class);
+        intent.putExtra("media_item", mediaItems);
+        startActivity(intent);
     }
 }

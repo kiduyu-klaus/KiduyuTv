@@ -28,6 +28,7 @@ import com.kiduyu.klaus.kiduyutv.Api.TmdbRepository;
 import com.kiduyu.klaus.kiduyutv.R;
 //import com.kiduyu.klaus.kiduyutv.Ui.details.actor.ActorDetailsActivity;
 import com.kiduyu.klaus.kiduyutv.Ui.details.actor.ActorDetailsActivity;
+import com.kiduyu.klaus.kiduyutv.Ui.player.PlayerActivity;
 import com.kiduyu.klaus.kiduyutv.adapter.CastAdapter;
 import com.kiduyu.klaus.kiduyutv.adapter.EpisodeGridAdapter;
 import com.kiduyu.klaus.kiduyutv.adapter.SeasonTabAdapter;
@@ -231,6 +232,9 @@ public class DetailsActivityTv extends AppCompatActivity {
 
         String season = episodeMedia.getSeason() != null ? episodeMedia.getSeason() : "1";
         String episode1 = episodeMedia.getEpisode() != null ? episodeMedia.getEpisode() : "1";
+        Intent intent = new Intent(this, PlayerActivity.class);
+        intent.putExtra("media_item", episodeMedia);
+        startActivity(intent);
 
     }
 

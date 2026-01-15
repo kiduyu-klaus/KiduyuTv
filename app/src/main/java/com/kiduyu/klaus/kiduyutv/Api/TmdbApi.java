@@ -5,8 +5,7 @@ package com.kiduyu.klaus.kiduyutv.Api;
 import android.util.Log;
 
 import com.kiduyu.klaus.kiduyutv.model.MediaItems;
-import com.kiduyu.klaus.kiduyutv.model.Season;
-import com.kiduyu.klaus.kiduyutv.utils;
+import com.kiduyu.klaus.kiduyutv.utils.utils;
 
 import org.json.JSONArray;
 import org.json.JSONException;
