@@ -119,7 +119,6 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
         // Detailed debugging for headers
         Log.i(TAG, "Loading media:\n" + sourceMediaItem.getVideoSources().toString());
 
-        qualityOptions = Arrays.asList(sourceMediaItem.getVideoSources().toArray(new MediaItems.VideoSource[0]));
         Log.i(TAG, "Quality options:\n" + qualityOptions.toString());
         Log.i(TAG, "background image url:\n" + sourceMediaItem.getBackgroundImageUrl());
 
@@ -178,7 +177,16 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
     private void updateButtonTexts() {
         btnSpeed.setText("Speed " + String.format(Locale.getDefault(), "%.2fx", speedOptions.get(currentSpeed)));
         btnServer.setText(serverOptions.get(currentServer));
-        btnQuality.setText(qualityOptions.get(currentQuality).getQuality());
+
+        // Safe quality button text update
+        if (sourceMediaItem != null && sourceMediaItem.getVideoSources() != null &&
+                !sourceMediaItem.getVideoSources().isEmpty() &&
+                currentQuality < sourceMediaItem.getVideoSources().size()) {
+            btnQuality.setText(sourceMediaItem.getVideoSources().get(currentQuality).getQuality());
+        } else {
+            btnQuality.setText("Quality");
+        }
+
         btnAudio.setText(audioOptions.get(currentAudio));
         btnSubtitles.setText("🗨 " + subtitleOptions.get(currentSubtitle));
     }
@@ -430,7 +438,7 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
         exoPlayer.play();
 
         // Apply saved speed
-        exoPlayer.setPlaybackSpeed(currentSpeed);
+        //exoPlayer.setPlaybackSpeed(currentSpeed);
     }
 
     /**
@@ -708,18 +716,45 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
     }
 
     private void showQualityDialog() {
+        // Get quality options from sourceMediaItem
+        if (sourceMediaItem == null || sourceMediaItem.getVideoSources() == null ||
+                sourceMediaItem.getVideoSources().isEmpty()) {
+            showToast("No quality options available");
+            return;
+        }
+
+        // Build quality labels array from video sources
+        List<MediaItems.VideoSource> sources = sourceMediaItem.getVideoSources();
+        String[] qualityLabels = new String[sources.size()];
+
+        for (int i = 0; i < sources.size(); i++) {
+            qualityLabels[i] = sources.get(i).getQuality();
+        }
+
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle("Select Quality");
-        builder.setSingleChoiceItems(qualityOptions.toArray(new String[0]),
-                currentQuality, (dialog, which) -> {
-                    currentQuality = which;
-                    updateButtonTexts();
-                    showToast("Quality: " + qualityOptions.get(which));
-                    dialog.dismiss();
+        builder.setSingleChoiceItems(qualityLabels, currentQuality, (dialog, which) -> {
+            // Save current playback position
+            long currentPosition = exoPlayer != null ? exoPlayer.getCurrentPosition() : 0;
+            boolean wasPlaying = isPlaying;
 
-                    // Show loading and reload video
-                    loadVideo();
-                });
+            currentQuality = which;
+            updateButtonTexts();
+            showToast("Quality: " + sources.get(which).getQuality());
+            dialog.dismiss();
+
+            // Show loading and reload video
+            showLoadingServer();
+            loadVideo();
+
+            // Restore playback position after video loads
+            if (exoPlayer != null && currentPosition > 0) {
+                exoPlayer.seekTo(currentPosition);
+                if (wasPlaying) {
+                    exoPlayer.play();
+                }
+            }
+        });
         builder.show();
     }
 
