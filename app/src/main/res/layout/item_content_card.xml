@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="160dp"
+    android:layout_height="240dp"
+    android:focusable="true"
+    android:radius="8dp"
+    android:layout_margin="5dp"
+    android:clickable="true"
+    android:layout_marginEnd="12dp">
+
+    <!-- Content Image -->
+    <ImageView
+        android:id="@+id/contentImage"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="centerCrop"
+        android:radius="8dp"
+        android:background="#1A1A1A"
+        android:contentDescription="Content Poster" />
+
+    <!-- Focus Overlay (Red Border) -->
+    <View
+        android:id="@+id/focusOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@drawable/content_card_focus_overlay"
+        android:visibility="gone" />
+
+</FrameLayout>

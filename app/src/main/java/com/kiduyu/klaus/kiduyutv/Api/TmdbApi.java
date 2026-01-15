@@ -1,0 +1,150 @@
+package com.kiduyu.klaus.kiduyutv.Api;
+
+
+
+import android.util.Log;
+
+import com.kiduyu.klaus.kiduyutv.model.MediaItems;
+import com.kiduyu.klaus.kiduyutv.utils;
+
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+import org.jsoup.Connection;
+import org.jsoup.Jsoup;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+
+public class TmdbApi {
+    private static final String TAG = "TmdbApi";
+    private static final String IMAGE_BASE_URL = "https://image.tmdb.org/t/p/";
+    private static final String BEARER_TOKEN = "eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiI0MTAzZmMzMDY1YzEyMmViNWRiNmJkY2ZmNzQ5ZmRlNyIsIm5iZiI6MTY2ODA2NDAzNC4yNDk5OTk4LCJzdWIiOiI2MzZjYTMyMjA0OTlmMjAwN2ZlYjA4MWEiLCJzY29wZXMiOlsiYXBpX3JlYWQiXSwidmVyc2lvbiI6MX0.tjvtYPTPfLOyMdOouQ14GGgOzmfnZRW4RgvOzfoq19w";
+
+    private static final String POSTER_SIZE = "w500";
+    private static final String BACKDROP_SIZE = "w1280";
+    private static final String ORIGINAL_SIZE = "original";
+    private static final int TIMEOUT_MS = 10000;
+    public enum ContentType {
+        MOVIE, TV, ALL
+    }
+    public static List<MediaItems> fetchMoviesFromTMDB(String urlString) throws IOException, JSONException {
+        List<MediaItems> movies = new ArrayList<>();
+
+        Connection.Response response = Jsoup.connect(urlString)
+                .header("accept", "application/json")
+                .header("Authorization", "Bearer " + BEARER_TOKEN)
+                .ignoreContentType(true)
+                .timeout(TIMEOUT_MS)
+                .method(Connection.Method.GET)
+                .execute();
+
+        if (response.statusCode() == 200) {
+            Log.i(TAG, "fetchMoviesFromTMDB: Success");
+
+            JSONObject jsonResponse = new JSONObject(response.body());
+            JSONArray results = jsonResponse.getJSONArray("results");
+
+            for (int i = 0; i < results.length() && i < 20; i++) { // Limit to 20 items
+                JSONObject movieJson = results.getJSONObject(i);
+                MediaItems movie = createMediaItemFromTMDB(movieJson, TmdbApi.ContentType.MOVIE);
+                if (movie != null) {
+                    movies.add(movie);
+                }
+            }
+        } else {
+            Log.e(TAG, "fetchMoviesFromTMDB: Failed with status " + response.statusCode());
+            throw new IOException("Failed to fetch data: " + response.statusCode());
+        }
+
+        return movies;
+    }
+
+    private static MediaItems createMediaItemFromTMDB(JSONObject tmdbItem, ContentType contentType) {
+        try {
+            MediaItems mediaItems = new MediaItems();
+
+            // Basic info
+            int id = tmdbItem.getInt("id");
+            String title = contentType == ContentType.MOVIE ?
+                    tmdbItem.getString("title") : tmdbItem.getString("name");
+            String description = tmdbItem.optString("overview", "No description available");
+            String releaseDate = contentType == ContentType.MOVIE ?
+                    tmdbItem.optString("release_date", "") :
+                    tmdbItem.optString("first_air_date", "");
+            double rating = tmdbItem.optDouble("vote_average", 0.0);
+
+            // Set basic properties
+            mediaItems.setId(String.valueOf(id));
+            mediaItems.setTitle(title);
+            mediaItems.setDescription(description);
+
+            // Parse year safely
+            if (!releaseDate.isEmpty() && releaseDate.length() >= 4) {
+                try {
+                    mediaItems.setYear(Integer.parseInt(releaseDate.substring(0, 4)));
+                } catch (NumberFormatException e) {
+                    mediaItems.setYear(0);
+                }
+            } else {
+                mediaItems.setYear(0);
+            }
+
+            mediaItems.setRating((float) rating);
+            mediaItems.setTmdbId(String.valueOf(id));
+
+            // Set content type
+            if (contentType == ContentType.MOVIE) {
+                mediaItems.setMediaType("movie");
+            } else {
+                mediaItems.setMediaType("tv");
+            }
+
+            // Set poster and backdrop URLs
+            String posterPath = tmdbItem.optString("poster_path", "");
+            String backdropPath = tmdbItem.optString("backdrop_path", "");
+
+            if (!posterPath.isEmpty()) {
+                mediaItems.setPosterUrl(IMAGE_BASE_URL + POSTER_SIZE + posterPath);
+                mediaItems.setCardImageUrl(IMAGE_BASE_URL + POSTER_SIZE + posterPath);
+            }
+
+            if (!backdropPath.isEmpty()) {
+                mediaItems.setBackgroundImageUrl(IMAGE_BASE_URL + BACKDROP_SIZE + backdropPath);
+                mediaItems.setHeroImageUrl(IMAGE_BASE_URL + ORIGINAL_SIZE + backdropPath);
+            } else if (!posterPath.isEmpty()) {
+                // Fallback to poster if no backdrop
+                mediaItems.setBackgroundImageUrl(IMAGE_BASE_URL + ORIGINAL_SIZE + posterPath);
+                mediaItems.setHeroImageUrl(IMAGE_BASE_URL + ORIGINAL_SIZE + posterPath);
+            }
+
+            // Handle genres from genre_ids array
+            JSONArray genreIds = tmdbItem.optJSONArray("genre_ids");
+            if (genreIds != null && genreIds.length() > 0) {
+                List<String> genres = new ArrayList<>();
+                for (int i = 0; i < genreIds.length(); i++) {
+                    String genreName = utils.getGenreName(genreIds.getInt(i));
+                    if (genreName != null) {
+                        genres.add(genreName);
+                    }
+                }
+                mediaItems.setGenres(genres);
+
+                // Set first genre as the genre string for backward compatibility
+                if (!genres.isEmpty()) {
+                    mediaItems.setGenre(genres.get(0));
+                }
+            }
+
+            // Set from TMDB flag
+            mediaItems.setFromTMDB(true);
+
+            return mediaItems;
+
+        } catch (JSONException e) {
+            Log.e(TAG, "Error creating MediaItem from TMDB data", e);
+            return null;
+        }
+    }
+}
