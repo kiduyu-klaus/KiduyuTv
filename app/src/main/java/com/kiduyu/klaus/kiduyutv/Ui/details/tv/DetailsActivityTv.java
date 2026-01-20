@@ -13,20 +13,17 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
-import androidx.annotation.OptIn;
 import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
-import androidx.media3.common.util.UnstableApi;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
 import com.kiduyu.klaus.kiduyutv.Api.CastRepository;
-import com.kiduyu.klaus.kiduyutv.Api.FetchStreams;
 import com.kiduyu.klaus.kiduyutv.Api.TmdbRepository;
 import com.kiduyu.klaus.kiduyutv.R;
 //import com.kiduyu.klaus.kiduyutv.Ui.details.actor.ActorDetailsActivity;
@@ -217,13 +214,12 @@ public class DetailsActivityTv extends AppCompatActivity {
     private void openActorDetails(CastMember castMember, int position) {
         Intent intent = new Intent(this, ActorDetailsActivity.class);
         intent.putExtra("cast_member", castMember);
-       startActivity(intent);
+        startActivity(intent);
     }
 
     private void playEpisode(Episode episode) {
-        loadingProgress.setVisibility(View.VISIBLE);
         MediaItems episodeMedia = new MediaItems();
-        episodeMedia.setTitle(episode.getEpisodeTitle());
+        episodeMedia.setTitle(tvShow.getTitle());
         episodeMedia.setDescription(episode.getOverview());
         episodeMedia.setTmdbId(tvShow.getTmdbId());
         episodeMedia.setMediaType("tv");
@@ -236,50 +232,9 @@ public class DetailsActivityTv extends AppCompatActivity {
 
         String season = episodeMedia.getSeason() != null ? episodeMedia.getSeason() : "1";
         String episode1 = episodeMedia.getEpisode() != null ? episodeMedia.getEpisode() : "1";
-
-        FetchStreams.getInstance().fetchVideasyStreamsTV(tvShow.getTitle(), String.valueOf(tvShow.getYear()), tvShow.getTmdbId(), season, episode1,
-                new FetchStreams.VideasyCallback() {
-                    @OptIn(markerClass = UnstableApi.class) @Override
-                    public void onSuccess(MediaItems updatedItem) {
-                        //loadingOverlay.setVisibility(View.GONE);
-                        //playButton.setEnabled(true);
-
-                        // Update current media item with video sources and headers
-                        episodeMedia.setVideoSources(updatedItem.getVideoSources());
-                        episodeMedia.setSubtitles(updatedItem.getSubtitles());
-
-                        // Transfer session headers for Cloudflare/protected stream bypass
-                        episodeMedia.setCustomHeaders(updatedItem.getCustomHeaders());
-                        episodeMedia.setResponseHeaders(updatedItem.getResponseHeaders());
-                        episodeMedia.setSessionCookie(updatedItem.getSessionCookie());
-                        episodeMedia.setRefererUrl(updatedItem.getRefererUrl());
-                        episodeMedia.setBackgroundImageUrl(episode.getStillPath());
-                        Log.i(TAG,"Image Poster"+episode.getStillPath());
-
-
-                        Log.i(TAG, "Video sources fetched: " +
-                                episodeMedia.getVideoSources().size());
-                        Log.i(TAG, "Custom headers count: " +
-                                (episodeMedia.getCustomHeaders() != null ? episodeMedia.getCustomHeaders().size() : 0));
-                        loadingProgress.setVisibility(View.GONE);
-
-                        Intent intent = new Intent(DetailsActivityTv.this, PlayerActivity.class);
-                        intent.putExtra("media_item", episodeMedia);
-                        startActivity(intent);
-                    }
-
-                    @Override
-                    public void onError(String error) {
-                        //loadingOverlay.setVisibility(View.GONE);
-                        //playButton.setEnabled(true);
-
-                        Toast.makeText(DetailsActivityTv.this,
-                                "Failed to fetch video sources: " + error,
-                                Toast.LENGTH_LONG).show();
-
-                        Log.e(TAG, "Error fetching video sources: " + error);
-                    }
-                });
+        Intent intent = new Intent(this, PlayerActivity.class);
+        intent.putExtra("media_item", episodeMedia);
+        startActivity(intent);
 
     }
 
@@ -408,7 +363,7 @@ public class DetailsActivityTv extends AppCompatActivity {
             @Override
             public void onSuccess(List<String> creators) {
                 // Handle creators list
-                Log.d(TAG, "Creators: " + creators.toString());
+                Log.i(TAG, "Creators: " + creators.toString());
 
                 if (creators != null && !creators.isEmpty()) {
                     // Join creators with comma and space
@@ -429,7 +384,7 @@ public class DetailsActivityTv extends AppCompatActivity {
             @Override
             public void onSuccess(List<String> stars) {
                 // Handle stars list
-                Log.d(TAG, "Stars: " + stars.toString());
+                Log.i(TAG, "Stars: " + stars.toString());
                 if (stars != null && !stars.isEmpty()) {
                     // Join stars with comma and space
                     String starsString = String.join(", ", stars);

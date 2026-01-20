@@ -2,6 +2,7 @@ package com.kiduyu.klaus.kiduyutv.model;
 
 import android.os.Parcel;
 import android.os.Parcelable;
+import android.util.Log;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -454,6 +455,7 @@ public class MediaItems implements Parcelable {
         if (videoSources != null && !videoSources.isEmpty()) {
             for (VideoSource source : videoSources) {
                 if ("1080p".equals(source.getQuality()) || "720p".equals(source.getQuality())) {
+                    Log.i("MediaItems", "Using video source with quality: " + source.getQuality());
                     return source.getUrl();
                 }
             }

@@ -622,7 +622,8 @@ public class FetchStreams {
                 if ("1".equals(serverType)) {
                     result = fetchSmashystreamType1(imdbId, tokenData);
                 } else {
-                    result = fetchSmashystreamType2(tmdbId, tokenData, "videofsh");
+                    result = fetchSmashystreamType2(tmdbId, tokenData, "videoophim");
+                    Log.i(TAG, "fetchSmashystreamMovie result: " + result.toString());
                 }
 
                 mainHandler.post(() -> callback.onSuccess(result));

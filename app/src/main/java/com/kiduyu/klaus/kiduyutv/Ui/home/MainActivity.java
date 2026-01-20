@@ -11,6 +11,7 @@ import android.widget.ProgressBar;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.view.WindowManager;
 
 import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
@@ -85,7 +86,8 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         tmdbRepository = new TmdbRepository();
         //apiRepository = new MediaRepositoryVideasy();
-
+// CRITICAL: Keep screen on during playback - prevents TV from sleeping
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
         initializeViews();
         setupClickListeners();
@@ -205,7 +207,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void loadContent() {
         if (isLoadingContent) {
-            Log.d(TAG, "Already loading content, skipping duplicate request");
+            Log.i(TAG, "Already loading content, skipping duplicate request");
             return;
         }
 
@@ -240,7 +242,7 @@ public class MainActivity extends AppCompatActivity {
         tmdbRepository.getFeaturedMoviesAsync(new TmdbRepository.TMDBCallback() {
             @Override
             public void onSuccess(List<MediaItems> movies) {
-                Log.d(TAG, "Successfully loaded " + movies.size() + " featured movies");
+                Log.i(TAG, "Successfully loaded " + movies.size() + " featured movies");
 
                 if (!movies.isEmpty()) {
                     CategorySection featuredSection = new CategorySection("Featured Movies", movies);
@@ -269,7 +271,7 @@ public class MainActivity extends AppCompatActivity {
         tmdbRepository.getActionMoviesAsync(new TmdbRepository.TMDBCallback() {
             @Override
             public void onSuccess(List<MediaItems> movies) {
-                Log.d(TAG, "Successfully loaded " + movies.size() + " action movies");
+                Log.i(TAG, "Successfully loaded " + movies.size() + " action movies");
 
                 if (!movies.isEmpty()) {
                     CategorySection section = new CategorySection("Action & Adventure", movies);
@@ -292,7 +294,7 @@ public class MainActivity extends AppCompatActivity {
         tmdbRepository.getTopRatedMoviesAsync(new TmdbRepository.TMDBCallback() {
             @Override
             public void onSuccess(List<MediaItems> movies) {
-                Log.d(TAG, "Successfully loaded " + movies.size() + " top rated movies");
+                Log.i(TAG, "Successfully loaded " + movies.size() + " top rated movies");
 
                 if (!movies.isEmpty()) {
                     CategorySection section = new CategorySection("Top Rated Movies", movies);
@@ -333,7 +335,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void loadTvShows() {
         if (isLoadingContent) {
-            Log.d(TAG, "Already loading content, skipping duplicate request");
+            Log.i(TAG, "Already loading content, skipping duplicate request");
             return;
         }
 
@@ -351,7 +353,7 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onSuccess(List<MediaItems> tvShows) {
                 // Handle successful load
-                Log.d(TAG, "Successfully loaded " + tvShows.size() + " featured Tv series");
+                Log.i(TAG, "Successfully loaded " + tvShows.size() + " featured Tv series");
                 if (!tvShows.isEmpty()) {
                     CategorySection featuredSection = new CategorySection("Featured Tv Series", tvShows);
                     categories.add(0, featuredSection);
@@ -378,7 +380,7 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onSuccess(List<MediaItems> tvShows) {
                 // Handle successful load
-                Log.d(TAG, "Successfully loaded " + tvShows.size() + " top rated Tv series");
+                Log.i(TAG, "Successfully loaded " + tvShows.size() + " top rated Tv series");
                 if (!tvShows.isEmpty()) {
                     CategorySection featuredSection = new CategorySection("Top Rated Tv Series", tvShows);
                     categories.add(0, featuredSection);
@@ -405,7 +407,7 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onSuccess(List<MediaItems> tvShows) {
                 // Handle successful load
-                Log.d(TAG, "Successfully loaded " + tvShows.size() + " Trending Tv series");
+                Log.i(TAG, "Successfully loaded " + tvShows.size() + " Trending Tv series");
                 if (!tvShows.isEmpty()) {
                     CategorySection featuredSection = new CategorySection("Trending Tv Series", tvShows);
                     categories.add(0, featuredSection);
@@ -432,7 +434,7 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onSuccess(List<MediaItems> tvShows) {
                 // Handle successful load
-                Log.d(TAG, "Successfully loaded " + tvShows.size() + " action Tv series");
+                Log.i(TAG, "Successfully loaded " + tvShows.size() + " action Tv series");
                 if (!tvShows.isEmpty()) {
                     CategorySection featuredSection = new CategorySection("Action & Adventure Tv Series", tvShows);
                     categories.add(0, featuredSection);

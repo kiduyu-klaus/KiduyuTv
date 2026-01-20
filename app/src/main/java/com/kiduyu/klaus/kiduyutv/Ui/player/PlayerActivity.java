@@ -2,7 +2,11 @@ package com.kiduyu.klaus.kiduyutv.Ui.player;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.Context;
 import android.graphics.Color;
+import android.net.ConnectivityManager;
+import android.net.Network;
+import android.net.NetworkCapabilities;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -34,6 +38,7 @@ import androidx.media3.common.PlaybackParameters;
 import androidx.media3.common.Player;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.datasource.DefaultDataSource;
+import androidx.media3.datasource.okhttp.OkHttpDataSource;
 import androidx.media3.exoplayer.DefaultLoadControl;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.analytics.AnalyticsListener;
@@ -45,6 +50,7 @@ import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.source.ProgressiveMediaSource;
 
 import com.kiduyu.klaus.kiduyutv.R;
+import com.kiduyu.klaus.kiduyutv.Api.FetchStreams;
 import com.kiduyu.klaus.kiduyutv.model.MediaItems;
 import com.kiduyu.klaus.kiduyutv.utils.SurfaceViewImageLoader;
 
@@ -76,7 +82,7 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
     private boolean areControlsVisible = false;
 
     // Data lists
-    private List<String> subtitleOptions = Arrays.asList("Off", "English", "Spanish", "French", "German", "Original");
+    private List<MediaItems.SubtitleItem> subtitleOptions ;
     private List<MediaItems.VideoSource> qualityOptions;
     private List<String> serverOptions = Arrays.asList("Server 1", "Server 2", "Server 3", "Server 4");
     private List<Float> speedOptions = Arrays.asList(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f);
@@ -93,7 +99,15 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
 
     // Source fallback mechanism
     private int currentSourceIndex = 0;
-    SurfaceViewImageLoader loader ;
+    SurfaceViewImageLoader loader;
+
+    // Retry mechanism for playback errors
+    private int retryCount = 0;
+    private static final int MAX_RETRIES = 3;
+
+    // Network monitoring
+    private ConnectivityManager.NetworkCallback networkCallback;
+    private boolean isNetworkAvailable = true;
 
 
     private MediaItems sourceMediaItem;
@@ -117,7 +131,16 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
 
         //loader = new SurfaceViewImageLoader();
         // Detailed debugging for headers
+        Log.i(TAG, "Headers:\n" + sourceMediaItem.getSubtitles().toString());
         Log.i(TAG, "Loading media:\n" + sourceMediaItem.getVideoSources().toString());
+
+        for(MediaItems.VideoSource videoSource : sourceMediaItem.getVideoSources()){
+            Log.i(TAG, "Quality: " + videoSource.getQuality());
+            Log.i(TAG, "URL: " + videoSource.getUrl());
+
+
+
+        }
 
         //Log.i(TAG, "Quality options:\n" + qualityOptions.toString());
         Log.i(TAG, "background image url:\n" + sourceMediaItem.getBackgroundImageUrl());
@@ -137,6 +160,8 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
         //hideControls();
         showControls();
 
+        // Register network callback for monitoring connectivity
+        //registerNetworkCallback();
 
 
     }
@@ -167,7 +192,6 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
         loadingIndicator = findViewById(R.id.loadingIndicator);
         centerPauseIcon = findViewById(R.id.centerPauseIcon);
 
-
         videoDescription.setText(sourceMediaItem.getDescription());
         videoTitle.setText(sourceMediaItem.getTitle());
 
@@ -189,7 +213,27 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
         }
 
         btnAudio.setText(audioOptions.get(currentAudio));
-        btnSubtitles.setText("🗨 " + subtitleOptions.get(currentSubtitle));
+
+        // Dynamic subtitle button text
+        String subtitleText;
+        if (currentSubtitle == 0) {
+            subtitleText = "🗨 Off";
+        } else if (sourceMediaItem != null && sourceMediaItem.getSubtitles() != null &&
+                !sourceMediaItem.getSubtitles().isEmpty()) {
+            int subtitleIndex = currentSubtitle - 1;
+            if (subtitleIndex < sourceMediaItem.getSubtitles().size()) {
+                MediaItems.SubtitleItem subtitle = sourceMediaItem.getSubtitles().get(subtitleIndex);
+                String displayName = subtitle.getLanguage() != null && !subtitle.getLanguage().isEmpty()
+                        ? subtitle.getLanguage()
+                        : subtitle.getLang();
+                subtitleText = "🗨 " + displayName;
+            } else {
+                subtitleText = "🗨 Subtitles";
+            }
+        } else {
+            subtitleText = "🗨 Subtitles";
+        }
+        btnSubtitles.setText(subtitleText);
     }
 
     private void setupFocusListeners() {
@@ -276,14 +320,22 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
     private void setupExoPlayer() {
         // Clear the background image from SurfaceView before ExoPlayer takes over
         //loader.clearSurfaceView(videoSurface);
+
+        // Enhanced LoadControl for better buffering - prevents socket closure due to buffering issues
+
+        videoSurface.setVisibility(View.VISIBLE);
+        DefaultLoadControl loadControl = new DefaultLoadControl.Builder()
+                .setBufferDurationsMs(
+                        30000,   // Min buffer (30s) - increased from 15s for smoother playback
+                        120000,  // Max buffer (2min) - increased from 50s for longer buffer
+                        10000,    // Buffer for playback (5s) - increased from 2.5s
+                        10000    // Buffer after rebuffer (10s) - increased from 5s
+                )
+                .setPrioritizeTimeOverSizeThresholds(true)
+                .build();
+
         exoPlayer = new ExoPlayer.Builder(this)
-                .setLoadControl(new DefaultLoadControl.Builder()
-                        .setBufferDurationsMs(
-                                15000,  // Min buffer
-                                50000,  // Max buffer
-                                2500,   // Buffer for playback
-                                5000    // Buffer for playback after rebuffer
-                        ).build())
+                .setLoadControl(loadControl)
                 .build();
         exoPlayer.setVideoSurfaceHolder(videoSurface.getHolder());
 
@@ -325,20 +377,7 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
             @Override
             public void onPlayerError(@NonNull PlaybackException error) {
                 Log.e(TAG, "Playback error: " + error.getMessage(), error);
-                hideLoading();
-                hideStreamingStatus();
-
-                // Show user-friendly error message
-                String errorMessage = "Playback error";
-                if (error.errorCode == PlaybackException.ERROR_CODE_DECODER_INIT_FAILED) {
-                    errorMessage = "Video decoder failed. Try a different quality.";
-                } else if (error.errorCode == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED) {
-                    errorMessage = "Network error. Check your connection.";
-                }
-
-                showToast(errorMessage);
-                finish();
-
+                handlePlaybackError(error);
             }
 
         });
@@ -350,10 +389,100 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
                 Log.e(TAG, "Load error: " + error.getMessage() +
                         " | URL: " + loadEventInfo.uri +
                         " | Canceled: " + wasCanceled);
+
+                // Auto-retry on network errors
+                if (!wasCanceled && isNetworkError(error)) {
+                    runOnUiThread(() -> {
+                        if (retryCount < MAX_RETRIES) {
+                            retryCount++;
+                            Log.i(TAG, "Network load error, retry attempt " + retryCount + "/" + MAX_RETRIES);
+                            showToast("Connection issue, retrying... (" + retryCount + "/" + MAX_RETRIES + ")");
+                            handler.postDelayed(() -> retryPlayback(), 2000);
+                        }
+                    });
+                }
             }
         });
 
         loadVideo();
+    }
+
+    // ============================================
+    // Error Handling and Retry Logic
+    // ============================================
+
+    private void handlePlaybackError(PlaybackException error) {
+        hideLoading();
+        hideStreamingStatus();
+
+        String errorMessage = "Playback error";
+        boolean canRetry = false;
+
+        switch (error.errorCode) {
+            case PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED:
+            case PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT:
+            case PlaybackException.ERROR_CODE_IO_READ_POSITION_OUT_OF_RANGE:
+                errorMessage = "Network connection failed";
+                canRetry = true;
+                break;
+
+            case PlaybackException.ERROR_CODE_DECODER_INIT_FAILED:
+                errorMessage = "Video decoder failed. Try different quality.";
+                break;
+
+            case PlaybackException.ERROR_CODE_IO_UNSPECIFIED:
+                errorMessage = "Stream error occurred";
+                canRetry = true;
+                break;
+
+            default:
+                errorMessage = "Playback error: " + error.getErrorCodeName();
+                canRetry = error.errorCode >= 1000 && error.errorCode < 2000; // Network-related errors
+                break;
+        }
+
+        if (canRetry && retryCount < MAX_RETRIES) {
+            retryCount++;
+            Log.i(TAG, "Retrying playback, attempt " + retryCount + "/" + MAX_RETRIES);
+            showToast("Connection issue, retrying... (" + retryCount + "/" + MAX_RETRIES + ")");
+
+            handler.postDelayed(() -> retryPlayback(), 2000);
+        } else {
+            showToast(errorMessage);
+            retryCount = 0;
+            finish();
+        }
+    }
+
+    private void retryPlayback() {
+        if (exoPlayer != null) {
+            // Save position
+            long position = exoPlayer.getCurrentPosition();
+
+            // Reset player
+            exoPlayer.stop();
+            exoPlayer.clearMediaItems();
+
+            // Reload
+            loadVideo();
+
+            // Restore position
+            if (position > 0) {
+                exoPlayer.seekTo(position);
+            }
+        }
+    }
+
+    private boolean isNetworkError(IOException error) {
+        return error instanceof java.net.SocketException ||
+                error instanceof java.net.SocketTimeoutException ||
+                error instanceof java.net.UnknownHostException ||
+                (error.getMessage() != null && (
+                        error.getMessage().contains("Connection") ||
+                                error.getMessage().contains("Socket") ||
+                                error.getMessage().contains("timeout") ||
+                                error.getMessage().contains("EAI")
+                ));
     }
 
     @OptIn(markerClass = UnstableApi.class)
@@ -367,6 +496,7 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
 
         // Get video URI and background/artwork URL
         Uri videoUri = getMediaUri(sourceMediaItem);
+        //Uri videoUri = Uri.parse(VIDEO_URL);
         String backgroundUrl = sourceMediaItem.getPreferredBackgroundUrl();
 
         Log.i("PlayerActivity", "Preparing playback - Video URI: " + videoUri);
@@ -437,6 +567,7 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
         exoPlayer.prepare();
         exoPlayer.setPlayWhenReady(true);
         exoPlayer.play();
+        handler.post(updateProgressTask);
 
         // Apply saved speed
         //exoPlayer.setPlaybackSpeed(currentSpeed);
@@ -447,14 +578,15 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
      */
     @RequiresApi(api = Build.VERSION_CODES.N)
     private MediaSource createMediaSourceFromMediaItem(MediaItem mediaItem) {
-        Log.d("PlayerActivity", "Creating media source");
+        Log.i("PlayerActivity", "Creating media source");
         // Check if we need to apply custom headers
-        boolean needsCustomHeaders = sourceMediaItem != null &&
-                sourceMediaItem.getCustomHeaders() != null &&
-                !sourceMediaItem.getCustomHeaders().isEmpty();
+//        boolean needsCustomHeaders = sourceMediaItem != null &&
+//                sourceMediaItem.getCustomHeaders() != null &&
+//                !sourceMediaItem.getCustomHeaders().isEmpty();
+        boolean needsCustomHeaders = false;
 
         if (needsCustomHeaders) {
-            Log.d("PlayerActivity", "Applying session headers for protected stream");
+            Log.i("PlayerActivity", "Applying session headers for protected stream");
             return createProtectedMediaSource(mediaItem);
         } else {
             // Standard media source without custom headers
@@ -464,45 +596,67 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
 
     /**
      * Create media source WITH session headers for Cloudflare bypass
+     * Enhanced with Keep-Alive headers to prevent socket closure
      */
+
+
     @OptIn(markerClass = UnstableApi.class)
     @RequiresApi(api = Build.VERSION_CODES.N)
     private MediaSource createProtectedMediaSource(MediaItem mediaItem) {
-        // Build custom headers
+        // Build custom headers with keep-alive
         Map<String, String> headers = new HashMap<>();
 
-        // Add session cookie first (highest priority)
+        // CRITICAL: Always add these headers to prevent socket closure
+        headers.put("Connection", "keep-alive");
+        headers.put("Keep-Alive", "timeout=300, max=1000");
+        headers.put("Accept-Encoding", "gzip, deflate");
+
+        // *** DEBUG: Log what we have ***
+        Log.i(TAG, "DEBUG: sourceMediaItem.getSessionCookie() = " +
+                (sourceMediaItem.getSessionCookie() != null ?
+                        sourceMediaItem.getSessionCookie().substring(0, Math.min(100, sourceMediaItem.getSessionCookie().length())) + "..." :
+                        "NULL"));
+
+        // *** FIX: Add session cookie FIRST (highest priority) ***
         if (sourceMediaItem.getSessionCookie() != null && !sourceMediaItem.getSessionCookie().isEmpty()) {
-            headers.put("Cookie", sourceMediaItem.getSessionCookie());
-            Log.d("PlayerActivity", "Added session cookie to headers");
+            // Check if it's JSON format (default cookies) - parse it
+            String cookie = sourceMediaItem.getSessionCookie();
+
+            // If it looks like JSON, parse it to extract cookie value
+            if (cookie.startsWith("[{") && cookie.contains("\"name\"")) {
+                cookie = parseJsonCookie(cookie);
+            }
+
+            headers.put("Cookie", cookie);
+            Log.i(TAG, "✓ Added session cookie to headers (length: " + cookie.length() + ")");
+        } else {
+            Log.w(TAG, "⚠ No session cookie available!");
         }
 
-        // Add custom headers from MediaItems
+        // Add custom headers from MediaItems (may override some values)
         if (sourceMediaItem.getCustomHeaders() != null) {
             headers.putAll(sourceMediaItem.getCustomHeaders());
-            Log.d("PlayerActivity", "Added " + sourceMediaItem.getCustomHeaders().size() + " custom headers");
+            Log.i(TAG, "Added " + sourceMediaItem.getCustomHeaders().size() + " custom headers");
         }
 
         // Add referer if available (override from custom headers if needed)
         if (sourceMediaItem.getRefererUrl() != null && !sourceMediaItem.getRefererUrl().isEmpty()) {
             headers.put("Referer", sourceMediaItem.getRefererUrl());
-            Log.d("PlayerActivity", "Added referer: " + sourceMediaItem.getRefererUrl());
+            Log.i(TAG, "Added referer: " + sourceMediaItem.getRefererUrl());
         }
 
         // CRITICAL: Include Cloudflare response headers in request headers
-        // This helps maintain the session when playing protected streams
         if (sourceMediaItem.getResponseHeaders() != null) {
-            // Add Cloudflare-specific headers that might be needed for session continuity
             if (sourceMediaItem.getResponseHeaders().containsKey("cf-ray")) {
                 String cfRay = sourceMediaItem.getResponseHeaders().get("cf-ray");
                 headers.put("X-CF-RAY", cfRay);
-                Log.d("PlayerActivity", "Added CF-RAY header for session continuity");
+                Log.i(TAG, "Added CF-RAY header for session continuity");
             }
 
             if (sourceMediaItem.getResponseHeaders().containsKey("cf-cache-status")) {
                 String cfCacheStatus = sourceMediaItem.getResponseHeaders().get("cf-cache-status");
                 headers.put("X-CF-Cache-Status", cfCacheStatus);
-                Log.d("PlayerActivity", "Added CF-Cache-Status header");
+                Log.i(TAG, "Added CF-Cache-Status header");
             }
 
             if (sourceMediaItem.getResponseHeaders().containsKey("server")) {
@@ -510,56 +664,107 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
                 headers.put("X-Source-Server", server);
             }
 
-            // Log all response headers being used
-            Log.d("PlayerActivity", "Response headers available: " + sourceMediaItem.getResponseHeaders().size());
-            for (Map.Entry<String, String> entry : sourceMediaItem.getResponseHeaders().entrySet()) {
-                Log.d("PlayerActivity", "  Response header: " + entry.getKey() + " = " + entry.getValue());
-            }
+            Log.i(TAG, "Response headers available: " + sourceMediaItem.getResponseHeaders().size());
         }
 
         // Log all headers being applied
-        Log.d("PlayerActivity", "Applying " + headers.size() + " headers for protected stream:");
+        Log.i(TAG, "Applying " + headers.size() + " headers for protected stream:");
         for (Map.Entry<String, String> entry : headers.entrySet()) {
             String value = entry.getValue();
             // Mask sensitive header values for logging
             if (entry.getKey().equalsIgnoreCase("Cookie") || entry.getKey().equalsIgnoreCase("Authorization")) {
-                Log.d("PlayerActivity", "  " + entry.getKey() + ": [MASKED - length: " + value.length() + "]");
+                Log.i(TAG, "  " + entry.getKey() + ": [MASKED - length: " + value.length() + "]");
             } else {
-                Log.d("PlayerActivity", "  " + entry.getKey() + ": " + value);
+                Log.i(TAG, "  " + entry.getKey() + ": " + value);
             }
         }
-        headers.put("Connection", "keep-alive");
-        headers.put("Accept-Encoding", "gzip, deflate");
-        // Create custom HTTP data source with headers
-        androidx.media3.datasource.DefaultHttpDataSource.Factory httpDataSourceFactory =
-                new androidx.media3.datasource.DefaultHttpDataSource.Factory()
-                        .setDefaultRequestProperties(headers)
-                        .setConnectTimeoutMs(30000)
-                        .setReadTimeoutMs(30000)
-                        .setKeepPostFor302Redirects(true)
-                        .setAllowCrossProtocolRedirects(true)
-                        .setUserAgent(headers.getOrDefault("User-Agent",
-                                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"));
 
-        DefaultDataSource.Factory dataSourceFactory =
-                new DefaultDataSource.Factory(this, httpDataSourceFactory);
+        // Add range header for video streaming
+        headers.put("Range", "bytes=0-");
+
+        // Create OkHttpDataSource.Factory using the shared OkHttpClient from FetchStreams
+        OkHttpDataSource.Factory okHttpDataSourceFactory = new OkHttpDataSource.Factory(
+                FetchStreams.getSharedClient()
+        ).setDefaultRequestProperties(headers);
+
+        // Wrap with DefaultDataSource.Factory for proper media source handling
+        DefaultDataSource.Factory dataSourceFactory = new DefaultDataSource.Factory(
+                this, okHttpDataSourceFactory);
 
         String uriString = mediaItem.localConfiguration.uri.toString().toLowerCase();
 
-        Log.d("PlayerActivity", "Creating media source for URI: " + uriString);
+        Log.i(TAG, "Creating protected media source for URI: " + uriString);
 
         if (uriString.contains(".m3u8") || uriString.contains("m3u8")) {
-            Log.d("PlayerActivity", "Using HLS media source with custom headers");
+            Log.i(TAG, "Using HLS media source with shared OkHttpClient and keep-alive");
             return new HlsMediaSource.Factory(dataSourceFactory)
+                    .setAllowChunklessPreparation(true)
                     .createMediaSource(mediaItem);
         } else if (uriString.contains(".mpd") || uriString.contains("mpd")) {
-            Log.d("PlayerActivity", "Using DASH media source with custom headers");
+            Log.i(TAG, "Using DASH media source with shared OkHttpClient and keep-alive");
             return new DashMediaSource.Factory(dataSourceFactory)
                     .createMediaSource(mediaItem);
         } else {
-            Log.d("PlayerActivity", "Using Progressive media source with custom headers");
+            Log.i(TAG, "Using Progressive media source with shared OkHttpClient and keep-alive");
             return new ProgressiveMediaSource.Factory(dataSourceFactory)
                     .createMediaSource(mediaItem);
+        }
+    }
+
+    /**
+     * Parse JSON-formatted cookie string to extract name=value pairs
+     * Example input: [{"name":"perf_dv6Tr4n","value":"1",...}]
+     * Example output: perf_dv6Tr4n=1
+     */
+    private String parseJsonCookie(String jsonCookie) {
+        try {
+            StringBuilder cookieString = new StringBuilder();
+
+            // Simple JSON parsing to extract name and value
+            String json = jsonCookie.trim();
+            if (json.startsWith("[")) json = json.substring(1);
+            if (json.endsWith("]")) json = json.substring(0, json.length() - 1);
+
+            // Split by "},{"
+            String[] cookieObjects = json.split("\\},\\{");
+
+            for (String cookieObj : cookieObjects) {
+                String name = extractJsonValue(cookieObj, "name");
+                String value = extractJsonValue(cookieObj, "value");
+
+                if (name != null && value != null) {
+                    if (cookieString.length() > 0) {
+                        cookieString.append("; ");
+                    }
+                    cookieString.append(name).append("=").append(value);
+                }
+            }
+
+            String result = cookieString.toString();
+            Log.i(TAG, "Parsed JSON cookie to: " + result);
+            return result;
+        } catch (Exception e) {
+            Log.e(TAG, "Error parsing JSON cookie: " + e.getMessage());
+            return jsonCookie; // Return as-is if parsing fails
+        }
+    }
+
+    /**
+     * Extract value from simple JSON string
+     */
+    private String extractJsonValue(String json, String key) {
+        try {
+            String searchFor = "\"" + key + "\":\"";
+            int startIndex = json.indexOf(searchFor);
+            if (startIndex == -1) return null;
+
+            startIndex += searchFor.length();
+            int endIndex = json.indexOf("\"", startIndex);
+            if (endIndex == -1) return null;
+
+            return json.substring(startIndex, endIndex);
+        } catch (Exception e) {
+            return null;
         }
     }
 
@@ -568,7 +773,13 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
      */
     @OptIn(markerClass = UnstableApi.class)
     private MediaSource createStandardMediaSource(MediaItem mediaItem) {
-        DefaultDataSource.Factory dataSourceFactory = new DefaultDataSource.Factory(this);
+        // Use shared OkHttpClient from FetchStreams for connection pooling
+        OkHttpDataSource.Factory okHttpDataSourceFactory = new OkHttpDataSource.Factory(
+                FetchStreams.getSharedClient());
+
+        DefaultDataSource.Factory dataSourceFactory = new DefaultDataSource.Factory(
+                this, okHttpDataSourceFactory);
+
         String uriString = mediaItem.localConfiguration.uri.toString().toLowerCase();
 
         if (uriString.contains(".m3u8") || uriString.contains("m3u8")) {
@@ -701,18 +912,51 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
     }
 
     private void showSubtitlesDialog() {
+        // Build subtitle options list
+        List<String> subtitleOptionsList = new ArrayList<>();
+        subtitleOptionsList.add("Off"); // Always add "Off" as first option
+
+        // Add subtitles from sourceMediaItem if available
+        if (sourceMediaItem != null && sourceMediaItem.getSubtitles() != null &&
+                !sourceMediaItem.getSubtitles().isEmpty()) {
+            for (MediaItems.SubtitleItem subtitle : sourceMediaItem.getSubtitles()) {
+                // Use language name if available, otherwise use lang code
+                String displayName = subtitle.getLanguage() != null && !subtitle.getLanguage().isEmpty()
+                        ? subtitle.getLanguage()
+                        : subtitle.getLang();
+                subtitleOptionsList.add(displayName);
+            }
+        } else if (sourceMediaItem != null && sourceMediaItem.getSubtitleUrl() != null &&
+                !sourceMediaItem.getSubtitleUrl().isEmpty()) {
+            // Fallback: if single subtitle URL exists
+            subtitleOptionsList.add("English"); // Default to English for single subtitle
+        }
+
+        // Convert to array for dialog
+        String[] subtitleLabels = subtitleOptionsList.toArray(new String[0]);
+
+        // Ensure currentSubtitle index is valid
+        if (currentSubtitle >= subtitleLabels.length) {
+            currentSubtitle = 0;
+        }
+
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle("Select Subtitles");
-        builder.setSingleChoiceItems(subtitleOptions.toArray(new String[0]),
-                currentSubtitle, (dialog, which) -> {
-                    currentSubtitle = which;
-                    updateButtonTexts();
-                    showToast("Subtitles: " + subtitleOptions.get(which));
-                    dialog.dismiss();
+        builder.setSingleChoiceItems(subtitleLabels, currentSubtitle, (dialog, which) -> {
+            currentSubtitle = which;
+            updateButtonTexts();
 
-                    // Reload video with/without subtitles
-                    loadVideo();
-                });
+            if (which == 0) {
+                showToast("Subtitles: Off");
+            } else {
+                showToast("Subtitles: " + subtitleLabels[which]);
+            }
+
+            dialog.dismiss();
+
+            // Reload video with selected subtitles
+            loadVideo();
+        });
         builder.show();
     }
 
@@ -867,25 +1111,18 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
         Log.i(TAG, "Surface created");
         isSurfaceReady = true;
 
-        // Load background image to surface
-        //loader.loadImageToSurfaceView(videoSurface, sourceMediaItem.getBackgroundImageUrl());
-
-        // Delay ExoPlayer setup to let background image load
-        handler.postDelayed(() -> {
-            if (isSurfaceReady) {
                 setupExoPlayer();
-            }
-        }, 1000);
+
     }
 
     @Override
     public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
-        Log.d(TAG, "Surface changed: " + width + "x" + height);
+        Log.i(TAG, "Surface changed: " + width + "x" + height);
     }
 
     @Override
     public void surfaceDestroyed(SurfaceHolder holder) {
-        Log.d(TAG, "Surface destroyed");
+        Log.i(TAG, "Surface destroyed");
         isSurfaceReady = false;
     }
 }

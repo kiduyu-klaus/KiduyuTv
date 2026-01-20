@@ -330,7 +330,7 @@ public class SearchActivity extends AppCompatActivity {
         trendingContainer.setVisibility(View.GONE);
         noResultsText.setVisibility(View.GONE);
 
-        Log.d(TAG, "Searching for: " + query + " (filter: " + currentFilter + ")");
+        Log.i(TAG, "Searching for: " + query + " (filter: " + currentFilter + ")");
 
         // Add to search history
         preferencesManager.addToSearchHistory(query);

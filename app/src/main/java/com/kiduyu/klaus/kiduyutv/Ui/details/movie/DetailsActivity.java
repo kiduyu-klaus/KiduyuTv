@@ -1,9 +1,5 @@
 package com.kiduyu.klaus.kiduyutv.Ui.details.movie;
 
-import static com.kiduyu.klaus.kiduyutv.Api.FetchStreams.SmashyServer.SMASHYSTREAM;
-import static com.kiduyu.klaus.kiduyutv.Api.FetchStreams.SmashyServer.VIDEOFSH;
-import static com.kiduyu.klaus.kiduyutv.Api.FetchStreams.SmashyServer.VIDEOOPHIM;
-
 import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
@@ -40,9 +36,10 @@ import java.util.List;
 
 public class DetailsActivity extends AppCompatActivity {
     private static final String TAG = "DetailsActivity";
+
+    // UI Components
     private MediaItems mediaItems;
     private ImageView backdropImageView;
-    private ImageView posterImageView;
     private TextView titleTextView;
     private TextView descriptionTextView;
     private TextView yearTextView;
@@ -55,6 +52,7 @@ public class DetailsActivity extends AppCompatActivity {
     private AppCompatButton favoriteButton;
     private ProgressBar loadingProgressBar;
     private RelativeLayout loadingOverlay;
+    private TextView loadingText;
     private RecyclerView recommendationsRecyclerView;
     private TextView recommendationsTitle;
     private ProgressBar recommendationsLoadingBar;
@@ -66,6 +64,11 @@ public class DetailsActivity extends AppCompatActivity {
     private CastAdapter castAdapter;
     private CastRepository castRepository;
 
+    // FetchStreams for video source fetching
+    private FetchStreams fetchStreams;
+    private int currentServerIndex = 0;
+    private List<ServerSource> serverSources;
+
     private TmdbRepository mediaRepository;
     private RecommendationsAdapter recommendationsAdapter;
 
@@ -74,14 +77,19 @@ public class DetailsActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_details);
+
         mediaItems = getIntent().getParcelableExtra("media_item");
 
         if (mediaItems == null) {
             finish();
             return;
         }
-        // Detailed debugging
+
         Log.i("PlayerActivity", "Loading media:\n" + mediaItems.toString());
+
+        // Initialize FetchStreams instance
+        initializeFetchStreams();
+
         mediaRepository = new TmdbRepository();
         castRepository = new CastRepository();
 
@@ -92,12 +100,33 @@ public class DetailsActivity extends AppCompatActivity {
         setupRecommendations();
         loadCast();
         loadRecommendations();
+    }
 
+    /**
+     * Initialize FetchStreams instance and setup server sources
+     */
+    private void initializeFetchStreams() {
+        fetchStreams = new FetchStreams();
+        setupServerSources();
+    }
+
+    /**
+     * Setup the list of servers to try in order
+     */
+    private void setupServerSources() {
+        serverSources = new ArrayList<>();
+
+        // Add servers in priority order
+        serverSources.add(new ServerSource("Videasy", ServerType.VIDEASY));
+        serverSources.add(new ServerSource("Vidlink", ServerType.VIDLINK));
+        serverSources.add(new ServerSource("Hexa", ServerType.HEXA));
+        serverSources.add(new ServerSource("OneTouchTV", ServerType.ONETOUCHTV));
+        serverSources.add(new ServerSource("Smashystream Type 1", ServerType.SMASHYSTREAM_TYPE1));
+        serverSources.add(new ServerSource("Smashystream Type 2", ServerType.SMASHYSTREAM_TYPE2));
     }
 
     private void initializeViews() {
         backdropImageView = findViewById(R.id.backdropImageView);
-        //posterImageView = findViewById(R.id.posterImageView);
         titleTextView = findViewById(R.id.titleTextView);
         descriptionTextView = findViewById(R.id.descriptionTextView);
         yearTextView = findViewById(R.id.yearTextView);
@@ -110,6 +139,7 @@ public class DetailsActivity extends AppCompatActivity {
         favoriteButton = findViewById(R.id.favoriteButton);
         loadingProgressBar = findViewById(R.id.loadingProgressBar);
         loadingOverlay = findViewById(R.id.loadingOverlay);
+        loadingText = findViewById(R.id.loadingText); // Add this to your layout
         recommendationsRecyclerView = findViewById(R.id.recommendationsRecyclerView);
         recommendationsTitle = findViewById(R.id.recommendationsTitle);
         recommendationsLoadingBar = findViewById(R.id.recommendationsLoadingBar);
@@ -127,12 +157,7 @@ public class DetailsActivity extends AppCompatActivity {
                     .centerCrop()
                     .into(backdropImageView);
         }
-        /**if (mediaItems.getPosterUrl() != null) {
-         Glide.with(this)
-         .load(mediaItems.getPosterUrl())
-         .centerCrop()
-         .into(posterImageView);
-         }**/
+
         titleTextView.setText(mediaItems.getTitle());
         descriptionTextView.setText(mediaItems.getDescription());
 
@@ -306,66 +331,257 @@ public class DetailsActivity extends AppCompatActivity {
         favoriteButton.setOnFocusChangeListener(focusChangeListener);
     }
 
+    /**
+     * Fetch video sources from multiple servers sequentially
+     */
     private void fetchVideoSources() {
-        //loadingOverlay.setVisibility(View.GONE);
         loadingOverlay.setVisibility(View.VISIBLE);
         playButton.setEnabled(false);
+        currentServerIndex = 0;
 
         String title = mediaItems.getTitle();
         String year = String.valueOf(mediaItems.getYear());
         String tmdbId = mediaItems.getTmdbId();
-        String mediaType = mediaItems.getMediaType();
+        String imdbId = mediaItems.getId(); // Assuming this contains IMDB ID
 
         Log.i(TAG, "Fetching video sources for: " + title + " (" + year + ") [" + tmdbId + "]");
         Log.i(TAG, "fetchVideoSources: " + title + " (" + year + ") [" + tmdbId + "]");
-        //FetchStreams.getInstance().fetchSmashyStreamsMovie(tmdbId,tmdbId,VIDEOOPHIM, new FetchStreams.VideasyCallback() {
-        //FetchStreams.getInstance().fetchHexaStreamsMovie(tmdbId, new FetchStreams.VideasyCallback() {
-        FetchStreams.getInstance().fetchVideasyStreamsMovie(title,year,tmdbId, new FetchStreams.VideasyCallback() {
+
+        // Start trying servers for MOVIE only
+        tryNextServer(title, year, tmdbId, imdbId);
+    }
+
+    /**
+     * Try the next server in the list
+
+     private void tryNextServer(String title, String year, String tmdbId, String imdbId) {
+     if (currentServerIndex >= serverSources.size()) {
+     // All servers failed
+     loadingOverlay.setVisibility(View.GONE);
+     playButton.setEnabled(true);
+
+     Toast.makeText(DetailsActivity.this,
+     "Unable to find video sources from any server",
+     Toast.LENGTH_LONG).show();
+
+     Log.e(TAG, "All servers failed to fetch video sources");
+     return;
+     }
+
+     ServerSource currentServer = serverSources.get(currentServerIndex);
+     Log.i(TAG, "Trying server [" + (currentServerIndex + 1) + "/" + serverSources.size() + "]: " +
+     currentServer.name);
+
+     // Show which server we're trying
+     if (loadingText != null) {
+     loadingText.setText("Loading from " + currentServer.name + "...");
+     }
+
+     FetchStreams.StreamCallback callback = new FetchStreams.StreamCallback() {
+    @Override public void onSuccess(MediaItems updatedItem) {
+    // Validate the response has actual video sources
+    if (updatedItem != null && updatedItem.hasValidVideoSources()) {
+    loadingOverlay.setVisibility(View.GONE);
+    playButton.setEnabled(true);
+
+    Log.i(TAG, "✓ Success with " + currentServer.name);
+    Log.i(TAG, "Video sources: " + updatedItem.getVideoSources().size());
+    Log.i(TAG, "Subtitles: " + updatedItem.getSubtitles().size());
+
+    // Update current media item with video sources
+    mediaItems.setVideoSources(updatedItem.getVideoSources());
+    mediaItems.setSubtitles(updatedItem.getSubtitles());
+    mediaItems.setRefererUrl(updatedItem.getRefererUrl());
+    mediaItems.setCustomHeaders(updatedItem.getCustomHeaders());
+    mediaItems.setResponseHeaders(updatedItem.getResponseHeaders());
+
+    // Also copy over URLs if available
+    if (updatedItem.getHlsUrl() != null) {
+    mediaItems.setHlsUrl(updatedItem.getHlsUrl());
+    }
+    if (updatedItem.getDashUrl() != null) {
+    mediaItems.setDashUrl(updatedItem.getDashUrl());
+    }
+    if (updatedItem.getVideoUrl() != null) {
+    mediaItems.setVideoUrl(updatedItem.getVideoUrl());
+    }
+
+    Toast.makeText(DetailsActivity.this,
+    "Loaded from " + currentServer.name,
+    Toast.LENGTH_SHORT).show();
+
+    launchPlayer();
+    } else {
+    // No valid sources, try next server
+    Log.w(TAG, "✗ " + currentServer.name + " returned no valid sources");
+    currentServerIndex++;
+    tryNextServer(title, year, tmdbId, imdbId);
+    }
+    }
+
+    @Override public void onError(String error) {
+    Log.e(TAG, "✗ " + currentServer.name + " failed: " + error);
+
+    // Try next server
+    currentServerIndex++;
+    tryNextServer(title, year, tmdbId, imdbId);
+    }
+    };
+
+     // Call appropriate server based on type - MOVIES ONLY
+     try {
+     switch (currentServer.type) {
+     case VIDEASY:
+     fetchStreams.fetchVideasyMovie(title, year, tmdbId, callback);
+     break;
+
+     case VIDLINK:
+     fetchStreams.fetchVidlinkMovie(tmdbId, callback);
+     break;
+
+     case HEXA:
+     fetchStreams.fetchHexaMovie(tmdbId, callback);
+     break;
+
+     case ONETOUCHTV:
+     // OneTouchTV requires vodId - you may need to search/map tmdbId to vodId
+     // For now, using tmdbId as placeholder
+     // Note: This might need adjustment based on actual API requirements
+     fetchStreams.fetchOnetouchtvMovie(tmdbId, callback);
+     break;
+
+     case SMASHYSTREAM_TYPE1:
+     // Requires IMDB ID
+     if (imdbId != null && !imdbId.isEmpty()) {
+     fetchStreams.fetchSmashystreamMovie(imdbId, tmdbId, "1", callback);
+     } else {
+     // Skip if no IMDB ID
+     Log.w(TAG, "Skipping Smashystream Type 1 - no IMDB ID");
+     currentServerIndex++;
+     tryNextServer(title, year, tmdbId, imdbId);
+     }
+     break;
+
+     case SMASHYSTREAM_TYPE2:
+     fetchStreams.fetchSmashystreamMovie(imdbId, tmdbId, "2", callback);
+     break;
+
+     default:
+     // Unknown server type, skip
+     currentServerIndex++;
+     tryNextServer(title, year, tmdbId, imdbId);
+     break;
+     }
+     } catch (Exception e) {
+     Log.e(TAG, "Exception calling " + currentServer.name + ": " + e.getMessage(), e);
+     currentServerIndex++;
+     tryNextServer(title, year, tmdbId, imdbId);
+     }
+     }
+     */
+
+    /**
+     * Try the next server in the list (SMASHYSTREAM_TYPE2 and HEXA only)
+     */
+    private void tryNextServer(String title, String year, String tmdbId, String imdbId) {
+        if (currentServerIndex >= serverSources.size()) {
+            // All servers failed
+            loadingOverlay.setVisibility(View.GONE);
+            playButton.setEnabled(true);
+
+            Toast.makeText(DetailsActivity.this,
+                    "Unable to find video sources from any server",
+                    Toast.LENGTH_LONG).show();
+
+            Log.e(TAG, "All servers failed to fetch video sources");
+            return;
+        }
+
+        ServerSource currentServer = serverSources.get(currentServerIndex);
+        Log.i(TAG, "Trying server [" + (currentServerIndex + 1) + "/" + serverSources.size() + "]: " +
+                currentServer.name);
+
+        // Show which server we're trying
+        if (loadingText != null) {
+            loadingText.setText("Loading from " + currentServer.name + "...");
+        }
+
+        FetchStreams.StreamCallback callback = new FetchStreams.StreamCallback() {
             @Override
             public void onSuccess(MediaItems updatedItem) {
-                // Handle success
-                loadingOverlay.setVisibility(View.GONE);
-                playButton.setEnabled(true);
+                // Validate the response has actual video sources
+                if (updatedItem != null && updatedItem.hasValidVideoSources()) {
+                    loadingOverlay.setVisibility(View.GONE);
+                    playButton.setEnabled(true);
 
-                // Update current media item with video sources and headers
-                Log.i(TAG, "Video sources fetched: " +
-                        updatedItem.getVideoSources().toString());
+                    Log.i(TAG, "✓ Success with " + currentServer.name);
+                    Log.i(TAG, "Video sources: " + updatedItem.getVideoSources().size());
+                    Log.i(TAG, "Subtitles: " + updatedItem.getSubtitles().size());
 
-                mediaItems.setVideoSources(updatedItem.getVideoSources());
-                mediaItems.setSubtitles(updatedItem.getSubtitles());
+                    // Update current media item with video sources
+                    mediaItems.setVideoSources(updatedItem.getVideoSources());
+                    mediaItems.setSubtitles(updatedItem.getSubtitles());
+                    mediaItems.setRefererUrl(updatedItem.getRefererUrl());
+                    mediaItems.setCustomHeaders(updatedItem.getCustomHeaders());
+                    mediaItems.setResponseHeaders(updatedItem.getResponseHeaders());
 
-                // Transfer session headers for Cloudflare/protected stream bypass
-                mediaItems.setCustomHeaders(updatedItem.getCustomHeaders());
-                mediaItems.setResponseHeaders(updatedItem.getResponseHeaders());
-                mediaItems.setSessionCookie(updatedItem.getSessionCookie());
-                mediaItems.setRefererUrl(updatedItem.getRefererUrl());
-                mediaItems.setDescription(mediaItems.getDescription());
+                    // Also copy over URLs if available
+                    if (updatedItem.getHlsUrl() != null) {
+                        mediaItems.setHlsUrl(updatedItem.getHlsUrl());
+                    }
+                    if (updatedItem.getDashUrl() != null) {
+                        mediaItems.setDashUrl(updatedItem.getDashUrl());
+                    }
+                    if (updatedItem.getVideoUrl() != null) {
+                        mediaItems.setVideoUrl(updatedItem.getVideoUrl());
+                    }
 
-                Log.d(TAG, "Video sources fetched: " +
-                        mediaItems.getVideoSources().size());
-                Log.d(TAG, "Custom headers count: " +
-                        (mediaItems.getCustomHeaders() != null ? mediaItems.getCustomHeaders().size() : 0));
-                Log.d(TAG, "Response headers count: " +
-                        (mediaItems.getResponseHeaders() != null ? mediaItems.getResponseHeaders().size() : 0));
+                    Toast.makeText(DetailsActivity.this,
+                            "Loaded from " + currentServer.name,
+                            Toast.LENGTH_SHORT).show();
 
-                launchPlayer();
+                    launchPlayer();
+                } else {
+                    // No valid sources, try next server
+                    Log.w(TAG, "✗ " + currentServer.name + " returned no valid sources");
+                    currentServerIndex++;
+                    tryNextServer(title, year, tmdbId, imdbId);
+                }
             }
 
             @Override
             public void onError(String error) {
-                // Handle error
-                loadingOverlay.setVisibility(View.GONE);
-                playButton.setEnabled(true);
+                Log.e(TAG, "✗ " + currentServer.name + " failed: " + error);
 
-                Toast.makeText(DetailsActivity.this,
-                        "Failed to fetch video sources: " + error,
-                        Toast.LENGTH_LONG).show();
-
-                Log.e(TAG, "Error fetching video sources: " + error);
+                // Try next server
+                currentServerIndex++;
+                tryNextServer(title, year, tmdbId, imdbId);
             }
-        });
+        };
 
+        // Call appropriate server based on type - HEXA and SMASHYSTREAM_TYPE2 only
+        try {
+            switch (currentServer.type) {
+                case HEXA:
+                    fetchStreams.fetchHexaMovie(tmdbId, callback);
+                    break;
 
+                case SMASHYSTREAM_TYPE2:
+                    fetchStreams.fetchSmashystreamMovie(imdbId, tmdbId, "2", callback);
+                    break;
+
+                default:
+                    // Unknown server type, skip
+                    Log.w(TAG, "Skipping unsupported server type: " + currentServer.type);
+                    currentServerIndex++;
+                    tryNextServer(title, year, tmdbId, imdbId);
+                    break;
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Exception calling " + currentServer.name + ": " + e.getMessage(), e);
+            currentServerIndex++;
+            tryNextServer(title, year, tmdbId, imdbId);
+        }
     }
 
     private void launchPlayer() {
@@ -377,5 +593,38 @@ public class DetailsActivity extends AppCompatActivity {
         Intent intent = new Intent(this, PlayerActivity.class);
         intent.putExtra("media_item", mediaItems);
         startActivity(intent);
+    }
+
+    /**
+     * Server type enum for video source fetching
+     */
+    private enum ServerType {
+        VIDEASY,
+        VIDLINK,
+        HEXA,
+        ONETOUCHTV,
+        SMASHYSTREAM_TYPE1,
+        SMASHYSTREAM_TYPE2
+    }
+
+    /**
+     * Server source class to hold server information
+     */
+    private static class ServerSource {
+        String name;
+        ServerType type;
+
+        ServerSource(String name, ServerType type) {
+            this.name = name;
+            this.type = type;
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (fetchStreams != null) {
+            fetchStreams.shutdown();
+        }
     }
 }

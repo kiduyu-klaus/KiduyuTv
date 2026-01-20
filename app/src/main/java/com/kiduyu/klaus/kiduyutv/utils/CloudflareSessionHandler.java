@@ -1,5 +1,5 @@
 // ============================================
-// 1. CloudflareSessionHandler - New Utility Class
+// CloudflareSessionHandler - Cloudflare Session Management Utility
 // ============================================
 
 package com.kiduyu.klaus.kiduyutv.utils;
@@ -19,6 +19,10 @@ public class CloudflareSessionHandler {
      * and organizes them for use in subsequent requests
      */
     public static class CloudflareSession {
+
+        // JSON string containing default cookies
+        public String defaultCookiesJson = "[{\"domain\":\"www.videasy.net\",\"hostOnly\":true,\"httpOnly\":false,\"name\":\"perf_dv6Tr4n\",\"path\":\"/\",\"sameSite\":\"unspecified\",\"secure\":false,\"session\":true,\"storeId\":\"0\",\"value\":\"1\"}]";
+
         public String sessionCookie;           // Combined cookie string for requests
         public String cfRay;                   // CF-RAY identifier (for logging only)
         public String cfCacheStatus;           // Cache status
@@ -37,6 +41,71 @@ public class CloudflareSessionHandler {
             long maxAge = 24 * 60 * 60 * 1000; // 24 hours
 
             return sessionCookie != null && !sessionCookie.isEmpty() && age < maxAge;
+        }
+
+        /**
+         * Get the session cookie, parsing defaultCookiesJson if sessionCookie is null or empty
+         */
+        public String getSessionCookie() {
+            if (sessionCookie == null || sessionCookie.isEmpty()) {
+                return parseDefaultCookies();
+            }
+            return sessionCookie;
+        }
+
+        /**
+         * Parse the defaultCookiesJson and extract cookies in "name=value" format
+         */
+        private String parseDefaultCookies() {
+            try {
+                // Simple JSON parsing to extract name and value
+                // Expected format: [{"name":"cookie_name","value":"cookie_value",...}]
+                StringBuilder cookieString = new StringBuilder();
+
+                // Remove brackets and split by objects
+                String json = defaultCookiesJson.trim();
+                if (json.startsWith("[")) json = json.substring(1);
+                if (json.endsWith("]")) json = json.substring(0, json.length() - 1);
+
+                // Split by "},{"
+                String[] cookieObjects = json.split("\\},\\{");
+
+                for (String cookieObj : cookieObjects) {
+                    String name = extractJsonValue(cookieObj, "name");
+                    String value = extractJsonValue(cookieObj, "value");
+
+                    if (name != null && value != null) {
+                        if (cookieString.length() > 0) {
+                            cookieString.append("; ");
+                        }
+                        cookieString.append(name).append("=").append(value);
+                    }
+                }
+
+                return cookieString.toString();
+            } catch (Exception e) {
+                Log.e(TAG, "Error parsing default cookies: " + e.getMessage());
+                return "";
+            }
+        }
+
+        /**
+         * Extract value from simple JSON string
+         */
+        private String extractJsonValue(String json, String key) {
+            try {
+                String searchFor = "\"" + key + "\":\"";
+                int startIndex = json.indexOf(searchFor);
+                if (startIndex == -1) return null;
+
+                startIndex += searchFor.length();
+                int endIndex = json.indexOf("\"", startIndex);
+                if (endIndex == -1) return null;
+
+                return json.substring(startIndex, endIndex);
+            } catch (Exception e) {
+                return null;
+            }
         }
 
         @Override
@@ -69,24 +138,24 @@ public class CloudflareSessionHandler {
             return session;
         }
 
-        Log.d(TAG, "Extracting CF session from " + responseHeaders.size() + " headers");
+        Log.i(TAG, "Extracting CF session from " + responseHeaders.size() + " headers");
 
         // Extract CF-RAY (response only, don't send back)
         session.cfRay = extractHeader(responseHeaders, "cf-ray", "CF-RAY");
         if (session.cfRay != null) {
-            Log.d(TAG, "  CF-RAY: " + session.cfRay);
+            Log.i(TAG, "  CF-RAY: " + session.cfRay);
         }
 
         // Extract CF-Cache-Status
         session.cfCacheStatus = extractHeader(responseHeaders, "cf-cache-status", "CF-Cache-Status");
         if (session.cfCacheStatus != null) {
-            Log.d(TAG, "  CF-Cache-Status: " + session.cfCacheStatus);
+            Log.i(TAG, "  CF-Cache-Status: " + session.cfCacheStatus);
         }
 
         // Extract Server header
         session.server = extractHeader(responseHeaders, "server", "Server");
         if (session.server != null && session.server.toLowerCase().contains("cloudflare")) {
-            Log.d(TAG, "  Server: Cloudflare detected");
+            Log.i(TAG, "  Server: Cloudflare detected");
         }
 
         // Extract cookies from Set-Cookie header(s)
@@ -95,11 +164,13 @@ public class CloudflareSessionHandler {
         // Build final cookie string for requests
         session.sessionCookie = buildCookieString(session.allCookies);
 
-        if (session.sessionCookie != null && !session.sessionCookie.isEmpty()) {
+        // Use default cookies if no session cookie was extracted
+        if (session.sessionCookie == null || session.sessionCookie.isEmpty()) {
+            Log.w(TAG, "⚠ No cookies found in response, will use default cookies");
+            session.sessionCookie = session.parseDefaultCookies();
+        } else {
             Log.i(TAG, "✓ Session extracted successfully with " +
                     session.allCookies.size() + " cookies");
-        } else {
-            Log.w(TAG, "⚠ No cookies found in response");
         }
 
         return session;
@@ -134,11 +205,11 @@ public class CloudflareSessionHandler {
         String setCookieHeader = extractHeader(headers, "set-cookie", "Set-Cookie");
 
         if (setCookieHeader == null || setCookieHeader.isEmpty()) {
-            Log.d(TAG, "  No Set-Cookie header found");
+            Log.i(TAG, "  No Set-Cookie header found");
             return;
         }
 
-        Log.d(TAG, "  Processing Set-Cookie header");
+        Log.i(TAG, "  Processing Set-Cookie header");
 
         // Split by comma (but not comma inside quotes or dates)
         List<String> cookieStrings = splitCookieHeader(setCookieHeader);
@@ -176,7 +247,7 @@ public class CloudflareSessionHandler {
         } else if (name.equals("__cfduid")) {
             Log.i(TAG, "    ✓ __cfduid cookie found (length: " + value.length() + ")");
         } else {
-            Log.d(TAG, "    - " + name + " cookie found");
+            Log.i(TAG, "    - " + name + " cookie found");
         }
     }
 
@@ -241,4 +312,3 @@ public class CloudflareSessionHandler {
         }
     }
 }
-
