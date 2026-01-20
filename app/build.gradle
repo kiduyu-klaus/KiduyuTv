@@ -73,9 +73,11 @@ dependencies {
     implementation libs.gson
     implementation libs.okhttp.logging.interceptor
     implementation libs.okhttp
+    implementation 'com.squareup.retrofit2:converter-scalars:2.9.0'
 
     // Glide for image loading
     implementation libs.glide
+    implementation libs.media3.datasource.okhttp
     annotationProcessor libs.glide.compiler
 
     // Material Design
