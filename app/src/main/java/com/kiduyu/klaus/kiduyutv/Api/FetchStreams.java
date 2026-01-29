@@ -549,6 +549,9 @@ public class FetchStreams {
         DecryptResponse.Result result = decResponse.body().result;
         String jsonStr = new com.google.gson.Gson().toJson(result);
 
+        Log.i(TAG, "fetchHexaMovie JSON: " + jsonStr);
+
+
         String refererUrl="https://hexa.su/";
 
         return parseStreamData(jsonStr, refererUrl, new HashMap<>());
