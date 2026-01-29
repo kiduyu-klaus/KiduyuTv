@@ -231,6 +231,7 @@ public class MainActivity extends AppCompatActivity {
 
         // Load all categories from TMDB asynchronously
         loadFeaturedMovies();
+
         loadTopRatedMovies();
         loadActionMovies();
 //        loadComedyMovies();
