@@ -1,6 +1,5 @@
 package com.kiduyu.klaus.kiduyutv.Ui.details.movie;
 
-import static com.kiduyu.klaus.kiduyutv.utils.PlayerUtils.formatTime;
 
 import android.content.Intent;
 import android.os.Bundle;
@@ -15,9 +14,6 @@ import android.widget.Toast;
 import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.AppCompatButton;
-import androidx.core.graphics.Insets;
-import androidx.core.view.ViewCompat;
-import androidx.core.view.WindowInsetsCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -334,11 +330,9 @@ public class DetailsActivity extends AppCompatActivity {
         });
         playButton.setOnFocusChangeListener(focusChangeListener);
 
-        favoriteButton.setOnClickListener(v -> {
-            Toast.makeText(DetailsActivity.this,
-                    "Added to favorites",
-                    Toast.LENGTH_SHORT).show();
-        });
+        favoriteButton.setOnClickListener(v -> Toast.makeText(DetailsActivity.this,
+                "Added to favorites",
+                Toast.LENGTH_SHORT).show());
         favoriteButton.setOnFocusChangeListener(focusChangeListener);
     }
 
@@ -611,7 +605,7 @@ public class DetailsActivity extends AppCompatActivity {
                 // Pass start position if continuing watch history
         if (hasWatchHistory && savedPosition > 0) {
             intent.putExtra("start_position", savedPosition);
-            Log.i(TAG, "Launching player from saved position: " + formatTime((int) savedPosition));
+            Log.i(TAG, "Launching player from saved position: " + preferencesManager.formatTime((int) savedPosition));
         }
 
         startActivity(intent);
@@ -690,8 +684,8 @@ public class DetailsActivity extends AppCompatActivity {
             playButton.setText("Continue Watching");
 
                     // Format the time for display
-                    String timeStr = formatTime((int) historyItem.currentPosition);
-            String totalTimeStr = formatTime((int) historyItem.totalDuration);
+                    String timeStr = preferencesManager.formatTime((int) historyItem.currentPosition);
+            String totalTimeStr = preferencesManager.formatTime((int) historyItem.totalDuration);
 
             // Show a hint about progress
             int progressPercent = historyItem.getProgressPercentage();
