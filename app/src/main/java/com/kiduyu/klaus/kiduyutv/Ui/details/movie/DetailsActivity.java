@@ -1,5 +1,7 @@
 package com.kiduyu.klaus.kiduyutv.Ui.details.movie;
 
+import static com.kiduyu.klaus.kiduyutv.utils.PlayerUtils.formatTime;
+
 import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
@@ -30,6 +32,7 @@ import com.kiduyu.klaus.kiduyutv.adapter.CastAdapter;
 import com.kiduyu.klaus.kiduyutv.adapter.RecommendationsAdapter;
 import com.kiduyu.klaus.kiduyutv.model.CastMember;
 import com.kiduyu.klaus.kiduyutv.model.MediaItems;
+import com.kiduyu.klaus.kiduyutv.utils.PreferencesManager;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -51,6 +54,10 @@ public class DetailsActivity extends AppCompatActivity {
     private AppCompatButton playButton;
     private AppCompatButton favoriteButton;
     private ProgressBar loadingProgressBar;
+    // Watch history
+    private PreferencesManager preferencesManager;
+    private long savedPosition = 0;
+    private boolean hasWatchHistory = false;
     private RelativeLayout loadingOverlay;
     private TextView loadingText;
     private RecyclerView recommendationsRecyclerView;
@@ -92,12 +99,16 @@ public class DetailsActivity extends AppCompatActivity {
 
         mediaRepository = new TmdbRepository();
         castRepository = new CastRepository();
+        // Initialize PreferencesManager and check watch history
+        preferencesManager = PreferencesManager.getInstance(this);
+
 
         initializeViews();
         setupViews();
         setupClickListeners();
         setupCastSection();
         setupRecommendations();
+        checkWatchHistory();
         loadCast();
         loadRecommendations();
     }
@@ -584,6 +595,10 @@ public class DetailsActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * Launch the player activity
+     * If watch history exists, starts from saved position
+     */
     private void launchPlayer() {
         if (!mediaItems.hasValidVideoSources()) {
             Toast.makeText(this, "No video sources available", Toast.LENGTH_SHORT).show();
@@ -592,6 +607,13 @@ public class DetailsActivity extends AppCompatActivity {
 
         Intent intent = new Intent(this, PlayerActivity.class);
         intent.putExtra("media_item", mediaItems);
+
+                // Pass start position if continuing watch history
+        if (hasWatchHistory && savedPosition > 0) {
+            intent.putExtra("start_position", savedPosition);
+            Log.i(TAG, "Launching player from saved position: " + formatTime((int) savedPosition));
+        }
+
         startActivity(intent);
     }
 
@@ -625,6 +647,60 @@ public class DetailsActivity extends AppCompatActivity {
         super.onDestroy();
         if (fetchStreams != null) {
             fetchStreams.shutdown();
+        }
+    }
+
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // Refresh watch history status when returning to this activity
+        if (preferencesManager != null && mediaItems != null) {
+            checkWatchHistory();
+        }
+    }
+
+    // ============================================
+    // Watch History Methods
+    // ============================================
+
+    /**
+     * Check if this media has watch history and update play button accordingly
+     */
+    private void checkWatchHistory() {
+        if (mediaItems == null || preferencesManager == null) {
+            return;
+        }
+
+        // Get media ID (use tmdbId or id)
+        String mediaId = mediaItems.getId() != null ? mediaItems.getId() : mediaItems.getTmdbId();
+
+        if (mediaId == null || mediaId.isEmpty()) {
+            return;
+        }
+
+        // Check for watch history
+        PreferencesManager.WatchHistoryItem historyItem = preferencesManager.getWatchHistory(mediaId);
+
+        if (historyItem != null && historyItem.currentPosition > 0 && !historyItem.isCompleted()) {
+            hasWatchHistory = true;
+            savedPosition = historyItem.currentPosition;
+
+            // Update button text and style for "Continue Watching"
+            playButton.setText("Continue Watching");
+
+                    // Format the time for display
+                    String timeStr = formatTime((int) historyItem.currentPosition);
+            String totalTimeStr = formatTime((int) historyItem.totalDuration);
+
+            // Show a hint about progress
+            int progressPercent = historyItem.getProgressPercentage();
+            Log.i(TAG, "Watch history found: " + historyItem.title + " - " +
+                    progressPercent + "% complete at " + timeStr + " " + totalTimeStr);
+        } else {
+            hasWatchHistory = false;
+            savedPosition = 0;
+            playButton.setText("Play");
         }
     }
 }
