@@ -32,6 +32,7 @@ import com.kiduyu.klaus.kiduyutv.adapter.CategoryAdapter;
 import com.kiduyu.klaus.kiduyutv.adapter.VerticalSpaceItemDecoration;
 import com.kiduyu.klaus.kiduyutv.model.CategorySection;
 import com.kiduyu.klaus.kiduyutv.model.MediaItems;
+import com.kiduyu.klaus.kiduyutv.utils.PreferencesManager;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -41,6 +42,8 @@ public class MainActivity extends AppCompatActivity {
 
     // UI Components
     private ImageView heroBackgroundImage;
+
+    private PreferencesManager preferencesManager;
     private ImageView searchIcon;
     private ImageView homeIcon;
     private ImageView moviesIcon;
@@ -89,6 +92,8 @@ public class MainActivity extends AppCompatActivity {
 // CRITICAL: Keep screen on during playback - prevents TV from sleeping
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
+        preferencesManager = PreferencesManager.getInstance(this);
+
         initializeViews();
         setupClickListeners();
         setupNavigationFocus();
@@ -132,8 +137,9 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void setupNavigationFocus() {
-        homeIcon.requestFocus();
-        homeIcon.setSelected(true);
+        //homeIcon.requestFocus();
+        //homeIcon.setSelected(true);
+
 
         View.OnFocusChangeListener navFocusListener = (v, hasFocus) -> {
             if (hasFocus) {
@@ -146,6 +152,7 @@ public class MainActivity extends AppCompatActivity {
         };
 
         searchIcon.setOnFocusChangeListener(navFocusListener);
+        searchIcon.setSelected(false);
         homeIcon.setOnFocusChangeListener(navFocusListener);
         moviesIcon.setOnFocusChangeListener(navFocusListener);
         tvIcon.setOnFocusChangeListener(navFocusListener);
@@ -229,6 +236,8 @@ public class MainActivity extends AppCompatActivity {
             categoryAdapter.notifyDataSetChanged();
         }
 
+        loadContinueWatching();
+
         // Load all categories from TMDB asynchronously
         loadFeaturedMovies();
 
@@ -239,6 +248,153 @@ public class MainActivity extends AppCompatActivity {
 //        loadDocumentaries();
     }
 
+    // ============================================
+    // Continue Watching Feature
+    // ============================================
+
+    /**
+     * Load watch history and create a "Continue Watching" category
+     * This category is placed at the top of the list
+     */
+    private void loadContinueWatching() {
+        try {
+            List<PreferencesManager.WatchHistoryItem> watchHistory = preferencesManager.getAllWatchHistory();
+
+            // Filter out completed items (95% or more watched)
+            List<PreferencesManager.WatchHistoryItem> activeHistory = new ArrayList<>();
+            for (PreferencesManager.WatchHistoryItem item : watchHistory) {
+                if (!item.isCompleted()) {
+                    activeHistory.add(item);
+                }
+            }
+
+            // Only create category if there are items to show
+            if (!activeHistory.isEmpty()) {
+                List<MediaItems> continueWatchingItems = new ArrayList<>();
+
+                for (PreferencesManager.WatchHistoryItem historyItem : activeHistory) {
+                    MediaItems mediaItem = convertToMediaItem(historyItem);
+                    continueWatchingItems.add(mediaItem);
+                }
+
+                // Create the Continue Watching category at position 0
+                CategorySection continueWatchingSection = new CategorySection("Continue Watching", continueWatchingItems);
+                categories.add(0, continueWatchingSection);
+
+                // Notify adapter that items were inserted at position 0
+                categoryAdapter.notifyItemInserted(0);
+
+                // Scroll to top to show the new category
+                categoriesRecyclerView.scrollToPosition(0);
+
+                // Set focus on the first item in Continue Watching after a short delay
+                // This ensures the RecyclerView has time to layout
+                categoriesRecyclerView.postDelayed(() -> {
+                    setFocusOnFirstContinueWatchingItem();
+                }, 100);
+
+                Log.i(TAG, "Continue Watching category loaded with " + continueWatchingItems.size() + " items");
+            } else {
+                Log.i(TAG, "No active watch history found");
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error loading continue watching: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Convert WatchHistoryItem to MediaItems for display
+     */
+    private MediaItems convertToMediaItem(PreferencesManager.WatchHistoryItem historyItem) {
+        MediaItems mediaItem = new MediaItems();
+        mediaItem.setId(historyItem.id);
+        mediaItem.setTitle(historyItem.title);
+        mediaItem.setPosterUrl(historyItem.posterUrl);
+        mediaItem.setBackgroundImageUrl(historyItem.backgroundImageUrl);
+        mediaItem.setMediaType(historyItem.mediaType);
+        mediaItem.setSeason(historyItem.season);
+        mediaItem.setEpisode(historyItem.episode);
+        mediaItem.setDescription(historyItem.description);
+        if(historyItem.rating != null) {
+            mediaItem.setRating(historyItem.rating);
+        } else {
+            mediaItem.setRating(0);
+        }
+        //mediaItem.setRating(historyItem.)
+        //mediaItem.setRating(historyItem.rating);
+
+        // Set year and duration based on progress
+        if (historyItem.totalDuration > 0) {
+            int totalMinutes = (int) (historyItem.totalDuration / 60000);
+            int hours = totalMinutes / 60;
+            int minutes = totalMinutes % 60;
+            if (hours > 0) {
+                mediaItem.setDuration(hours + "h " + minutes + "m");
+            } else {
+                mediaItem.setDuration(minutes + "m");
+            }
+        }
+
+        // Set description with progress info
+        int progress = historyItem.getProgressPercentage();
+        if(historyItem.description.isEmpty()){
+            mediaItem.setDescription("watched "+progress + "% -Tap to Continue Watching");
+        } else {
+            mediaItem.setDescription(historyItem.description);
+        }
+
+
+        // Mark as from history (not from API)
+        mediaItem.setFromTMDB(false);
+
+        return mediaItem;
+    }
+
+    /**
+     * Set focus on the first item in the Continue Watching category
+     */
+    private void setFocusOnFirstContinueWatchingItem() {
+        try {
+            if (categories.isEmpty()) {
+                return;
+            }
+
+            // First category should be Continue Watching
+            CategorySection firstCategory = categories.get(0);
+            if ("Continue Watching".equals(firstCategory.getCategoryName()) &&
+                    !firstCategory.getItems().isEmpty()) {
+
+                categoriesRecyclerView.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        RecyclerView.ViewHolder categoryViewHolder = categoriesRecyclerView.findViewHolderForAdapterPosition(0);
+
+                        if (categoryViewHolder instanceof CategoryAdapter.CategoryViewHolder) { // Replace with your actual ViewHolder class
+                            CategoryAdapter.CategoryViewHolder holder = (CategoryAdapter.CategoryViewHolder) categoryViewHolder;
+                            RecyclerView itemsRecyclerView = holder.itemsRecyclerView; // Direct access if you have a reference
+
+                            if (itemsRecyclerView != null) {
+                                itemsRecyclerView.post(new Runnable() {
+                                    @Override
+                                    public void run() {
+                                        RecyclerView.ViewHolder itemViewHolder = itemsRecyclerView.findViewHolderForAdapterPosition(0);
+                                        if (itemViewHolder != null && itemViewHolder.itemView != null) {
+                                            itemViewHolder.itemView.requestFocus();
+                                            Log.i(TAG, "Focus set on first Continue Watching item");
+                                        }
+                                    }
+                                });
+                            }
+                        }
+                    }
+                });
+            }
+
+        } catch (Exception e) {
+            Log.e(TAG, "Error setting focus on first item: " + e.getMessage());
+        }
+    }
+
     private void loadFeaturedMovies() {
         tmdbRepository.getFeaturedMoviesAsync(new TmdbRepository.TMDBCallback() {
             @Override
@@ -247,7 +403,7 @@ public class MainActivity extends AppCompatActivity {
 
                 if (!movies.isEmpty()) {
                     CategorySection featuredSection = new CategorySection("Featured Movies", movies);
-                    categories.add(0, featuredSection);
+                    categories.add( featuredSection);
                     categoryAdapter.notifyDataSetChanged();
 
                     // Update hero content with first featured movie if it's the first category loaded
@@ -313,10 +469,11 @@ public class MainActivity extends AppCompatActivity {
             }
         });
     }
+
     private void checkLoadingComplete() {
         loadedCategories++;
 
-       // if (loadedCategories >= TOTAL_CATEGORIES) {
+        // if (loadedCategories >= TOTAL_CATEGORIES) {
         if (loadedCategories >= 1) {
             loadingOverlay.setVisibility(View.GONE);
             isLoadingContent = false;
@@ -340,7 +497,7 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
 
-        categoryAdapter= null;
+        categoryAdapter = null;
         isLoadingContent = true;
         loadedCategories = 0;
         loadingOverlay.setVisibility(View.VISIBLE);
@@ -478,7 +635,7 @@ public class MainActivity extends AppCompatActivity {
             public void onItemClick(MediaItems mediaItems, int categoryPosition, int itemPosition) {
                 currentSelectedItem = mediaItems;
                 updateHeroContent(mediaItems, categoryPosition);
-                if (mediaItems.getMediaType().toLowerCase().equals("movie")){
+                if (mediaItems.getMediaType().toLowerCase().equals("movie")) {
                     launchDetails(currentSelectedItem);
                 } else {
                     launchTvDetails(currentSelectedItem);
@@ -534,6 +691,7 @@ public class MainActivity extends AppCompatActivity {
         intent.putExtra("media_item", tvShow);
         startActivity(intent);
     }
+
     private void launchDetails(MediaItems mediaItems) {
         Intent intent = new Intent(this, DetailsActivity.class);
         intent.putExtra("media_item", mediaItems);
