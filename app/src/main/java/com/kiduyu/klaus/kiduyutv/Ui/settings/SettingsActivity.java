@@ -5,6 +5,7 @@ import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.text.format.Formatter;
 import android.text.method.ScrollingMovementMethod;
 import android.view.View;
 import android.widget.Button;
@@ -17,13 +18,12 @@ import android.widget.Toast;
 import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
-import androidx.core.graphics.Insets;
-import androidx.core.view.ViewCompat;
-import androidx.core.view.WindowInsetsCompat;
 import androidx.core.widget.NestedScrollView;
 
 import com.kiduyu.klaus.kiduyutv.R;
 import com.kiduyu.klaus.kiduyutv.utils.PreferencesManager;
+
+import java.io.File;
 
 public class SettingsActivity extends AppCompatActivity {
 
@@ -48,12 +48,13 @@ public class SettingsActivity extends AppCompatActivity {
     private LinearLayout voiceSearchContainer;
     private LinearLayout bufferSizeContainer;
     private LinearLayout cacheContainer;
+    private LinearLayout autoQualityContainer;
+    private LinearLayout appInfoContainer;
     private NestedScrollView scrollView;
     private View scrollOverlay;
 
     // Data
     private PreferencesManager preferencesManager;
-
 
     // Scroll overlay control
     private Handler overlayHandler;
@@ -67,7 +68,6 @@ public class SettingsActivity extends AppCompatActivity {
         setContentView(R.layout.activity_settings);
 
         preferencesManager = PreferencesManager.getInstance(this);
-        //tmdbRepository = TMDBRepository.getInstance();
         overlayHandler = new Handler(Looper.getMainLooper());
 
         setupToolbar();
@@ -75,7 +75,7 @@ public class SettingsActivity extends AppCompatActivity {
         setupListeners();
         setupScrollListener();
         loadCurrentSettings();
-        //updateCacheSize();
+        updateCacheSize();
     }
 
     private void setupToolbar() {
@@ -119,16 +119,16 @@ public class SettingsActivity extends AppCompatActivity {
         voiceSearchContainer = findViewById(R.id.voiceSearchContainer);
         bufferSizeContainer = findViewById(R.id.bufferSizeContainer);
         cacheContainer = findViewById(R.id.cacheContainer);
+        autoQualityContainer = findViewById(R.id.autoQualityContainer);
+        appInfoContainer = findViewById(R.id.appInfoContainer);
     }
 
     private void setupScrollListener() {
-        hideOverlayRunnable = () -> {
-            scrollOverlay.animate()
-                    .alpha(0f)
-                    .setDuration(300)
-                    .withEndAction(() -> scrollOverlay.setVisibility(View.GONE))
-                    .start();
-        };
+        hideOverlayRunnable = () -> scrollOverlay.animate()
+                .alpha(0f)
+                .setDuration(300)
+                .withEndAction(() -> scrollOverlay.setVisibility(View.GONE))
+                .start();
 
         scrollView.setOnScrollChangeListener((NestedScrollView.OnScrollChangeListener) (v, scrollX, scrollY, oldScrollX, oldScrollY) -> {
             // Show overlay when scrolling
@@ -160,12 +160,15 @@ public class SettingsActivity extends AppCompatActivity {
             }
         };
 
+        // Apply focus listener to all focusable items
         videoQualityContainer.setOnFocusChangeListener(focusChangeListener);
         subtitleContainer.setOnFocusChangeListener(focusChangeListener);
         themeContainer.setOnFocusChangeListener(focusChangeListener);
         voiceSearchContainer.setOnFocusChangeListener(focusChangeListener);
         bufferSizeContainer.setOnFocusChangeListener(focusChangeListener);
         cacheContainer.setOnFocusChangeListener(focusChangeListener);
+        autoQualityContainer.setOnFocusChangeListener(focusChangeListener);
+        appInfoContainer.setOnFocusChangeListener(focusChangeListener);
         clearCacheButton.setOnFocusChangeListener(focusChangeListener);
         resetDefaultsButton.setOnFocusChangeListener(focusChangeListener);
         aboutButton.setOnFocusChangeListener(focusChangeListener);
@@ -173,6 +176,29 @@ public class SettingsActivity extends AppCompatActivity {
         // Container clicks for navigation
         videoQualityContainer.setOnClickListener(v -> showVideoQualityDialog());
         subtitleContainer.setOnClickListener(v -> showSubtitleLanguageDialog());
+
+        // Auto Quality container click to toggle switch
+        autoQualityContainer.setOnClickListener(v -> autoQualitySwitch.setChecked(!autoQualitySwitch.isChecked()));
+
+        // Theme container click to toggle switch
+        themeContainer.setOnClickListener(v -> {
+            darkThemeSwitch.setChecked(!darkThemeSwitch.isChecked());
+        });
+
+        // Voice Search container click to toggle switch
+        voiceSearchContainer.setOnClickListener(v -> {
+            voiceSearchSwitch.setChecked(!voiceSearchSwitch.isChecked());
+        });
+
+        // Cache container click
+        cacheContainer.setOnClickListener(v -> {
+            showClearCacheDialog();
+        });
+
+        // App Info container click
+        appInfoContainer.setOnClickListener(v -> {
+            Toast.makeText(this, "App Version: " + appVersionValue.getText(), Toast.LENGTH_SHORT).show();
+        });
 
         // Switches
         darkThemeSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
@@ -204,7 +230,7 @@ public class SettingsActivity extends AppCompatActivity {
 
             @Override
             public void onStopTrackingTouch(SeekBar seekBar) {
-                preferencesManager.setPlaybackBufferSize(seekBar.getProgress());
+                preferencesManager.setPlaybackBufferDuration(seekBar.getProgress());
                 Toast.makeText(SettingsActivity.this, "Buffer size set to " + seekBar.getProgress() + "MB", Toast.LENGTH_SHORT).show();
             }
         });
@@ -223,7 +249,7 @@ public class SettingsActivity extends AppCompatActivity {
         autoQualitySwitch.setChecked(preferencesManager.isAutoQualityEnabled());
         voiceSearchSwitch.setChecked(preferencesManager.isVoiceSearchEnabled());
 
-        int bufferSize = preferencesManager.getPlaybackBufferSize();
+        int bufferSize = preferencesManager.getPlaybackBufferDuration();
         bufferSizeSeekBar.setProgress(bufferSize);
         bufferSizeValue.setText(bufferSize + " MB");
 
@@ -235,6 +261,126 @@ public class SettingsActivity extends AppCompatActivity {
             appVersionValue.setText("Unknown");
         }
     }
+
+    /**
+     * Calculate total cache size
+     */
+    private void updateCacheSize() {
+        new Thread(() -> {
+            long totalSize = 0;
+
+            try {
+                // Get cache directory
+                File cacheDir = getCacheDir();
+                totalSize += getDirSize(cacheDir);
+
+                // Get external cache directory if available
+                File externalCacheDir = getExternalCacheDir();
+                if (externalCacheDir != null) {
+                    totalSize += getDirSize(externalCacheDir);
+                }
+
+                // Format size for display
+                final String formattedSize = Formatter.formatFileSize(this, totalSize);
+
+                // Update UI on main thread
+                runOnUiThread(() -> {
+                    cacheSizeValue.setText(formattedSize);
+                    preferencesManager.setCacheSize(formattedSize);
+                });
+
+            } catch (Exception e) {
+                e.printStackTrace();
+                runOnUiThread(() -> cacheSizeValue.setText("Error"));
+            }
+        }).start();
+    }
+
+    /**
+     * Calculate directory size recursively
+     */
+    private long getDirSize(File dir) {
+        long size = 0;
+
+        if (dir == null || !dir.exists()) {
+            return 0;
+        }
+
+        try {
+            File[] files = dir.listFiles();
+            if (files != null) {
+                for (File file : files) {
+                    if (file.isFile()) {
+                        size += file.length();
+                    } else if (file.isDirectory()) {
+                        size += getDirSize(file);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        return size;
+    }
+
+    /**
+     * Clear app cache
+     */
+    private void clearCache() {
+        new Thread(() -> {
+            try {
+                // Clear internal cache
+                File cacheDir = getCacheDir();
+                deleteDir(cacheDir);
+
+                // Clear external cache if available
+                File externalCacheDir = getExternalCacheDir();
+                if (externalCacheDir != null) {
+                    deleteDir(externalCacheDir);
+                }
+
+                // Update cache size on UI thread
+                runOnUiThread(() -> {
+                    updateCacheSize();
+                    Toast.makeText(this, "Cache cleared successfully", Toast.LENGTH_SHORT).show();
+                });
+
+            } catch (Exception e) {
+                e.printStackTrace();
+                runOnUiThread(() ->
+                        Toast.makeText(this, "Error clearing cache", Toast.LENGTH_SHORT).show()
+                );
+            }
+        }).start();
+    }
+
+    /**
+     * Delete directory contents recursively
+     */
+    private boolean deleteDir(File dir) {
+        if (dir == null || !dir.exists()) {
+            return false;
+        }
+
+        try {
+            File[] files = dir.listFiles();
+            if (files != null) {
+                for (File file : files) {
+                    if (file.isDirectory()) {
+                        deleteDir(file);
+                    } else {
+                        file.delete();
+                    }
+                }
+            }
+            return true;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
     private void showVideoQualityDialog() {
         String[] qualities = {"Auto", "1080p", "720p", "480p", "360p"};
         String currentQuality = preferencesManager.getVideoQuality();
@@ -293,11 +439,9 @@ public class SettingsActivity extends AppCompatActivity {
     private void showClearCacheDialog() {
         androidx.appcompat.app.AlertDialog.Builder builder = new androidx.appcompat.app.AlertDialog.Builder(this);
         builder.setTitle("Clear Cache");
-        builder.setMessage("Are you sure you want to clear the metadata cache? This will remove cached movie and TV show information.");
+        builder.setMessage("Are you sure you want to clear the app cache? Current cache size: " + cacheSizeValue.getText());
         builder.setPositiveButton("Clear", (dialog, which) -> {
-//            tmdbRepository.clearCache();
-//            updateCacheSize();
-            Toast.makeText(this, "Cache cleared successfully", Toast.LENGTH_SHORT).show();
+            clearCache();
         });
         builder.setNegativeButton("Cancel", null);
         builder.show();
@@ -360,6 +504,13 @@ public class SettingsActivity extends AppCompatActivity {
             case "zh": return "Chinese";
             default: return languageCode.toUpperCase();
         }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // Update cache size when returning to settings
+        updateCacheSize();
     }
 
     @Override
