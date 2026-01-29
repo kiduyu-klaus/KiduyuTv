@@ -100,8 +100,19 @@ public class PreferencesManager {
 
     // Search History
     public List<String> getSearchHistory() {
-        Set<String> historySet = preferences.getStringSet(KEY_SEARCH_HISTORY, new HashSet<>());
-        return new ArrayList<>(historySet);
+        String jsonString = preferences.getString(KEY_SEARCH_HISTORY, "[]");
+        List<String> history = new ArrayList<>();
+
+        try {
+            JSONArray jsonArray = new JSONArray(jsonString);
+            for (int i = 0; i < jsonArray.length(); i++) {
+                history.add(jsonArray.getString(i));
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error loading search history", e);
+        }
+
+        return history;
     }
 
     public void addToSearchHistory(String query) {
@@ -109,22 +120,22 @@ public class PreferencesManager {
             return;
         }
 
-        Set<String> historySet = new HashSet<>(getSearchHistory());
+        List<String> historyList = new ArrayList<>(getSearchHistory());
 
         // Remove if already exists (to move to front)
-        historySet.remove(query);
+        historyList.remove(query);
 
         // Add to front
-        historySet.add(query);
+        historyList.add(0, query);
 
-        // Keep only last 10 items
-        List<String> historyList = new ArrayList<>(historySet);
-        if (historyList.size() > 10) {
-            historyList = historyList.subList(0, 10);
+        // Store as JSON to preserve order (no max limit)
+        try {
+            JSONArray jsonArray = new JSONArray(historyList);
+            preferences.edit().putString(KEY_SEARCH_HISTORY, jsonArray.toString()).apply();
+            Log.i(TAG, "Added to search history: " + query);
+        } catch (Exception e) {
+            Log.e(TAG, "Error saving search history", e);
         }
-
-        preferences.edit().putStringSet(KEY_SEARCH_HISTORY, new HashSet<>(historyList)).apply();
-        Log.i(TAG, "Added to search history: " + query);
     }
 
     public void clearSearchHistory() {
@@ -329,7 +340,7 @@ public class PreferencesManager {
     /**
      * Format milliseconds to readable time string
      */
-    private String formatTime(int millis) {
+    public String formatTime(int millis) {
         int seconds = millis / 1000;
         int minutes = seconds / 60;
         int hours = minutes / 60;
