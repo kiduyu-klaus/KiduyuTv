@@ -115,7 +115,9 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
     private ConnectivityManager.NetworkCallback networkCallback;
     private boolean isNetworkAvailable = true;
 
-
+    private static final int MIN_BUFFER_MS = 30000;     // 30 seconds
+    private static final int PLAYBACK_BUFFER_MS = 10000; // 10 seconds
+    private static final int REBUFFER_MS = 10000;
     private MediaItems sourceMediaItem;
     private int currentSpeed = 2; // 1.0x
     private int currentAudio = 1; // Dub
@@ -339,12 +341,15 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
         // Enhanced LoadControl for better buffering - prevents socket closure due to buffering issues
 
         videoSurface.setVisibility(View.VISIBLE);
+        // Get buffer duration from preferences (in minutes)
+        int bufferMinutes = PreferencesManager.getInstance(this).getPlaybackBufferDuration();
+        int maxBufferMs = bufferMinutes * 60 * 1000; // Convert minutes to milliseconds
         DefaultLoadControl loadControl = new DefaultLoadControl.Builder()
                 .setBufferDurationsMs(
-                        30000,   // Min buffer (30s) - required before playback starts
-                        180000,  // Max buffer (3min) - maximum ahead of current position
-                        10000,   // Buffer for playback (10s) - after seek
-                        10000    // Buffer after rebuffer (10s)
+                        MIN_BUFFER_MS,   // Min buffer (30s) - required before playback starts
+                        maxBufferMs,  // Max buffer (10min) - maximum ahead of current position
+                        PLAYBACK_BUFFER_MS,   // Buffer for playback (10s) - after seek
+                        REBUFFER_MS    // Buffer after rebuffer (10s)
                 )
                 .setPrioritizeTimeOverSizeThresholds(true)
                 .build();
@@ -809,6 +814,9 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
 
             // Update current time text
             currentTime.setText(formatTime(currentPos));
+            if(currentTime.getVisibility()==View.GONE){
+                currentTime.setVisibility(View.VISIBLE);
+            }
 
             // Update progress in milliseconds (matching the max value)
             if (duration > 0) {
@@ -822,7 +830,7 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
 
 
     private String formatTime(int millis) {
-        return PlayerUtils.formatTime(millis);
+        return preferencesManager.formatTime(millis);
     }
 
     private void showSubtitlesDialog() {

@@ -41,7 +41,9 @@ public class PreferencesManager {
     private static final boolean DEFAULT_DARK_THEME = true;
     private static final boolean DEFAULT_AUTO_QUALITY = true;
     private static final boolean DEFAULT_VOICE_SEARCH_ENABLED = true;
-    private static final int DEFAULT_BUFFER_SIZE = 10; // 10MB
+    // Add these constants
+    private static final String KEY_PLAYBACK_BUFFER_DURATION = "playback_buffer_duration";
+    private static final int DEFAULT_BUFFER_DURATION = 10; // 10 minutes
 
     private static PreferencesManager instance;
     private final SharedPreferences preferences;
@@ -158,13 +160,14 @@ public class PreferencesManager {
     }
 
     // Playback Buffer Settings
-    public int getPlaybackBufferSize() {
-        return preferences.getInt(KEY_PLAYBACK_BUFFER_SIZE, DEFAULT_BUFFER_SIZE);
+    public int getPlaybackBufferDuration() {
+        return preferences.getInt(KEY_PLAYBACK_BUFFER_DURATION, DEFAULT_BUFFER_DURATION);
     }
 
-    public void setPlaybackBufferSize(int sizeMB) {
-        preferences.edit().putInt(KEY_PLAYBACK_BUFFER_SIZE, sizeMB).apply();
-        Log.i(TAG, "Playback buffer size set to: " + sizeMB + "MB");
+
+    public void setPlaybackBufferDuration(int durationMinutes) {
+        preferences.edit().putInt(KEY_PLAYBACK_BUFFER_DURATION, durationMinutes).apply();
+        Log.i(TAG, "Playback buffer duration set to: " + durationMinutes + " minutes");
     }
 
     // Cache Management
@@ -198,7 +201,7 @@ public class PreferencesManager {
         info.append("Subtitle Language: ").append(getSubtitleLanguage()).append("\n");
         info.append("Dark Theme: ").append(isDarkThemeEnabled() ? "On" : "Off").append("\n");
         info.append("Voice Search: ").append(isVoiceSearchEnabled() ? "On" : "Off").append("\n");
-        info.append("Playback Buffer: ").append(getPlaybackBufferSize()).append("MB\n");
+        info.append("Playback Buffer: ").append(getPlaybackBufferDuration()).append("MB\n");
         info.append("Search History: ").append(getSearchHistoryCount()).append(" items\n");
         info.append("Cache Size: ").append(getCacheSize()).append("\n");
         return info.toString();
@@ -212,7 +215,7 @@ public class PreferencesManager {
                 .putBoolean(KEY_DARK_THEME, DEFAULT_DARK_THEME)
                 .putBoolean(KEY_AUTO_QUALITY, DEFAULT_AUTO_QUALITY)
                 .putBoolean(KEY_VOICE_SEARCH_ENABLED, DEFAULT_VOICE_SEARCH_ENABLED)
-                .putInt(KEY_PLAYBACK_BUFFER_SIZE, DEFAULT_BUFFER_SIZE)
+                .putInt(KEY_PLAYBACK_BUFFER_DURATION, DEFAULT_BUFFER_DURATION)
                 .apply();
         Log.i(TAG, "Preferences reset to defaults");
     }
@@ -234,8 +237,10 @@ public class PreferencesManager {
             item.posterUrl = mediaItem.getPosterUrl();
             item.backgroundImageUrl = mediaItem.getBackgroundImageUrl();
             item.mediaType = mediaItem.getMediaType();
+            item.rating = mediaItem.getRating();
             item.currentPosition = currentPosition;
             item.totalDuration = totalDuration;
+            item.description = mediaItem.getDescription();
             item.lastWatchedTimestamp = System.currentTimeMillis();
 
             // TV specific fields
@@ -369,6 +374,8 @@ public class PreferencesManager {
         public long lastWatchedTimestamp;
         public String season;
         public String episode;
+        public Float rating;
+        public String description;
 
         public JSONObject toJson() {
             JSONObject json = new JSONObject();
@@ -384,6 +391,8 @@ public class PreferencesManager {
                 json.put("lastWatchedTimestamp", lastWatchedTimestamp);
                 json.put("season", season);
                 json.put("episode", episode);
+                json.put("description", description);
+                json.put("rating", rating);
             } catch (JSONException e) {
                 Log.e(TAG, "Error creating JSON: " + e.getMessage());
             }
@@ -403,6 +412,9 @@ public class PreferencesManager {
                 item.totalDuration = json.optLong("totalDuration", 0);
                 item.lastWatchedTimestamp = json.optLong("lastWatchedTimestamp", 0);
                 item.season = json.optString("season", null);
+                item.episode = json.optString("episode", null);
+                item.rating = Float.valueOf(json.optString("rating", String.valueOf(0)));
+                item.description = json.optString("description", "");
                 item.episode = json.optString("episode", null);
             } catch (Exception e) {
                 Log.e(TAG, "Error parsing JSON: " + e.getMessage());
