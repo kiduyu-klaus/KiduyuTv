@@ -52,7 +52,10 @@ import androidx.media3.exoplayer.source.ProgressiveMediaSource;
 import com.kiduyu.klaus.kiduyutv.R;
 import com.kiduyu.klaus.kiduyutv.Api.FetchStreams;
 import com.kiduyu.klaus.kiduyutv.model.MediaItems;
+import com.kiduyu.klaus.kiduyutv.utils.PreferencesManager;
 import com.kiduyu.klaus.kiduyutv.utils.SurfaceViewImageLoader;
+import com.kiduyu.klaus.kiduyutv.utils.KiduyuDataSource;
+import com.kiduyu.klaus.kiduyutv.utils.PlayerUtils;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -72,14 +75,17 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
     private ImageButton btnPlayPause, btnBack;
     private Button btnSettings, btnSpeed, btnServer, btnQuality, btnAudio, btnSubtitles;
     private SeekBar progressBar;
-    private TextView videoTitle, currentTime, totalTime, episodeInfo, btnEpisodes, loadingStatusText,videoDescription;
+    private TextView videoTitle, currentTime, totalTime, episodeInfo, btnEpisodes, loadingStatusText,videoDescription,hardsubBadge;
     private ProgressBar loadingIndicator;
     private ImageView centerPauseIcon;
 
     private Handler handler = new Handler();
     private Handler hideControlsHandler = new Handler();
+    private Handler backPressHandler = new Handler();  // NEW
     private boolean isPlaying = false;
     private boolean areControlsVisible = false;
+    private boolean backPressedOnce = false;  // NEW
+
 
     // Data lists
     private List<MediaItems.SubtitleItem> subtitleOptions ;
@@ -111,9 +117,12 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
 
 
     private MediaItems sourceMediaItem;
-    private int currentSpeed = 1; // 1.0x
+    private int currentSpeed = 2; // 1.0x
     private int currentAudio = 1; // Dub
+    private long startPosition = 0;
+    private Handler watchHistoryHandler = new Handler();
     ImageView backgroundImage;
+    private PreferencesManager preferencesManager;
     private static final String VIDEO_URL = "https://rrr.app28base.site/p5qm/c5/h6a90f70b8d237f94866b6cfc2c7f06afdb8423c6639e9e32b074383937a06baeef0f9b8cb9be75c7c50ae72297d2e440790079152e890fea1284d59d53a146e35d/4/aGxzLzEwODAvMTA4MA,Ktm0Vt9-cJyXbGG_O3gV_5vGK-kpiQ.m3u8";
     private static final String VIDEO_URL_SUBTITLES = "https://5qm.megaup.cc/v5/bapD3C40jf5SGa2z8LH8Gr9uEI8Zjnp4ysHQ4OTega67vD5uMub51x8UK5yKV2uhCPlVjTWzBDeJW0JvJTuYJoQVP5d7qAZgZXxD67pvQIuNikLe6H8gyXmcoNmdRsqYZzwNrIbH7nA/subs/eng_4.vtt";
 
@@ -124,6 +133,8 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
 
         // Get media item from intent
         sourceMediaItem = getIntent().getParcelableExtra("media_item");
+        startPosition = getIntent().getLongExtra("start_position", 0);
+
         if (sourceMediaItem == null) {
             finish();
             return;
@@ -151,6 +162,7 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
 
 
 
+        preferencesManager = PreferencesManager.getInstance(this);
         setupFocusListeners();
         setupClickListeners();
         // Delay ExoPlayer setup slightly to ensure background image loads first
@@ -191,6 +203,9 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
         loadingStatusText = findViewById(R.id.loadingStatusText);
         loadingIndicator = findViewById(R.id.loadingIndicator);
         centerPauseIcon = findViewById(R.id.centerPauseIcon);
+        hardsubBadge = findViewById(R.id.hardsubBadge);
+
+        hardsubBadge.setText(sourceMediaItem.getMediaType());
 
         videoDescription.setText(sourceMediaItem.getDescription());
         videoTitle.setText(sourceMediaItem.getTitle());
@@ -326,10 +341,10 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
         videoSurface.setVisibility(View.VISIBLE);
         DefaultLoadControl loadControl = new DefaultLoadControl.Builder()
                 .setBufferDurationsMs(
-                        30000,   // Min buffer (30s) - increased from 15s for smoother playback
-                        120000,  // Max buffer (2min) - increased from 50s for longer buffer
-                        10000,    // Buffer for playback (5s) - increased from 2.5s
-                        10000    // Buffer after rebuffer (10s) - increased from 5s
+                        30000,   // Min buffer (30s) - required before playback starts
+                        180000,  // Max buffer (3min) - maximum ahead of current position
+                        10000,   // Buffer for playback (10s) - after seek
+                        10000    // Buffer after rebuffer (10s)
                 )
                 .setPrioritizeTimeOverSizeThresholds(true)
                 .build();
@@ -347,20 +362,32 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
                         showLoadingServer();
                         break;
                     case Player.STATE_READY:
-                        //hideLoading();
                         showStreamingStatus();
-                        progressBar.setMax((int) exoPlayer.getDuration());
-                        totalTime.setText(formatTime((int) exoPlayer.getDuration()));
+                        // Immediately show seekbar, total time, and reset current time
+                        long duration = exoPlayer.getDuration();
+                        progressBar.setMax((int) duration);
+                        totalTime.setText(formatTime((int) duration));
+                        currentTime.setText(formatTime(0)); // Reset to 00:00
 
-                        // Auto-start playback after streaming is ready
+                        // Make sure buffer is updated immediately
+                        updateBufferProgress();
+
+                        // Hide streaming status immediately and show controls
+                        hideStreamingStatus();
+
+                        // Show controls so user can see seekbar and time
+                        showControls();
+
+                        // Auto-start playback after a short delay for visual feedback
                         handler.postDelayed(() -> {
-                            hideStreamingStatus();
                             if (!isPlaying) {
                                 togglePlayPause();
                             }
-                        }, 1500);
+                        }, 500);
+                        handler.post(updateProgressTask);
                         break;
                     case Player.STATE_ENDED:
+                        updateLoadingUi(false);
                         isPlaying = false;
                         btnPlayPause.setImageResource(android.R.drawable.ic_media_play);
                         showControls();
@@ -406,6 +433,23 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
 
         loadVideo();
     }
+    private void updateBufferProgress() {
+        if (exoPlayer != null) {
+            long bufferedPosition = exoPlayer.getBufferedPosition();
+            long duration = exoPlayer.getDuration();
+            long currentPosition = exoPlayer.getCurrentPosition();
+
+            if (duration > 0) {
+                long bufferDuration = bufferedPosition - currentPosition;
+
+                // Use actual millisecond values since max is set to duration in ms
+                progressBar.setSecondaryProgress((int) bufferedPosition);
+
+                Log.i(TAG, "Current: " + currentPosition + "ms | Buffered: " + bufferedPosition +
+                        "ms | Max: " + duration + "ms | Buffer Duration: " + formatTime((int) bufferDuration));
+            }
+        }
+    }
 
     // ============================================
     // Error Handling and Retry Logic
@@ -415,40 +459,16 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
         hideLoading();
         hideStreamingStatus();
 
-        String errorMessage = "Playback error";
-        boolean canRetry = false;
+        PlayerUtils.PlaybackErrorInfo errorInfo = PlayerUtils.parsePlaybackError(error);
 
-        switch (error.errorCode) {
-            case PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED:
-            case PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT:
-            case PlaybackException.ERROR_CODE_IO_READ_POSITION_OUT_OF_RANGE:
-                errorMessage = "Network connection failed";
-                canRetry = true;
-                break;
-
-            case PlaybackException.ERROR_CODE_DECODER_INIT_FAILED:
-                errorMessage = "Video decoder failed. Try different quality.";
-                break;
-
-            case PlaybackException.ERROR_CODE_IO_UNSPECIFIED:
-                errorMessage = "Stream error occurred";
-                canRetry = true;
-                break;
-
-            default:
-                errorMessage = "Playback error: " + error.getErrorCodeName();
-                canRetry = error.errorCode >= 1000 && error.errorCode < 2000; // Network-related errors
-                break;
-        }
-
-        if (canRetry && retryCount < MAX_RETRIES) {
+        if (errorInfo.canRetry && retryCount < MAX_RETRIES) {
             retryCount++;
             Log.i(TAG, "Retrying playback, attempt " + retryCount + "/" + MAX_RETRIES);
             showToast("Connection issue, retrying... (" + retryCount + "/" + MAX_RETRIES + ")");
 
             handler.postDelayed(() -> retryPlayback(), 2000);
         } else {
-            showToast(errorMessage);
+            showToast(errorInfo.errorMessage);
             retryCount = 0;
             finish();
         }
@@ -474,15 +494,7 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
     }
 
     private boolean isNetworkError(IOException error) {
-        return error instanceof java.net.SocketException ||
-                error instanceof java.net.SocketTimeoutException ||
-                error instanceof java.net.UnknownHostException ||
-                (error.getMessage() != null && (
-                        error.getMessage().contains("Connection") ||
-                                error.getMessage().contains("Socket") ||
-                                error.getMessage().contains("timeout") ||
-                                error.getMessage().contains("EAI")
-                ));
+        return PlayerUtils.isNetworkError(error);
     }
 
     @OptIn(markerClass = UnstableApi.class)
@@ -565,262 +577,138 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
         // Set media source and prepare player
         exoPlayer.setMediaSource(mediaSource);
         exoPlayer.prepare();
+
+        // Seek to saved position if resuming
+        if (startPosition > 0) {
+            Log.i(TAG, "Resuming from position: " + formatTime((int) startPosition));
+                    exoPlayer.seekTo(startPosition);
+        }
+
         exoPlayer.setPlayWhenReady(true);
-        exoPlayer.play();
+
+        // Initialize time display to saved position or 00:00
+        currentTime.setText(formatTime((int) startPosition));
+        progressBar.setProgress((int) startPosition);
+
         handler.post(updateProgressTask);
 
-        // Apply saved speed
-        //exoPlayer.setPlaybackSpeed(currentSpeed);
+        // Start watch history save timer (saves every 15 seconds)
+        startWatchHistoryTimer();
+    }
+    // ============================================
+    // Watch History Methods
+    // ============================================
+
+    /**
+     * Start the watch history save timer
+     * Saves position every 15 seconds during playback
+     */
+    private void startWatchHistoryTimer() {
+        // Save immediately when starting
+        saveWatchHistory();
+
+        // Schedule regular saves every 15 seconds
+        watchHistoryHandler.postDelayed(watchHistoryTask, 15000);
+    }
+
+    /**
+     * Runnable to save watch history periodically
+     */
+    private Runnable watchHistoryTask = new Runnable() {
+        @Override
+        public void run() {
+            if (isPlaying && exoPlayer != null) {
+                saveWatchHistory();
+                // Schedule next save
+                watchHistoryHandler.postDelayed(this, 15000);
+            }
+        }
+    };
+
+    /**
+     * Save current playback position to watch history
+     */
+    private void saveWatchHistory() {
+        if (exoPlayer == null || sourceMediaItem == null) {
+            return;
+        }
+
+        long currentPosition = exoPlayer.getCurrentPosition();
+        long duration = exoPlayer.getDuration();
+
+        // Don't save if position is at or near the end (95% or more)
+        if (duration > 0 && currentPosition >= (duration * 0.95)) {
+            Log.i(TAG, "Video completed, not saving watch history");
+            return;
+        }
+
+        preferencesManager.saveWatchHistory(sourceMediaItem, currentPosition, duration);
+    }
+
+    /**
+     * Stop the watch history save timer
+     */
+    private void stopWatchHistoryTimer() {
+        // Save one final time when stopping
+        saveWatchHistory();
+        watchHistoryHandler.removeCallbacks(watchHistoryTask);
     }
 
     /**
      * Create media source with session headers if available
+     * Now always uses protected source for consistent streaming behavior
      */
     @RequiresApi(api = Build.VERSION_CODES.N)
     private MediaSource createMediaSourceFromMediaItem(MediaItem mediaItem) {
-        Log.i("PlayerActivity", "Creating media source");
-        // Check if we need to apply custom headers
-//        boolean needsCustomHeaders = sourceMediaItem != null &&
-//                sourceMediaItem.getCustomHeaders() != null &&
-//                !sourceMediaItem.getCustomHeaders().isEmpty();
-        boolean needsCustomHeaders = false;
-
-        if (needsCustomHeaders) {
-            Log.i("PlayerActivity", "Applying session headers for protected stream");
-            return createProtectedMediaSource(mediaItem);
-        } else {
-            // Standard media source without custom headers
-            return createStandardMediaSource(mediaItem);
-        }
+        Log.i("PlayerActivity", "Creating media source with KidunyiDataSourceFactory");
+        // Always use protected source for consistent header handling (keep-alive, etc.)
+        return createProtectedMediaSource(mediaItem);
     }
 
     /**
      * Create media source WITH session headers for Cloudflare bypass
-     * Enhanced with Keep-Alive headers to prevent socket closure
+     * Now delegates to KidunyiDataSourceFactory
      */
-
-
     @OptIn(markerClass = UnstableApi.class)
     @RequiresApi(api = Build.VERSION_CODES.N)
     private MediaSource createProtectedMediaSource(MediaItem mediaItem) {
-        // Build custom headers with keep-alive
-        Map<String, String> headers = new HashMap<>();
-
-        // CRITICAL: Always add these headers to prevent socket closure
-        headers.put("Connection", "keep-alive");
-        headers.put("Keep-Alive", "timeout=300, max=1000");
-        headers.put("Accept-Encoding", "gzip, deflate");
-
-        // *** DEBUG: Log what we have ***
-        Log.i(TAG, "DEBUG: sourceMediaItem.getSessionCookie() = " +
-                (sourceMediaItem.getSessionCookie() != null ?
-                        sourceMediaItem.getSessionCookie().substring(0, Math.min(100, sourceMediaItem.getSessionCookie().length())) + "..." :
-                        "NULL"));
-
-        // *** FIX: Add session cookie FIRST (highest priority) ***
-        if (sourceMediaItem.getSessionCookie() != null && !sourceMediaItem.getSessionCookie().isEmpty()) {
-            // Check if it's JSON format (default cookies) - parse it
-            String cookie = sourceMediaItem.getSessionCookie();
-
-            // If it looks like JSON, parse it to extract cookie value
-            if (cookie.startsWith("[{") && cookie.contains("\"name\"")) {
-                cookie = parseJsonCookie(cookie);
-            }
-
-            headers.put("Cookie", cookie);
-            Log.i(TAG, "✓ Added session cookie to headers (length: " + cookie.length() + ")");
-        } else {
-            Log.w(TAG, "⚠ No session cookie available!");
-        }
-
-        // Add custom headers from MediaItems (may override some values)
-        if (sourceMediaItem.getCustomHeaders() != null) {
-            headers.putAll(sourceMediaItem.getCustomHeaders());
-            Log.i(TAG, "Added " + sourceMediaItem.getCustomHeaders().size() + " custom headers");
-        }
-
-        // Add referer if available (override from custom headers if needed)
-        if (sourceMediaItem.getRefererUrl() != null && !sourceMediaItem.getRefererUrl().isEmpty()) {
-            headers.put("Referer", sourceMediaItem.getRefererUrl());
-            Log.i(TAG, "Added referer: " + sourceMediaItem.getRefererUrl());
-        }
-
-        // CRITICAL: Include Cloudflare response headers in request headers
-        if (sourceMediaItem.getResponseHeaders() != null) {
-            if (sourceMediaItem.getResponseHeaders().containsKey("cf-ray")) {
-                String cfRay = sourceMediaItem.getResponseHeaders().get("cf-ray");
-                headers.put("X-CF-RAY", cfRay);
-                Log.i(TAG, "Added CF-RAY header for session continuity");
-            }
-
-            if (sourceMediaItem.getResponseHeaders().containsKey("cf-cache-status")) {
-                String cfCacheStatus = sourceMediaItem.getResponseHeaders().get("cf-cache-status");
-                headers.put("X-CF-Cache-Status", cfCacheStatus);
-                Log.i(TAG, "Added CF-Cache-Status header");
-            }
-
-            if (sourceMediaItem.getResponseHeaders().containsKey("server")) {
-                String server = sourceMediaItem.getResponseHeaders().get("server");
-                headers.put("X-Source-Server", server);
-            }
-
-            Log.i(TAG, "Response headers available: " + sourceMediaItem.getResponseHeaders().size());
-        }
-
-        // Log all headers being applied
-        Log.i(TAG, "Applying " + headers.size() + " headers for protected stream:");
-        for (Map.Entry<String, String> entry : headers.entrySet()) {
-            String value = entry.getValue();
-            // Mask sensitive header values for logging
-            if (entry.getKey().equalsIgnoreCase("Cookie") || entry.getKey().equalsIgnoreCase("Authorization")) {
-                Log.i(TAG, "  " + entry.getKey() + ": [MASKED - length: " + value.length() + "]");
-            } else {
-                Log.i(TAG, "  " + entry.getKey() + ": " + value);
-            }
-        }
-
-        // Add range header for video streaming
-        headers.put("Range", "bytes=0-");
-
-        // Create OkHttpDataSource.Factory using the shared OkHttpClient from FetchStreams
-        OkHttpDataSource.Factory okHttpDataSourceFactory = new OkHttpDataSource.Factory(
-                FetchStreams.getSharedClient()
-        ).setDefaultRequestProperties(headers);
-
-        // Wrap with DefaultDataSource.Factory for proper media source handling
-        DefaultDataSource.Factory dataSourceFactory = new DefaultDataSource.Factory(
-                this, okHttpDataSourceFactory);
-
-        String uriString = mediaItem.localConfiguration.uri.toString().toLowerCase();
-
-        Log.i(TAG, "Creating protected media source for URI: " + uriString);
-
-        if (uriString.contains(".m3u8") || uriString.contains("m3u8")) {
-            Log.i(TAG, "Using HLS media source with shared OkHttpClient and keep-alive");
-            return new HlsMediaSource.Factory(dataSourceFactory)
-                    .setAllowChunklessPreparation(true)
-                    .createMediaSource(mediaItem);
-        } else if (uriString.contains(".mpd") || uriString.contains("mpd")) {
-            Log.i(TAG, "Using DASH media source with shared OkHttpClient and keep-alive");
-            return new DashMediaSource.Factory(dataSourceFactory)
-                    .createMediaSource(mediaItem);
-        } else {
-            Log.i(TAG, "Using Progressive media source with shared OkHttpClient and keep-alive");
-            return new ProgressiveMediaSource.Factory(dataSourceFactory)
-                    .createMediaSource(mediaItem);
-        }
-    }
-
-    /**
-     * Parse JSON-formatted cookie string to extract name=value pairs
-     * Example input: [{"name":"perf_dv6Tr4n","value":"1",...}]
-     * Example output: perf_dv6Tr4n=1
-     */
-    private String parseJsonCookie(String jsonCookie) {
-        try {
-            StringBuilder cookieString = new StringBuilder();
-
-            // Simple JSON parsing to extract name and value
-            String json = jsonCookie.trim();
-            if (json.startsWith("[")) json = json.substring(1);
-            if (json.endsWith("]")) json = json.substring(0, json.length() - 1);
-
-            // Split by "},{"
-            String[] cookieObjects = json.split("\\},\\{");
-
-            for (String cookieObj : cookieObjects) {
-                String name = extractJsonValue(cookieObj, "name");
-                String value = extractJsonValue(cookieObj, "value");
-
-                if (name != null && value != null) {
-                    if (cookieString.length() > 0) {
-                        cookieString.append("; ");
-                    }
-                    cookieString.append(name).append("=").append(value);
-                }
-            }
-
-            String result = cookieString.toString();
-            Log.i(TAG, "Parsed JSON cookie to: " + result);
-            return result;
-        } catch (Exception e) {
-            Log.e(TAG, "Error parsing JSON cookie: " + e.getMessage());
-            return jsonCookie; // Return as-is if parsing fails
-        }
-    }
-
-    /**
-     * Extract value from simple JSON string
-     */
-    private String extractJsonValue(String json, String key) {
-        try {
-            String searchFor = "\"" + key + "\":\"";
-            int startIndex = json.indexOf(searchFor);
-            if (startIndex == -1) return null;
-
-            startIndex += searchFor.length();
-            int endIndex = json.indexOf("\"", startIndex);
-            if (endIndex == -1) return null;
-
-            return json.substring(startIndex, endIndex);
-        } catch (Exception e) {
-            return null;
-        }
+        return KiduyuDataSource.createProtectedMediaSource(
+                this,
+                mediaItem,
+                sourceMediaItem.getSessionCookie(),
+                sourceMediaItem.getCustomHeaders(),
+                sourceMediaItem.getRefererUrl(),
+                sourceMediaItem.getResponseHeaders()
+        );
     }
 
     /**
      * Create standard media source WITHOUT custom headers
+     * Now delegates to KidunyiDataSourceFactory
      */
     @OptIn(markerClass = UnstableApi.class)
     private MediaSource createStandardMediaSource(MediaItem mediaItem) {
-        // Use shared OkHttpClient from FetchStreams for connection pooling
-        OkHttpDataSource.Factory okHttpDataSourceFactory = new OkHttpDataSource.Factory(
-                FetchStreams.getSharedClient());
-
-        DefaultDataSource.Factory dataSourceFactory = new DefaultDataSource.Factory(
-                this, okHttpDataSourceFactory);
-
-        String uriString = mediaItem.localConfiguration.uri.toString().toLowerCase();
-
-        if (uriString.contains(".m3u8") || uriString.contains("m3u8")) {
-            return new HlsMediaSource.Factory(dataSourceFactory)
-                    .createMediaSource(mediaItem);
-        } else if (uriString.contains(".mpd") || uriString.contains("mpd")) {
-            return new DashMediaSource.Factory(dataSourceFactory)
-                    .createMediaSource(mediaItem);
-        } else {
-            return new ProgressiveMediaSource.Factory(dataSourceFactory)
-                    .createMediaSource(mediaItem);
-        }
+        return KiduyuDataSource.createStandardMediaSource(this, mediaItem);
     }
 
+    @OptIn(markerClass = UnstableApi.class)
     private Uri getMediaUri(MediaItems mediaItem) {
-        // If we have a specific source index set, use that source
-        if (currentSourceIndex > 0 && mediaItem.getVideoSources() != null &&
-                currentSourceIndex < mediaItem.getVideoSources().size()) {
-            String url = mediaItem.getVideoSources().get(currentSourceIndex).getUrl();
-            Log.i("PlayerActivity", "Using fallback source " + currentSourceIndex + ": " + url);
-            return Uri.parse(url);
-        }
-
-        // Otherwise use the best URL as usual
-        String bestUrl = mediaItem.getBestVideoUrl();
-        return Uri.parse(bestUrl);
+        // Use KidunyiDataSourceFactory for source fallback logic
+        return KiduyuDataSource.getVideoUriWithFallback(mediaItem, currentSourceIndex);
     }
     private void showLoadingServer() {
-        loadingStatusContainer.setVisibility(View.VISIBLE);
-        loadingStatusText.setText("LOADING SERVER");
-        //btnPlayPause.setVisibility(View.GONE);
+        updateLoadingUi(true);
+        loadingStatusText.setText("BUFFERING");
     }
 
     private void showStreamingStatus() {
-        loadingStatusContainer.setVisibility(View.VISIBLE);
-        loadingStatusText.setText("STREAMING VIDEO");
-        //btnPlayPause.setVisibility(View.GONE);
+        updateLoadingUi(true);
+        loadingStatusText.setText("STREAMING");
     }
 
     private void hideLoading() {
         loadingIndicator.setVisibility(View.GONE);
+        btnPlayPause.setVisibility(View.VISIBLE);
     }
 
     private void hideStreamingStatus() {
@@ -833,16 +721,23 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
 
         if (isPlaying) {
             exoPlayer.pause();
+
+            currentTime.setVisibility(View.VISIBLE);
             btnPlayPause.setImageResource(android.R.drawable.ic_media_play);
             centerPauseIcon.setVisibility(View.VISIBLE);
             centerPauseIcon.setImageResource(android.R.drawable.ic_media_pause);
+            handler.post(updateProgressTask);
             isPlaying = false;
             showControls();
         } else {
             exoPlayer.play();
+
+            currentTime.setVisibility(View.VISIBLE);
             btnPlayPause.setImageResource(android.R.drawable.ic_media_pause);
             centerPauseIcon.setVisibility(View.GONE);
             isPlaying = true;
+            // Immediately update time display when playback starts
+            handler.post(updateProgressTask);
             resetHideControlsTimer();
         }
     }
@@ -875,6 +770,22 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
         }
     }
 
+    private void updateLoadingUi(boolean isLoading) {
+        if (isLoading) {
+            // Hide play/pause button and current time when loading
+            btnPlayPause.setVisibility(View.GONE);
+            currentTime.setVisibility(View.GONE);
+            // Show loading status in the same location
+            loadingStatusContainer.setVisibility(View.VISIBLE);
+        } else {
+            // Hide loading/streaming status
+            loadingStatusContainer.setVisibility(View.GONE);
+            // Show play/pause button and current time immediately
+            btnPlayPause.setVisibility(View.VISIBLE);
+            currentTime.setVisibility(View.VISIBLE);
+        }
+    }
+
     private Runnable hideControlsTask = () -> {
         if (isPlaying && areControlsVisible) {
             hideControls();
@@ -894,21 +805,24 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
     private void updateTimeDisplay() {
         if (exoPlayer != null) {
             int currentPos = (int) exoPlayer.getCurrentPosition();
-            progressBar.setProgress(currentPos);
+            long duration = exoPlayer.getDuration();
+
+            // Update current time text
             currentTime.setText(formatTime(currentPos));
+
+            // Update progress in milliseconds (matching the max value)
+            if (duration > 0) {
+                progressBar.setProgress(currentPos); // Changed from progressPercent
+            }
+
+            // Update buffered progress display
+            updateBufferProgress();
         }
     }
 
-    private String formatTime(int millis) {
-        int seconds = (millis / 1000) % 60;
-        int minutes = (millis / (1000 * 60)) % 60;
-        int hours = (millis / (1000 * 60 * 60));
 
-        if (hours > 0) {
-            return String.format(Locale.getDefault(), "%d:%02d:%02d", hours, minutes, seconds);
-        } else {
-            return String.format(Locale.getDefault(), "%02d:%02d", minutes, seconds);
-        }
+    private String formatTime(int millis) {
+        return PlayerUtils.formatTime(millis);
     }
 
     private void showSubtitlesDialog() {
@@ -1064,11 +978,27 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
         }
 
         // Back button
+        // Back button - double press to exit
         if (keyCode == KeyEvent.KEYCODE_BACK) {
             if (areControlsVisible) {
                 hideControls();
                 return true;
             }
+
+            // Double press back to exit
+            if (backPressedOnce) {
+                backPressedOnce = false;
+                backPressHandler.removeCallbacks(backPressResetTask);
+                finish();
+                return true;
+            }
+
+            backPressedOnce = true;
+            showToast("Press back again to exit");
+
+            // Reset flag after 5 seconds
+            backPressHandler.postDelayed(backPressResetTask, 5000);
+            return true;
         }
 
         // Play/pause on center when controls visible and no button focused
@@ -1083,6 +1013,12 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
         return super.onKeyDown(keyCode, event);
     }
 
+
+    // Runnable to reset back press flag after 5 seconds
+    private Runnable backPressResetTask = () -> {
+        backPressedOnce = false;
+    };
+
     private void showToast(String message) {
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
     }
@@ -1090,6 +1026,8 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
     @Override
     protected void onPause() {
         super.onPause();
+        // Save watch history before pausing
+        saveWatchHistory();
         if (exoPlayer != null && isPlaying) {
             exoPlayer.pause();
         }
@@ -1098,12 +1036,16 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        // Save watch history before destroying
+        saveWatchHistory();
+        stopWatchHistoryTimer();
         if (exoPlayer != null) {
             exoPlayer.release();
             exoPlayer = null;
         }
         handler.removeCallbacks(updateProgressTask);
         hideControlsHandler.removeCallbacks(hideControlsTask);
+        backPressHandler.removeCallbacks(backPressResetTask);
     }
 
     @Override
