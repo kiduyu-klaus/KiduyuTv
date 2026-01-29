@@ -55,7 +55,7 @@ public class CategoryAdapter extends RecyclerView.Adapter<CategoryAdapter.Catego
 
     public class CategoryViewHolder extends RecyclerView.ViewHolder {
         private TextView categoryTitle;
-        private RecyclerView itemsRecyclerView;
+        public RecyclerView itemsRecyclerView;
         private ContentCarouselAdapter contentAdapter;
 
         public CategoryViewHolder(@NonNull View itemView) {
