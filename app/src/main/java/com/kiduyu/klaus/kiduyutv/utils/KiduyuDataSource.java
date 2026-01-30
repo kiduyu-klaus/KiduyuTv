@@ -1106,6 +1106,7 @@ public class KiduyuDataSource extends BaseDataSource implements HttpDataSource {
                 cookie = parseJsonCookie(cookie);
             }
             headers.put("Cookie", cookie);
+            Log.i(TAG, "Parsed session cookie: " + cookie);
             Log.i(TAG, "Added session cookie to headers (length: " + cookie.length() + ")");
         } else {
             Log.w(TAG, "No session cookie available!");
@@ -1183,6 +1184,9 @@ public class KiduyuDataSource extends BaseDataSource implements HttpDataSource {
             Map<String, String> responseHeaders) {
 
         Log.i(TAG, "Creating protected media source for: " + mediaItem.localConfiguration.uri);
+        Log.i(TAG,"Session cookie: " + sessionCookie);
+        Log.i(TAG, "Custom headers: " + customHeaders);
+        Log.i(TAG, "Referer URL: " + refererUrl);
 
         // Build headers with session cookie and Cloudflare continuity
         Map<String, String> headers = buildProtectedStreamHeaders(
