@@ -29,6 +29,7 @@ import com.kiduyu.klaus.kiduyutv.adapter.RecommendationsAdapter;
 import com.kiduyu.klaus.kiduyutv.model.CastMember;
 import com.kiduyu.klaus.kiduyutv.model.MediaItems;
 import com.kiduyu.klaus.kiduyutv.utils.PreferencesManager;
+import com.kiduyu.klaus.kiduyutv.utils.utils;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -339,255 +340,127 @@ public class DetailsActivity extends AppCompatActivity {
     /**
      * Fetch video sources from multiple servers sequentially
      */
+    /**
+     * Fetch video sources from all movie servers (similar to fetchAllTVStreams)
+     */
     private void fetchVideoSources() {
         loadingOverlay.setVisibility(View.VISIBLE);
         playButton.setEnabled(false);
-        currentServerIndex = 0;
 
         String title = mediaItems.getTitle();
         String year = String.valueOf(mediaItems.getYear());
-        String tmdbId = mediaItems.getTmdbId();
+        String tmdbId = mediaItems.getId();
         String imdbId = mediaItems.getId(); // Assuming this contains IMDB ID
 
         Log.i(TAG, "Fetching video sources for: " + title + " (" + year + ") [" + tmdbId + "]");
-        Log.i(TAG, "fetchVideoSources: " + title + " (" + year + ") [" + tmdbId + "]");
 
-        // Start trying servers for MOVIE only
-        tryNextServer(title, year, tmdbId, imdbId);
-    }
+        final List<MediaItems.VideoSource> allVideoSources = new ArrayList<>();
+        final List<MediaItems.SubtitleItem> allSubtitles = new ArrayList<>();
 
-    /**
-     * Try the next server in the list
+        // Counter to track completed fetches
+        final int[] completedFetches = {0};
+        final int totalServers = 6; // Number of servers we're querying
 
-     private void tryNextServer(String title, String year, String tmdbId, String imdbId) {
-     if (currentServerIndex >= serverSources.size()) {
-     // All servers failed
-     loadingOverlay.setVisibility(View.GONE);
-     playButton.setEnabled(true);
-
-     Toast.makeText(DetailsActivity.this,
-     "Unable to find video sources from any server",
-     Toast.LENGTH_LONG).show();
-
-     Log.e(TAG, "All servers failed to fetch video sources");
-     return;
-     }
-
-     ServerSource currentServer = serverSources.get(currentServerIndex);
-     Log.i(TAG, "Trying server [" + (currentServerIndex + 1) + "/" + serverSources.size() + "]: " +
-     currentServer.name);
-
-     // Show which server we're trying
-     if (loadingText != null) {
-     loadingText.setText("Loading from " + currentServer.name + "...");
-     }
-
-     FetchStreams.StreamCallback callback = new FetchStreams.StreamCallback() {
-    @Override public void onSuccess(MediaItems updatedItem) {
-    // Validate the response has actual video sources
-    if (updatedItem != null && updatedItem.hasValidVideoSources()) {
-    loadingOverlay.setVisibility(View.GONE);
-    playButton.setEnabled(true);
-
-    Log.i(TAG, "✓ Success with " + currentServer.name);
-    Log.i(TAG, "Video sources: " + updatedItem.getVideoSources().size());
-    Log.i(TAG, "Subtitles: " + updatedItem.getSubtitles().size());
-
-    // Update current media item with video sources
-    mediaItems.setVideoSources(updatedItem.getVideoSources());
-    mediaItems.setSubtitles(updatedItem.getSubtitles());
-    mediaItems.setRefererUrl(updatedItem.getRefererUrl());
-    mediaItems.setCustomHeaders(updatedItem.getCustomHeaders());
-    mediaItems.setResponseHeaders(updatedItem.getResponseHeaders());
-
-    // Also copy over URLs if available
-    if (updatedItem.getHlsUrl() != null) {
-    mediaItems.setHlsUrl(updatedItem.getHlsUrl());
-    }
-    if (updatedItem.getDashUrl() != null) {
-    mediaItems.setDashUrl(updatedItem.getDashUrl());
-    }
-    if (updatedItem.getVideoUrl() != null) {
-    mediaItems.setVideoUrl(updatedItem.getVideoUrl());
-    }
-
-    Toast.makeText(DetailsActivity.this,
-    "Loaded from " + currentServer.name,
-    Toast.LENGTH_SHORT).show();
-
-    launchPlayer();
-    } else {
-    // No valid sources, try next server
-    Log.w(TAG, "✗ " + currentServer.name + " returned no valid sources");
-    currentServerIndex++;
-    tryNextServer(title, year, tmdbId, imdbId);
-    }
-    }
-
-    @Override public void onError(String error) {
-    Log.e(TAG, "✗ " + currentServer.name + " failed: " + error);
-
-    // Try next server
-    currentServerIndex++;
-    tryNextServer(title, year, tmdbId, imdbId);
-    }
-    };
-
-     // Call appropriate server based on type - MOVIES ONLY
-     try {
-     switch (currentServer.type) {
-     case VIDEASY:
-     fetchStreams.fetchVideasyMovie(title, year, tmdbId, callback);
-     break;
-
-     case VIDLINK:
-     fetchStreams.fetchVidlinkMovie(tmdbId, callback);
-     break;
-
-     case HEXA:
-     fetchStreams.fetchHexaMovie(tmdbId, callback);
-     break;
-
-     case ONETOUCHTV:
-     // OneTouchTV requires vodId - you may need to search/map tmdbId to vodId
-     // For now, using tmdbId as placeholder
-     // Note: This might need adjustment based on actual API requirements
-     fetchStreams.fetchOnetouchtvMovie(tmdbId, callback);
-     break;
-
-     case SMASHYSTREAM_TYPE1:
-     // Requires IMDB ID
-     if (imdbId != null && !imdbId.isEmpty()) {
-     fetchStreams.fetchSmashystreamMovie(imdbId, tmdbId, "1", callback);
-     } else {
-     // Skip if no IMDB ID
-     Log.w(TAG, "Skipping Smashystream Type 1 - no IMDB ID");
-     currentServerIndex++;
-     tryNextServer(title, year, tmdbId, imdbId);
-     }
-     break;
-
-     case SMASHYSTREAM_TYPE2:
-     fetchStreams.fetchSmashystreamMovie(imdbId, tmdbId, "2", callback);
-     break;
-
-     default:
-     // Unknown server type, skip
-     currentServerIndex++;
-     tryNextServer(title, year, tmdbId, imdbId);
-     break;
-     }
-     } catch (Exception e) {
-     Log.e(TAG, "Exception calling " + currentServer.name + ": " + e.getMessage(), e);
-     currentServerIndex++;
-     tryNextServer(title, year, tmdbId, imdbId);
-     }
-     }
-     */
-
-    /**
-     * Try the next server in the list (SMASHYSTREAM_TYPE2 and HEXA only)
-     */
-    private void tryNextServer(String title, String year, String tmdbId, String imdbId) {
-        if (currentServerIndex >= serverSources.size()) {
-            // All servers failed
-            loadingOverlay.setVisibility(View.GONE);
-            playButton.setEnabled(true);
-
-            Toast.makeText(DetailsActivity.this,
-                    "Unable to find video sources from any server",
-                    Toast.LENGTH_LONG).show();
-
-            Log.e(TAG, "All servers failed to fetch video sources");
-            return;
-        }
-
-        ServerSource currentServer = serverSources.get(currentServerIndex);
-        Log.i(TAG, "Trying server [" + (currentServerIndex + 1) + "/" + serverSources.size() + "]: " +
-                currentServer.name);
-
-        // Show which server we're trying
-        if (loadingText != null) {
-            loadingText.setText("Loading from " + currentServer.name + "...");
-        }
-
+        // Callback to handle each server response
         FetchStreams.StreamCallback callback = new FetchStreams.StreamCallback() {
             @Override
-            public void onSuccess(MediaItems updatedItem) {
-                // Validate the response has actual video sources
-                if (updatedItem != null && updatedItem.hasValidVideoSources()) {
-                    loadingOverlay.setVisibility(View.GONE);
-                    playButton.setEnabled(true);
-
-                    Log.i(TAG, "✓ Success with " + currentServer.name);
-                    Log.i(TAG, "Video sources: " + updatedItem.getVideoSources().size());
-                    Log.i(TAG, "Subtitles: " + updatedItem.getSubtitles().size());
-
-                    // Update current media item with video sources
-                    mediaItems.setVideoSources(updatedItem.getVideoSources());
-                    mediaItems.setSubtitles(updatedItem.getSubtitles());
-                    mediaItems.setRefererUrl(updatedItem.getRefererUrl());
-                    mediaItems.setCustomHeaders(updatedItem.getCustomHeaders());
-                    mediaItems.setResponseHeaders(updatedItem.getResponseHeaders());
-
-                    // Also copy over URLs if available
-                    if (updatedItem.getHlsUrl() != null) {
-                        mediaItems.setHlsUrl(updatedItem.getHlsUrl());
+            public void onSuccess(MediaItems item) {
+                // Add video sources
+                if (item.getVideoSources() != null && !item.getVideoSources().isEmpty()) {
+                    allVideoSources.addAll(item.getVideoSources());
+                    Log.i(TAG, "Added " + item.getVideoSources().size() + " sources");
+                    for (MediaItems.VideoSource source : item.getVideoSources()) {
+                        Log.i(TAG, "Source: " + source.getUrl());
+                        Log.i(TAG, "Quality: " + source.getQuality());
                     }
-                    if (updatedItem.getDashUrl() != null) {
-                        mediaItems.setDashUrl(updatedItem.getDashUrl());
-                    }
-                    if (updatedItem.getVideoUrl() != null) {
-                        mediaItems.setVideoUrl(updatedItem.getVideoUrl());
-                    }
-
-                    Toast.makeText(DetailsActivity.this,
-                            "Loaded from " + currentServer.name,
-                            Toast.LENGTH_SHORT).show();
-
-                    launchPlayer();
-                } else {
-                    // No valid sources, try next server
-                    Log.w(TAG, "✗ " + currentServer.name + " returned no valid sources");
-                    currentServerIndex++;
-                    tryNextServer(title, year, tmdbId, imdbId);
                 }
+
+                // Add subtitles
+                if (item.getSubtitles() != null && !item.getSubtitles().isEmpty()) {
+                    allSubtitles.addAll(item.getSubtitles());
+                    Log.i(TAG, "Added " + item.getSubtitles().size() + " subtitles");
+                }
+
+                // Copy session data from first successful source
+                if (mediaItems.getSessionCookie() == null && item.getSessionCookie() != null) {
+                    mediaItems.setSessionCookie(item.getSessionCookie());
+                    mediaItems.setCustomHeaders(item.getCustomHeaders());
+                    mediaItems.setRefererUrl(item.getRefererUrl());
+                    mediaItems.setResponseHeaders(item.getResponseHeaders());
+                }
+
+                checkAndProceed();
             }
 
             @Override
             public void onError(String error) {
-                Log.e(TAG, "✗ " + currentServer.name + " failed: " + error);
+                Log.e(TAG, "Server fetch error: " + error);
+                checkAndProceed();
+            }
 
-                // Try next server
-                currentServerIndex++;
-                tryNextServer(title, year, tmdbId, imdbId);
+            private void checkAndProceed() {
+                completedFetches[0]++;
+
+                // Update loading text if available
+                if (loadingText != null) {
+                    runOnUiThread(() -> {
+                        loadingText.setText("Fetching streams... " + completedFetches[0] + "/" + totalServers);
+                    });
+                }
+
+                // Once all servers have responded
+                if (completedFetches[0] >= totalServers) {
+                    runOnUiThread(() -> {
+                        loadingOverlay.setVisibility(View.GONE);
+                        playButton.setEnabled(true);
+
+                        if (allVideoSources.isEmpty()) {
+                            Toast.makeText(DetailsActivity.this,
+                                    "No streams found for this movie", Toast.LENGTH_LONG).show();
+                            return;
+                        }
+
+                        // Remove duplicates based on URL
+                        List<MediaItems.VideoSource> uniqueSources = utils.removeDuplicateSources(allVideoSources);
+                        List<MediaItems.SubtitleItem> uniqueSubtitles = utils.removeDuplicateSubtitles(allSubtitles);
+
+                        // Move VIP source(s) to index 0
+                        uniqueSources = utils.moveVipSourceToTop(uniqueSources);
+
+                        // Set all sources and subtitles to the media item
+                        mediaItems.setVideoSources(uniqueSources);
+                        mediaItems.setSubtitles(uniqueSubtitles);
+
+                        Log.i(TAG, "Total unique sources: " + uniqueSources.size());
+                        Log.i(TAG, "Total unique subtitles: " + uniqueSubtitles.size());
+
+                        // Launch player
+                        launchPlayer();
+                    });
+                }
             }
         };
 
-        // Call appropriate server based on type - HEXA and SMASHYSTREAM_TYPE2 only
-        try {
-            switch (currentServer.type) {
-                case HEXA:
-                    fetchStreams.fetchHexaMovie(tmdbId, callback);
-                    break;
+        // 1. Fetch from Videasy
+        fetchStreams.fetchVideasyMovie(title, year, tmdbId, callback);
 
-                case SMASHYSTREAM_TYPE2:
-                    fetchStreams.fetchSmashystreamMovie(imdbId, tmdbId, "2", callback);
-                    break;
+        // 2. Fetch from Hexa
+        fetchStreams.fetchHexaMovie(tmdbId, callback);
 
-                default:
-                    // Unknown server type, skip
-                    Log.w(TAG, "Skipping unsupported server type: " + currentServer.type);
-                    currentServerIndex++;
-                    tryNextServer(title, year, tmdbId, imdbId);
-                    break;
-            }
-        } catch (Exception e) {
-            Log.e(TAG, "Exception calling " + currentServer.name + ": " + e.getMessage(), e);
-            currentServerIndex++;
-            tryNextServer(title, year, tmdbId, imdbId);
-        }
+        // 3. Fetch from Vidlink
+        fetchStreams.fetchVidlinkMovie(tmdbId, callback);
+
+        // 4. Fetch from SmashyStream/Vidstack Type 1
+        fetchStreams.fetchSmashystreamMovie(imdbId, tmdbId, "1", callback);
+
+        // 5. Fetch from SmashyStream/Vidstack Type 2
+        fetchStreams.fetchSmashystreamMovie(imdbId, tmdbId, "2", callback);
+
+        // 6. Fetch from XPrime (using "primebox" server)
+        fetchStreams.fetchXprimeMovie(title, year, tmdbId, imdbId, "primebox", callback);
     }
+
+
 
     /**
      * Launch the player activity
