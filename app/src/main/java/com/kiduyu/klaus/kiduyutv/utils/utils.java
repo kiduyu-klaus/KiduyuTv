@@ -11,6 +11,13 @@ import android.os.Build;
 import android.provider.Settings;
 import androidx.appcompat.app.AlertDialog;
 
+import com.kiduyu.klaus.kiduyutv.model.MediaItems;
+
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
 public class utils {
 
     /**
@@ -460,5 +467,104 @@ public class utils {
                 .setIcon(android.R.drawable.ic_dialog_alert)
                 .setCancelable(false)
                 .show();
+    }
+
+    /**
+     * Remove duplicate video sources based on URL
+     */
+    public static List<MediaItems.VideoSource> removeDuplicateSources(List<MediaItems.VideoSource> sources) {
+        Map<String, MediaItems.VideoSource> uniqueMap = new LinkedHashMap<>();
+
+        for (MediaItems.VideoSource source : sources) {
+            String url = source.getUrl();
+            if (url != null && !url.isEmpty()) {
+                // Keep first occurrence or prefer higher quality
+                if (!uniqueMap.containsKey(url)) {
+                    uniqueMap.put(url, source);
+                } else {
+                    // Compare qualities and keep better one
+                    MediaItems.VideoSource existing = uniqueMap.get(url);
+                    if (isBetterQuality(source.getQuality(), existing.getQuality())) {
+                        uniqueMap.put(url, source);
+                    }
+                }
+            }
+        }
+
+        return new ArrayList<>(uniqueMap.values());
+    }
+
+    /**
+     * Remove duplicate subtitles based on URL
+     */
+    public static List<MediaItems.SubtitleItem> removeDuplicateSubtitles(List<MediaItems.SubtitleItem> subtitles) {
+        Map<String, MediaItems.SubtitleItem> uniqueMap = new LinkedHashMap<>();
+
+        for (MediaItems.SubtitleItem subtitle : subtitles) {
+            String url = subtitle.getUrl();
+            if (url != null && !url.isEmpty()) {
+                // Use URL + language as unique key
+                String key = url + "_" + subtitle.getLang();
+                if (!uniqueMap.containsKey(key)) {
+                    uniqueMap.put(key, subtitle);
+                }
+            }
+        }
+
+        return new ArrayList<>(uniqueMap.values());
+    }
+
+    /**
+     * Compare quality strings to determine which is better
+     */
+    public static boolean isBetterQuality(String quality1, String quality2) {
+        int q1 = parseQuality(quality1);
+        int q2 = parseQuality(quality2);
+        return q1 > q2;
+    }
+
+
+    public static List<MediaItems.VideoSource> moveVipSourceToTop(List<MediaItems.VideoSource> sources) {
+        if (sources == null || sources.isEmpty()) return sources;
+
+        List<MediaItems.VideoSource> vipSources = new ArrayList<>();
+        List<MediaItems.VideoSource> normalSources = new ArrayList<>();
+
+        for (MediaItems.VideoSource source : sources) {
+            if (source.getUrl() != null &&
+                    source.getUrl().toLowerCase().contains("vip")) {
+                vipSources.add(source);
+            } else {
+                normalSources.add(source);
+            }
+        }
+
+        vipSources.addAll(normalSources);
+        return vipSources;
+    }
+
+    /**
+     * Parse quality string to numeric value for comparison
+     */
+    public static int parseQuality(String quality) {
+        if (quality == null) return 0;
+
+        quality = quality.toLowerCase();
+
+        // Extract numeric value
+        if (quality.contains("2160") || quality.contains("4k")) return 2160;
+        if (quality.contains("1440") || quality.contains("2k")) return 1440;
+        if (quality.contains("1080")) return 1080;
+        if (quality.contains("720")) return 720;
+        if (quality.contains("480")) return 480;
+        if (quality.contains("360")) return 360;
+        if (quality.contains("240")) return 240;
+
+        // Handle special cases
+        if (quality.equals("auto") || quality.contains("auto")) return 9999; // Prefer auto
+        if (quality.contains("hd")) return 720; // Assume HD is 720p
+        if (quality.contains("sd")) return 480; // Assume SD is 480p
+
+        return 0; // Unknown quality
     }
 }
