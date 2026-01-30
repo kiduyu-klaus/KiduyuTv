@@ -259,7 +259,7 @@ public class MainActivity extends AppCompatActivity {
     private void loadContinueWatching() {
         try {
             //remove this later
-            preferencesManager.clearWatchHistory();
+            //preferencesManager.clearWatchHistory();
             List<PreferencesManager.WatchHistoryItem> watchHistory = preferencesManager.getAllWatchHistory();
 
 
