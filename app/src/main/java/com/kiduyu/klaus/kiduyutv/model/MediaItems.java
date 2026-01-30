@@ -423,12 +423,12 @@ public class MediaItems implements Parcelable {
     /**
      * Get the preferred background image URL for ExoPlayer artwork display.
      * Implements a 3-tier fallback logic to ensure a background is always available.
-     * 
+     *
      * Priority order:
      * 1. backgroundImageUrl (Highest resolution, specifically for backgrounds)
      * 2. heroImageUrl (High resolution, usually landscape)
      * 3. cardImageUrl (Lower resolution, used for grid items)
-     * 
+     *
      * @return The preferred background URL, or null if no background is available
      */
     public String getPreferredBackgroundUrl() {
@@ -436,17 +436,17 @@ public class MediaItems implements Parcelable {
         if (backgroundImageUrl != null && !backgroundImageUrl.isEmpty()) {
             return backgroundImageUrl;
         }
-        
+
         // Second priority: heroImageUrl (high resolution landscape image)
         if (heroImageUrl != null && !heroImageUrl.isEmpty()) {
             return heroImageUrl;
         }
-        
+
         // Third priority: cardImageUrl (grid item image)
         if (cardImageUrl != null && !cardImageUrl.isEmpty()) {
             return cardImageUrl;
         }
-        
+
         // No background URL available
         return null;
     }
@@ -536,16 +536,49 @@ public class MediaItems implements Parcelable {
         private String quality;
         private String url;
 
-        public VideoSource() {}
+        // ✅ Per-source authentication headers
+        private String sessionCookie;
+        private Map<String, String> customHeaders;
+        private String refererUrl;
+        private Map<String, String> responseHeaders;
+
+        public VideoSource() {
+            this.customHeaders = new HashMap<>();
+            this.responseHeaders = new HashMap<>();
+        }
 
         public VideoSource(String quality, String url) {
             this.quality = quality;
             this.url = url;
+            this.customHeaders = new HashMap<>();
+            this.responseHeaders = new HashMap<>();
         }
 
         protected VideoSource(Parcel in) {
             quality = in.readString();
             url = in.readString();
+
+            // Read per-source authentication data
+            sessionCookie = in.readString();
+            refererUrl = in.readString();
+
+            // Read custom headers
+            customHeaders = new HashMap<>();
+            int customHeadersSize = in.readInt();
+            for (int i = 0; i < customHeadersSize; i++) {
+                String key = in.readString();
+                String value = in.readString();
+                customHeaders.put(key, value);
+            }
+
+            // Read response headers
+            responseHeaders = new HashMap<>();
+            int responseHeadersSize = in.readInt();
+            for (int i = 0; i < responseHeadersSize; i++) {
+                String key = in.readString();
+                String value = in.readString();
+                responseHeaders.put(key, value);
+            }
         }
 
         public static final Creator<VideoSource> CREATOR = new Creator<VideoSource>() {
@@ -576,6 +609,39 @@ public class MediaItems implements Parcelable {
             this.url = url;
         }
 
+        // ✅ Getters and setters for per-source authentication
+        public String getSessionCookie() {
+            return sessionCookie;
+        }
+
+        public void setSessionCookie(String sessionCookie) {
+            this.sessionCookie = sessionCookie;
+        }
+
+        public Map<String, String> getCustomHeaders() {
+            return customHeaders;
+        }
+
+        public void setCustomHeaders(Map<String, String> customHeaders) {
+            this.customHeaders = customHeaders != null ? customHeaders : new HashMap<>();
+        }
+
+        public String getRefererUrl() {
+            return refererUrl;
+        }
+
+        public void setRefererUrl(String refererUrl) {
+            this.refererUrl = refererUrl;
+        }
+
+        public Map<String, String> getResponseHeaders() {
+            return responseHeaders;
+        }
+
+        public void setResponseHeaders(Map<String, String> responseHeaders) {
+            this.responseHeaders = responseHeaders != null ? responseHeaders : new HashMap<>();
+        }
+
         @Override
         public int describeContents() {
             return 0;
@@ -585,11 +651,43 @@ public class MediaItems implements Parcelable {
         public void writeToParcel(Parcel dest, int flags) {
             dest.writeString(quality);
             dest.writeString(url);
+
+            // Write per-source authentication data
+            dest.writeString(sessionCookie);
+            dest.writeString(refererUrl);
+
+            // Write custom headers
+            if (customHeaders != null) {
+                dest.writeInt(customHeaders.size());
+                for (Map.Entry<String, String> entry : customHeaders.entrySet()) {
+                    dest.writeString(entry.getKey());
+                    dest.writeString(entry.getValue());
+                }
+            } else {
+                dest.writeInt(0);
+            }
+
+            // Write response headers
+            if (responseHeaders != null) {
+                dest.writeInt(responseHeaders.size());
+                for (Map.Entry<String, String> entry : responseHeaders.entrySet()) {
+                    dest.writeString(entry.getKey());
+                    dest.writeString(entry.getValue());
+                }
+            } else {
+                dest.writeInt(0);
+            }
         }
 
         @Override
         public String toString() {
-            return "VideoSource{quality='" + quality + "', url='" + url + "'}";
+            return "VideoSource{" +
+                    "quality='" + quality + '\'' +
+                    ", url='" + url + '\'' +
+                    ", hasSessionCookie=" + (sessionCookie != null && !sessionCookie.isEmpty()) +
+                    ", hasCustomHeaders=" + (customHeaders != null && !customHeaders.isEmpty()) +
+                    ", refererUrl='" + refererUrl + '\'' +
+                    '}';
         }
     }
 
