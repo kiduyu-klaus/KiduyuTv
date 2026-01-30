@@ -258,7 +258,10 @@ public class MainActivity extends AppCompatActivity {
      */
     private void loadContinueWatching() {
         try {
+            //remove this later
+            preferencesManager.clearWatchHistory();
             List<PreferencesManager.WatchHistoryItem> watchHistory = preferencesManager.getAllWatchHistory();
+
 
             // Filter out completed items (95% or more watched)
             List<PreferencesManager.WatchHistoryItem> activeHistory = new ArrayList<>();
