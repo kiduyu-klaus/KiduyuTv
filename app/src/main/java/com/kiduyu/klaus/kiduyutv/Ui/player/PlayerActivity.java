@@ -869,23 +869,56 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
     private MediaSource createMediaSourceFromMediaItem(MediaItem mediaItem) {
         Log.i("PlayerActivity", "Creating media source with KiduyuDataSourceFactory");
         return createProtectedMediaSource(mediaItem);
-       // return createStandardMediaSource(mediaItem);
     }
 
     /**
      * Create media source WITH session headers for Cloudflare bypass
-     * Now delegates to KiduyuDataSourceFactory
+     * ✅ NOW USES PER-SOURCE HEADERS from the current video source
      */
     @OptIn(markerClass = UnstableApi.class)
     @RequiresApi(api = Build.VERSION_CODES.N)
     private MediaSource createProtectedMediaSource(MediaItem mediaItem) {
+        // ✅ Get the CURRENT video source based on currentSourceIndex
+        if (sourceMediaItem.getVideoSources() == null ||
+                sourceMediaItem.getVideoSources().isEmpty() ||
+                currentSourceIndex >= sourceMediaItem.getVideoSources().size()) {
+
+            Log.e(TAG, "No video sources available or invalid currentSourceIndex: " + currentSourceIndex);
+            // Fallback to global headers (backward compatibility)
+            return KiduyuDataSource.createProtectedMediaSource(
+                    this,
+                    mediaItem,
+                    sourceMediaItem.getSessionCookie(),
+                    sourceMediaItem.getCustomHeaders(),
+                    sourceMediaItem.getRefererUrl(),
+                    sourceMediaItem.getResponseHeaders()
+            );
+        }
+
+        // ✅ Get headers from CURRENT source
+        MediaItems.VideoSource currentSource = sourceMediaItem.getVideoSources().get(currentSourceIndex);
+
+        Log.i(TAG, "✅ Creating media source for current source [" + (currentSourceIndex + 1) +
+                "/" + sourceMediaItem.getVideoSources().size() + "]");
+        Log.i(TAG, "   Quality: " + currentSource.getQuality());
+        Log.i(TAG, "   URL: " + (currentSource.getUrl().length() > 60 ?
+                currentSource.getUrl().substring(0, 60) + "..." : currentSource.getUrl()));
+        Log.i(TAG, "   Using source-specific headers:");
+        Log.i(TAG, "     - Cookie: " + (currentSource.getSessionCookie() != null &&
+                !currentSource.getSessionCookie().isEmpty() ?
+                "[SET, length=" + currentSource.getSessionCookie().length() + "]" : "[NONE]"));
+        Log.i(TAG, "     - Referer: " + currentSource.getRefererUrl());
+        Log.i(TAG, "     - Custom headers: " + (currentSource.getCustomHeaders() != null ?
+                currentSource.getCustomHeaders().size() : 0));
+
+        // ✅ Use source-specific authentication headers
         return KiduyuDataSource.createProtectedMediaSource(
                 this,
                 mediaItem,
-                sourceMediaItem.getSessionCookie(),
-                sourceMediaItem.getCustomHeaders(),
-                sourceMediaItem.getRefererUrl(),
-                sourceMediaItem.getResponseHeaders()
+                currentSource.getSessionCookie(),
+                currentSource.getCustomHeaders(),
+                currentSource.getRefererUrl(),
+                currentSource.getResponseHeaders()
         );
     }
 

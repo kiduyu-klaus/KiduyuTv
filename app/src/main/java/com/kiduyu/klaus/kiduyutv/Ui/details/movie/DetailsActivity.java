@@ -365,13 +365,14 @@ public class DetailsActivity extends AppCompatActivity {
         FetchStreams.StreamCallback callback = new FetchStreams.StreamCallback() {
             @Override
             public void onSuccess(MediaItems item) {
-                // Add video sources
+                // Add video sources (✅ each source already has headers attached!)
                 if (item.getVideoSources() != null && !item.getVideoSources().isEmpty()) {
                     allVideoSources.addAll(item.getVideoSources());
-                    Log.i(TAG, "Added " + item.getVideoSources().size() + " sources");
+                    Log.i(TAG, "Added " + item.getVideoSources().size() + " sources from server");
                     for (MediaItems.VideoSource source : item.getVideoSources()) {
-                        Log.i(TAG, "Source: " + source.getUrl());
-                        Log.i(TAG, "Quality: " + source.getQuality());
+                        Log.i(TAG, "  Source: " + source.getQuality() +
+                                " - hasHeaders: " + (source.getCustomHeaders() != null &&
+                                !source.getCustomHeaders().isEmpty()));
                     }
                 }
 
@@ -381,11 +382,11 @@ public class DetailsActivity extends AppCompatActivity {
                     Log.i(TAG, "Added " + item.getSubtitles().size() + " subtitles");
                 }
 
-                // ✅ Each VideoSource already has headers attached!
-                if (item.getVideoSources() != null && !item.getVideoSources().isEmpty()) {
-                    allVideoSources.addAll(item.getVideoSources());
-                    Log.i(TAG, "Added " + item.getVideoSources().size() + " sources from server");
-                }
+                // ✅ REMOVED: Don't set global headers anymore!
+                // Each VideoSource already has its own authentication headers attached
+                // This prevents one server's cookies from being used with another server's URLs
+
+                // Keep background image
                 mediaItems.setBackgroundImageUrl(mediaItems.getBackgroundImageUrl());
 
                 checkAndProceed();

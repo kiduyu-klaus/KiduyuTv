@@ -433,7 +433,7 @@ public class FetchStreams {
 
         String refererUrl="https://hexa.su/";
 
-        return parseStreamData(jsonStr, refererUrl, new HashMap<>());
+        return parseStreamData(jsonStr, refererUrl, responseHeaders);
     }
 
     // ===================== ONETOUCHTV =====================
@@ -478,6 +478,7 @@ public class FetchStreams {
 // or if it should be key-based:
 // DecryptRequest.withKey(encrypted, null)
 
+        Map<String, String> responseHeaders = extractHeaders(response);
         if (!decResponse.isSuccessful() || decResponse.body() == null) {
             throw new IOException("Failed to decrypt");
         }
@@ -485,7 +486,7 @@ public class FetchStreams {
 
         DecryptResponse.Result result = decResponse.body().result;
         String jsonStr = new com.google.gson.Gson().toJson(result);
-        return parseStreamData(jsonStr, url, new HashMap<>());
+        return parseStreamData(jsonStr, url, responseHeaders);
     }
 
     // ===================== SMASHYSTREAM (VIDSTACK) =====================
@@ -549,8 +550,9 @@ public class FetchStreams {
         }
         DecryptResponse.Result result = decResp.body().result;
         String jsonStr = new com.google.gson.Gson().toJson(result);
+        Map<String, String> responseHeaders = extractHeaders(response);
 
-        return parseStreamData(jsonStr, streamUrl, new HashMap<>());
+        return parseStreamData(jsonStr, streamUrl, responseHeaders);
     }
 
 
@@ -705,9 +707,10 @@ public class FetchStreams {
         DecryptResponse.Result result = decResp.body().result;
         String jsonStr = new com.google.gson.Gson().toJson(result);
 
+        Map<String, String> responseHeaders = extractHeaders(response);
         Log.i(TAG, "Decrypted Type 1 TV data: " + jsonStr);
 
-        return parseStreamData(jsonStr, streamUrl, new HashMap<>());
+        return parseStreamData(jsonStr, streamUrl, responseHeaders);
     }
 
     /**
