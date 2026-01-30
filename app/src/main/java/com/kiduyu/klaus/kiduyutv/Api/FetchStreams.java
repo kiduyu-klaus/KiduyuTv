@@ -1,5 +1,6 @@
 package com.kiduyu.klaus.kiduyutv.Api;
 
+import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
@@ -11,25 +12,16 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.IOException;
-import java.net.InetAddress;
-import java.net.UnknownHostException;
 import java.net.URLEncoder;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 
-import okhttp3.ConnectionPool;
-import okhttp3.Dns;
-import okhttp3.Interceptor;
 import okhttp3.OkHttpClient;
-import okhttp3.Protocol;
-import okhttp3.Request;
 import okhttp3.ResponseBody;
 import retrofit2.Call;
 import retrofit2.Response;
@@ -68,8 +60,8 @@ public class FetchStreams {
     private final Handler mainHandler;
     private final OkHttpClient okHttpClient;
 
-    // Shared static OkHttpClient for both API calls and ExoPlayer streaming
-    private static OkHttpClient sharedClient;
+    // Application context for ApiClient
+    private static Context applicationContext;
 
 
 
@@ -278,15 +270,17 @@ public class FetchStreams {
         void onError(String error);
     }
 
-    public FetchStreams() {
+    public FetchStreams(Context context) {
         executorService = Executors.newCachedThreadPool();
         mainHandler = new Handler(Looper.getMainLooper());
 
-        if (sharedClient == null) {
-            sharedClient = buildOptimizedOkHttpClient();
+        // Store application context for ApiClient
+        if (applicationContext == null) {
+            applicationContext = context.getApplicationContext();
         }
 
-        okHttpClient = sharedClient;
+        // Use the shared OkHttpClient from ApiClient
+        okHttpClient = ApiClient.getClient(applicationContext);
 
         Retrofit retrofit = new Retrofit.Builder()
                 .baseUrl(ENC_DEC_API)
@@ -298,175 +292,12 @@ public class FetchStreams {
     }
 
     /**
-     * Build an optimized OkHttpClient with connection pooling, retry mechanism, and DNS caching
-     */
-    private static OkHttpClient buildOptimizedOkHttpClient() {
-        // Create connection pool for reusing connections
-        ConnectionPool connectionPool = new ConnectionPool(
-                10,              // Maximum idle connections
-                5,               // Keep alive duration
-                TimeUnit.MINUTES // Time unit
-        );
-
-        return new OkHttpClient.Builder()
-                // Connection timeouts
-                .connectTimeout(TIMEOUT_SECONDS, TimeUnit.SECONDS)
-                .readTimeout(TIMEOUT_SECONDS, TimeUnit.SECONDS)
-                .writeTimeout(TIMEOUT_SECONDS, TimeUnit.SECONDS)
-                .callTimeout(60, TimeUnit.SECONDS)
-
-                // Connection pooling - CRITICAL for preventing socket closure
-                .connectionPool(connectionPool)
-
-                // Retry and redirect
-                .retryOnConnectionFailure(true)
-                .followRedirects(true)
-                .followSslRedirects(true)
-
-                // Protocols - prefer HTTP/2 for better connection management
-                .protocols(Arrays.asList(Protocol.HTTP_2, Protocol.HTTP_1_1))
-
-                // DNS - cache DNS results
-                .dns(new DnsSelector())
-
-                // Interceptors
-                .addInterceptor(new ConnectionKeepAliveInterceptor())
-                .addInterceptor(new RetryInterceptor(3))
-                .addNetworkInterceptor(new LoggingInterceptor())
-
-                .build();
-    }
-
-    /**
      * Get the shared OkHttpClient instance for use with ExoPlayer streaming.
      * This allows sharing the connection pool and cookies between API calls and media playback.
+     * Note: Context is required for first initialization to set up persistent CookieJar.
      */
-    public static OkHttpClient getSharedClient() {
-        if (sharedClient == null) {
-            sharedClient = buildOptimizedOkHttpClient();
-        }
-        return sharedClient;
-    }
-
-    // ============================================
-    // Custom Interceptors for Connection Management
-    // ============================================
-
-    /**
-     * Keeps connections alive by adding Connection: keep-alive header
-     */
-    private static class ConnectionKeepAliveInterceptor implements Interceptor {
-        @Override
-        public okhttp3.Response intercept(Chain chain) throws IOException {
-            Request originalRequest = chain.request();
-
-            Request request = originalRequest.newBuilder()
-                    .header("Connection", "keep-alive")
-                    .header("Keep-Alive", "timeout=300, max=1000")
-                    .build();
-
-            return chain.proceed(request);
-        }
-    }
-
-    /**
-     * Retries failed requests automatically with exponential backoff
-     */
-    private static class RetryInterceptor implements Interceptor {
-        private final int maxRetries;
-
-        public RetryInterceptor(int maxRetries) {
-            this.maxRetries = maxRetries;
-        }
-
-        @Override
-        public okhttp3.Response intercept(Chain chain) throws IOException {
-            Request request = chain.request();
-            okhttp3.Response response = null;
-            IOException exception = null;
-
-            for (int attempt = 0; attempt < maxRetries; attempt++) {
-                try {
-                    response = chain.proceed(request);
-
-                    // If successful, return
-                    if (response.isSuccessful()) {
-                        return response;
-                    }
-
-                    // Close failed response
-                    if (response != null) {
-                        response.close();
-                    }
-
-                } catch (IOException e) {
-                    exception = e;
-                    Log.w(TAG, "Request failed, attempt " + (attempt + 1) + "/" + maxRetries);
-
-                    // Wait before retry (exponential backoff)
-                    if (attempt < maxRetries - 1) {
-                        try {
-                            Thread.sleep((long) Math.pow(2, attempt) * 1000);
-                        } catch (InterruptedException ie) {
-                            Thread.currentThread().interrupt();
-                            throw e;
-                        }
-                    }
-                }
-            }
-
-            // All retries failed
-            if (exception != null) {
-                throw exception;
-            }
-
-            return response;
-        }
-    }
-
-    /**
-     * DNS resolver with caching for improved performance
-     */
-    private static class DnsSelector implements Dns {
-        private final Map<String, List<InetAddress>> dnsCache = new HashMap<>();
-        private final long CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
-        private final Map<String, Long> cacheTimestamps = new HashMap<>();
-
-        @Override
-        public List<InetAddress> lookup(String hostname) throws UnknownHostException {
-            // Check cache
-            if (dnsCache.containsKey(hostname)) {
-                Long timestamp = cacheTimestamps.get(hostname);
-                if (timestamp != null && (System.currentTimeMillis() - timestamp) < CACHE_DURATION) {
-                    Log.i(TAG, "Using cached DNS for: " + hostname);
-                    return dnsCache.get(hostname);
-                }
-            }
-
-            // Lookup and cache
-            List<InetAddress> addresses = Dns.SYSTEM.lookup(hostname);
-            dnsCache.put(hostname, addresses);
-            cacheTimestamps.put(hostname, System.currentTimeMillis());
-
-            return addresses;
-        }
-    }
-
-    // Logging interceptor (network level for detailed debugging)
-    private static class LoggingInterceptor implements Interceptor {
-        @Override
-        public okhttp3.Response intercept(Chain chain) throws IOException {
-            Request request = chain.request();
-            Log.i(TAG, "[NETWORK] Request: " + request.url());
-
-            long startTime = System.currentTimeMillis();
-            okhttp3.Response response = chain.proceed(request);
-            long endTime = System.currentTimeMillis();
-
-            Log.i(TAG, "[NETWORK] Response: " + response.code() + " in " + (endTime - startTime) + "ms");
-
-            return response;
-        }
+    public static OkHttpClient getSharedClient(Context context) {
+        return ApiClient.getClient(context.getApplicationContext());
     }
 
     // ===================== VIDEASY =====================
@@ -1129,10 +960,6 @@ public class FetchStreams {
         }
         return headers;
     }
-
-
-
-
 
     private MediaItems parseStreamData(String jsonStr, String refererUrl,
                                        Map<String, String> responseHeaders) throws Exception {
