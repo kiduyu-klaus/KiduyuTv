@@ -961,6 +961,10 @@ public class FetchStreams {
         return headers;
     }
 
+
+
+
+
     private MediaItems parseStreamData(String jsonStr, String refererUrl,
                                        Map<String, String> responseHeaders) throws Exception {
         JSONObject data = new JSONObject(jsonStr);
@@ -1111,7 +1115,7 @@ public class FetchStreams {
 
         MediaItems item = new MediaItems();
 
-        // Store Cloudflare session in MediaItem
+        // Store Cloudflare session in MediaItem (for backward compatibility)
         if (cfSession.isValid()) {
             item.setSessionCookie(cfSession.sessionCookie);
             Log.i(TAG, "✓ Session cookie stored in MediaItem "+cfSession.sessionCookie);
@@ -1120,11 +1124,6 @@ public class FetchStreams {
             Log.i(TAG, "⚠ Session cookie set " + cfSession.getSessionCookie());
             Log.w(TAG, "⚠ No valid Cloudflare session to store");
         }
-
-        item.setVideoSources(sources);
-        item.setSubtitles(subs);
-        item.setRefererUrl(refererUrl);
-        item.setResponseHeaders(responseHeaders);
 
         // ============================================
         // Build custom headers
@@ -1141,38 +1140,39 @@ public class FetchStreams {
             customHeaders.put("Keep-Alive", "timeout=300, max=1000");
             customHeaders.put("Referer", refererUrl);
             customHeaders.put("Origin", getOriginFromUrl(refererUrl));
-        } /**else {
-         // Merge extracted headers with defaults
-         Map<String, String> defaults = new HashMap<>();
-         defaults.put("User-Agent", getUserAgent());
-         //defaults.put("Accept", "");
-         defaults.put("Accept-Language", "en-US,en;q=0.9");
-         defaults.put("Accept-Encoding", "gzip, deflate, br");
-         defaults.put("Connection", "keep-alive");
-         defaults.put("Keep-Alive", "timeout=300, max=1000");
+        }
 
-         // Add defaults only if not already present
-         for (Map.Entry<String, String> entry : defaults.entrySet()) {
-         if (!customHeaders.containsKey(entry.getKey())) {
-         customHeaders.put(entry.getKey(), entry.getValue());
-         }
-         }
-         }**/
+        // ✅ CRITICAL FIX: Attach headers to EACH VideoSource
+        Log.i(TAG, "Attaching authentication headers to " + sources.size() + " video sources");
+        for (MediaItems.VideoSource source : sources) {
+            source.setSessionCookie(cfSession.getSessionCookie());
+            source.setCustomHeaders(new HashMap<>(customHeaders));  // Copy to avoid reference sharing
+            source.setRefererUrl(refererUrl);
+            source.setResponseHeaders(new HashMap<>(responseHeaders));  // Copy to avoid reference sharing
 
+            Log.i(TAG, "✅ Source attached: " + source.getQuality());
+            Log.i(TAG, "   URL: " + (source.getUrl().length() > 60 ?
+                    source.getUrl().substring(0, 60) + "..." : source.getUrl()));
+            Log.i(TAG, "   Cookie: " + (source.getSessionCookie() != null &&
+                    !source.getSessionCookie().isEmpty() ? "[SET, length=" +
+                    source.getSessionCookie().length() + "]" : "[NONE]"));
+            Log.i(TAG, "   Referer: " + source.getRefererUrl());
+            Log.i(TAG, "   Custom headers: " + source.getCustomHeaders().size());
+        }
+
+        item.setVideoSources(sources);
+        item.setSubtitles(subs);
+        item.setRefererUrl(refererUrl);
+        item.setResponseHeaders(responseHeaders);
         item.setCustomHeaders(customHeaders);
 
         Log.i(TAG, "MediaItem configured with:");
         Log.i(TAG, "  - SourceId: " + sourceId);
-        Log.i(TAG, "  - Video sources: " + sources.size());
+        Log.i(TAG, "  - Video sources: " + sources.size() + " (each with attached headers)");
         Log.i(TAG, "  - Subtitles: " + subs.size());
-        Log.i(TAG, "  - Custom headers: " + customHeaders.size());
+        Log.i(TAG, "  - Global custom headers: " + customHeaders.size() + " (backward compatibility)");
         Log.i(TAG, "  - Session cookie: " + (item.getSessionCookie() != null ? "Yes" : "No"));
         Log.i(TAG, "  - Referer: " + item.getRefererUrl());
-
-        // Log all custom headers
-        for (Map.Entry<String, String> header : customHeaders.entrySet()) {
-            Log.i(TAG, "    " + header.getKey() + ": " + header.getValue());
-        }
 
         return item;
     }

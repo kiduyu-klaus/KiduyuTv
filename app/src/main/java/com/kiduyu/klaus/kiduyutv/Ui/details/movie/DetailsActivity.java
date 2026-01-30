@@ -381,12 +381,10 @@ public class DetailsActivity extends AppCompatActivity {
                     Log.i(TAG, "Added " + item.getSubtitles().size() + " subtitles");
                 }
 
-                // Copy session data from first successful source
-                if (mediaItems.getSessionCookie() == null && item.getSessionCookie() != null) {
-                    mediaItems.setSessionCookie(item.getSessionCookie());
-                    mediaItems.setCustomHeaders(item.getCustomHeaders());
-                    mediaItems.setRefererUrl(item.getRefererUrl());
-                    mediaItems.setResponseHeaders(item.getResponseHeaders());
+                // ✅ Each VideoSource already has headers attached!
+                if (item.getVideoSources() != null && !item.getVideoSources().isEmpty()) {
+                    allVideoSources.addAll(item.getVideoSources());
+                    Log.i(TAG, "Added " + item.getVideoSources().size() + " sources from server");
                 }
                 mediaItems.setBackgroundImageUrl(mediaItems.getBackgroundImageUrl());
 
