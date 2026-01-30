@@ -388,6 +388,7 @@ public class DetailsActivity extends AppCompatActivity {
                     mediaItems.setRefererUrl(item.getRefererUrl());
                     mediaItems.setResponseHeaders(item.getResponseHeaders());
                 }
+                mediaItems.setBackgroundImageUrl(mediaItems.getBackgroundImageUrl());
 
                 checkAndProceed();
             }

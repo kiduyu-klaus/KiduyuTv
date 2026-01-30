@@ -294,6 +294,7 @@ public class DetailsActivityTv extends AppCompatActivity {
                     episodeMedia.setRefererUrl(item.getRefererUrl());
                     episodeMedia.setResponseHeaders(item.getResponseHeaders());
                 }
+                episodeMedia.setBackgroundImageUrl(episodeMedia.getPosterUrl());
 
                 checkAndProceed();
             }

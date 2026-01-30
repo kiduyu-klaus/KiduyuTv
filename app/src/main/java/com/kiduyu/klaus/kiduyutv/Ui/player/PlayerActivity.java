@@ -48,6 +48,8 @@ import androidx.media3.exoplayer.source.LoadEventInfo;
 import androidx.media3.exoplayer.source.MediaLoadData;
 import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.source.ProgressiveMediaSource;
+import androidx.media3.exoplayer.trackselection.DefaultTrackSelector;
+import androidx.media3.exoplayer.trackselection.TrackSelector;
 
 import com.kiduyu.klaus.kiduyutv.R;
 import com.kiduyu.klaus.kiduyutv.Api.FetchStreams;
@@ -81,10 +83,11 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
 
     private Handler handler = new Handler();
     private Handler hideControlsHandler = new Handler();
-    private Handler backPressHandler = new Handler();  // NEW
+    private Handler backPressHandler = new Handler();
     private boolean isPlaying = false;
     private boolean areControlsVisible = false;
-    private boolean backPressedOnce = false;  // NEW
+    private boolean backPressedOnce = false;
+    private boolean hasAutoLoadedSubtitles = false;
 
 
     // Data lists
@@ -93,8 +96,6 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
     private List<String> serverOptions = Arrays.asList("Server 1", "Server 2", "Server 3", "Server 4");
     private List<Float> speedOptions = Arrays.asList(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f);
     private List<String> audioOptions = Arrays.asList("Sub", "Dub");
-
-    //SurfaceViewImageLoader loader = new SurfaceViewImageLoader();
 
     private int currentSubtitle = 0; // Original
     private int currentQuality = 0; // Medium 720p
@@ -125,8 +126,6 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
     private Handler watchHistoryHandler = new Handler();
     ImageView backgroundImage;
     private PreferencesManager preferencesManager;
-    private static final String VIDEO_URL = "https://rrr.app28base.site/p5qm/c5/h6a90f70b8d237f94866b6cfc2c7f06afdb8423c6639e9e32b074383937a06baeef0f9b8cb9be75c7c50ae72297d2e440790079152e890fea1284d59d53a146e35d/4/aGxzLzEwODAvMTA4MA,Ktm0Vt9-cJyXbGG_O3gV_5vGK-kpiQ.m3u8";
-    private static final String VIDEO_URL_SUBTITLES = "https://5qm.megaup.cc/v5/bapD3C40jf5SGa2z8LH8Gr9uEI8Zjnp4ysHQ4OTega67vD5uMub51x8UK5yKV2uhCPlVjTWzBDeJW0JvJTuYJoQVP5d7qAZgZXxD67pvQIuNikLe6H8gyXmcoNmdRsqYZzwNrIbH7nA/subs/eng_4.vtt";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -142,7 +141,6 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
             return;
         }
 
-        //loader = new SurfaceViewImageLoader();
         // Detailed debugging for headers
         Log.i(TAG, "Headers:\n" + sourceMediaItem.getSubtitles().toString());
         Log.i(TAG, "Loading media:\n" + sourceMediaItem.getVideoSources().toString());
@@ -150,44 +148,27 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
         for(MediaItems.VideoSource videoSource : sourceMediaItem.getVideoSources()){
             Log.i(TAG, "Quality: " + videoSource.getQuality());
             Log.i(TAG, "URL: " + videoSource.getUrl());
-
-
-
         }
+
         if (sourceMediaItem.getSubtitles() != null && !sourceMediaItem.getSubtitles().isEmpty()) {
             for (MediaItems.SubtitleItem subtitleItem : sourceMediaItem.getSubtitles()) {
                 Log.i(TAG, "Subtitle: " + subtitleItem.getLang());
                 Log.i(TAG, "Subtitle URL: " + subtitleItem.getUrl());
-
-
             }
         }
 
-        //Log.i(TAG, "Quality options:\n" + qualityOptions.toString());
         Log.i(TAG, "background image url:\n" + sourceMediaItem.getBackgroundImageUrl());
 
-
         initializeViews();
-        //loader.loadImageToSurfaceView(videoSurface, sourceMediaItem.getBackgroundImageUrl());
-
-
 
         preferencesManager = PreferencesManager.getInstance(this);
         setupFocusListeners();
         setupClickListeners();
-        // Delay ExoPlayer setup slightly to ensure background image loads first
         setupExoPlayer();
 
-        // Start with controls hidden
-        //hideControls();
+        // Start with controls visible
         showControls();
-
-        // Register network callback for monitoring connectivity
-        //registerNetworkCallback();
-
-
     }
-
 
     private void initializeViews() {
         videoSurface = findViewById(R.id.videoSurface);
@@ -216,7 +197,6 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
         hardsubBadge = findViewById(R.id.hardsubBadge);
 
         hardsubBadge.setText(sourceMediaItem.getMediaType());
-
         videoDescription.setText(sourceMediaItem.getDescription());
         videoTitle.setText(sourceMediaItem.getTitle());
 
@@ -343,28 +323,30 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
 
     @OptIn(markerClass = UnstableApi.class)
     private void setupExoPlayer() {
-        // Clear the background image from SurfaceView before ExoPlayer takes over
-        //loader.clearSurfaceView(videoSurface);
-
-        // Enhanced LoadControl for better buffering - prevents socket closure due to buffering issues
-
         videoSurface.setVisibility(View.VISIBLE);
+
         // Get buffer duration from preferences (in minutes)
         int bufferMinutes = PreferencesManager.getInstance(this).getPlaybackBufferDuration();
         int maxBufferMs = bufferMinutes * 60 * 1000; // Convert minutes to milliseconds
+
         DefaultLoadControl loadControl = new DefaultLoadControl.Builder()
                 .setBufferDurationsMs(
                         MIN_BUFFER_MS,   // Min buffer (30s) - required before playback starts
-                        maxBufferMs,  // Max buffer (10min) - maximum ahead of current position
+                        maxBufferMs,     // Max buffer (10min) - maximum ahead of current position
                         PLAYBACK_BUFFER_MS,   // Buffer for playback (10s) - after seek
-                        REBUFFER_MS    // Buffer after rebuffer (10s)
+                        REBUFFER_MS      // Buffer after rebuffer (10s)
                 )
                 .setPrioritizeTimeOverSizeThresholds(true)
                 .build();
 
+        // Create DefaultTrackSelector for subtitle control
+        DefaultTrackSelector trackSelector = new DefaultTrackSelector(this);
+
         exoPlayer = new ExoPlayer.Builder(this)
                 .setLoadControl(loadControl)
+                .setTrackSelector(trackSelector)
                 .build();
+
         exoPlayer.setVideoSurfaceHolder(videoSurface.getHolder());
 
         exoPlayer.addListener(new Player.Listener() {
@@ -387,6 +369,9 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
 
                         // Hide streaming status immediately and show controls
                         hideStreamingStatus();
+
+                        // Select subtitle track after media is ready
+                        selectSubtitleTrack();
 
                         // Show controls so user can see seekbar and time
                         showControls();
@@ -414,13 +399,14 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
                     handler.post(updateProgressTask);
                 }
             }
+
             @Override
             public void onPlayerError(@NonNull PlaybackException error) {
                 Log.e(TAG, "Playback error: " + error.getMessage(), error);
                 handlePlaybackError(error);
             }
-
         });
+
         exoPlayer.addAnalyticsListener(new AnalyticsListener() {
             @Override
             public void onLoadError(EventTime eventTime, LoadEventInfo loadEventInfo,
@@ -446,6 +432,93 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
 
         loadVideo();
     }
+
+    /**
+     * Find the index of English subtitles
+     * @return Index for currentSubtitle (0 = Off, 1+ = subtitle index)
+     */
+    private int findEnglishSubtitleIndex() {
+        if (sourceMediaItem == null || sourceMediaItem.getSubtitles() == null ||
+                sourceMediaItem.getSubtitles().isEmpty()) {
+            return 0; // No subtitles available
+        }
+
+        // Check each subtitle for English
+        for (int i = 0; i < sourceMediaItem.getSubtitles().size(); i++) {
+            MediaItems.SubtitleItem subtitle = sourceMediaItem.getSubtitles().get(i);
+            String lang = subtitle.getLang().toLowerCase();
+            String language = subtitle.getLanguage() != null ?
+                    subtitle.getLanguage().toLowerCase() : "";
+
+            // Check for English in various formats
+            if (lang.equals("en") ||
+                    lang.equals("eng") ||
+                    lang.equals("english") ||
+                    language.contains("english")) {
+
+                Log.i(TAG, "Found English subtitle at index: " + i);
+                return i + 1; // +1 because index 0 is "Off"
+            }
+        }
+
+        // Check fallback subtitle URL if it exists
+        if (sourceMediaItem.getSubtitleUrl() != null &&
+                !sourceMediaItem.getSubtitleUrl().isEmpty()) {
+            Log.i(TAG, "Using fallback subtitle as English");
+            return 1; // First subtitle after "Off"
+        }
+
+        Log.i(TAG, "No English subtitle found");
+        return 0; // Default to Off
+    }
+
+    /**
+     * Select subtitle track in ExoPlayer
+     */
+    @OptIn(markerClass = UnstableApi.class)
+    private void selectSubtitleTrack() {
+        if (exoPlayer == null) return;
+
+        TrackSelector trackSelector = exoPlayer.getTrackSelector();
+        if (!(trackSelector instanceof DefaultTrackSelector)) return;
+
+        DefaultTrackSelector defaultTrackSelector = (DefaultTrackSelector) trackSelector;
+
+        if (currentSubtitle == 0) {
+            // Disable all subtitle tracks
+            defaultTrackSelector.setParameters(
+                    defaultTrackSelector.buildUponParameters()
+                            .setRendererDisabled(C.TRACK_TYPE_TEXT, true)
+            );
+            Log.i(TAG, "Subtitles disabled");
+        } else {
+            // Enable subtitle renderer
+            String language = getSelectedSubtitleLanguage();
+            defaultTrackSelector.setParameters(
+                    defaultTrackSelector.buildUponParameters()
+                            .setRendererDisabled(C.TRACK_TYPE_TEXT, false)
+                            .setPreferredTextLanguage(language)
+                            .setSelectUndeterminedTextLanguage(false)
+            );
+            Log.i(TAG, "Subtitles enabled for language: " + language);
+        }
+    }
+
+    /**
+     * Get the language code of the currently selected subtitle
+     */
+    private String getSelectedSubtitleLanguage() {
+        if (sourceMediaItem == null || sourceMediaItem.getSubtitles() == null) {
+            return "en";
+        }
+
+        int subtitleIndex = currentSubtitle - 1; // Adjust for "Off" at index 0
+        if (subtitleIndex >= 0 && subtitleIndex < sourceMediaItem.getSubtitles().size()) {
+            return sourceMediaItem.getSubtitles().get(subtitleIndex).getLang();
+        }
+        return "en";
+    }
+
     private void updateBufferProgress() {
         if (exoPlayer != null) {
             long bufferedPosition = exoPlayer.getBufferedPosition();
@@ -463,11 +536,6 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
             }
         }
     }
-
-    // ============================================
-    // Error Handling and Retry Logic
-    // ============================================
-
 
     // ============================================
     // Error Handling and Retry Logic
@@ -507,7 +575,6 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
                 showToast("All video sources failed: " + errorInfo.errorMessage);
                 retryCount = 0;
                 currentSourceIndex = 0; // Reset for next time
-                //finish();
             }
         } else {
             // Non-retryable error
@@ -527,7 +594,6 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
                 showToast(errorInfo.errorMessage);
                 retryCount = 0;
                 currentSourceIndex = 0;
-                //finish();
             }
         }
     }
@@ -578,8 +644,7 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
 
         // Get video URI and background/artwork URL
         Uri videoUri = getMediaUri(sourceMediaItem);
-        //Uri videoUri = Uri.parse(VIDEO_URL);
-        String backgroundUrl = sourceMediaItem.getPreferredBackgroundUrl();
+        String backgroundUrl = sourceMediaItem.getBackgroundImageUrl();
 
         Log.i("PlayerActivity", "Preparing playback - Video URI: " + videoUri);
         Log.i("PlayerActivity", "Background/Artwork URL: " +
@@ -600,7 +665,7 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
                 .setUri(videoUri)
                 .setMediaMetadata(metadataBuilder.build());
 
-        if (sourceMediaItem.getId()!=null) {
+        if (sourceMediaItem.getId() != null) {
             mediaItemBuilder.setMediaId(sourceMediaItem.getId());
         }
 
@@ -608,27 +673,59 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
         List<MediaItem.SubtitleConfiguration> subtitleList = new ArrayList<>();
 
         if (sourceMediaItem.getSubtitles() != null && !sourceMediaItem.getSubtitles().isEmpty()) {
-            for (MediaItems.SubtitleItem subtitleItem : sourceMediaItem.getSubtitles()) {
+            for (int i = 0; i < sourceMediaItem.getSubtitles().size(); i++) {
+                MediaItems.SubtitleItem subtitleItem = sourceMediaItem.getSubtitles().get(i);
+
+                // Determine if this is the English subtitle
+                String lang = subtitleItem.getLang().toLowerCase();
+                String language = subtitleItem.getLanguage() != null ?
+                        subtitleItem.getLanguage().toLowerCase() : "";
+                boolean isEnglish = lang.equals("en") || lang.equals("eng") ||
+                        lang.equals("english") || language.contains("english");
+
                 MediaItem.SubtitleConfiguration subtitle = new MediaItem.SubtitleConfiguration.Builder(
                         Uri.parse(subtitleItem.getUrl()))
                         .setMimeType(MimeTypes.TEXT_VTT)
                         .setLanguage(subtitleItem.getLang())
-                        .setSelectionFlags(C.SELECTION_FLAG_AUTOSELECT)
+                        .setSelectionFlags(isEnglish ? C.SELECTION_FLAG_DEFAULT : C.SELECTION_FLAG_AUTOSELECT)
+                        .setLabel(subtitleItem.getLanguage() != null ?
+                                subtitleItem.getLanguage() : subtitleItem.getLang())
                         .build();
                 subtitleList.add(subtitle);
+
+                Log.i(TAG, "Added subtitle: " + subtitleItem.getLang() +
+                        (isEnglish ? " [ENGLISH - DEFAULT]" : "") +
+                        " from " + subtitleItem.getUrl());
             }
-        } else if (sourceMediaItem.getSubtitleUrl() != null && !sourceMediaItem.getSubtitleUrl().isEmpty()) {
+        } else if (sourceMediaItem.getSubtitleUrl() != null &&
+                !sourceMediaItem.getSubtitleUrl().isEmpty()) {
             MediaItem.SubtitleConfiguration subtitle = new MediaItem.SubtitleConfiguration.Builder(
                     Uri.parse(sourceMediaItem.getSubtitleUrl()))
                     .setMimeType(MimeTypes.TEXT_VTT)
                     .setLanguage("en")
                     .setSelectionFlags(C.SELECTION_FLAG_DEFAULT)
+                    .setLabel("English")
                     .build();
             subtitleList.add(subtitle);
+            Log.i(TAG, "Added fallback subtitle as English [DEFAULT]");
         }
 
         if (!subtitleList.isEmpty()) {
             mediaItemBuilder.setSubtitleConfigurations(subtitleList);
+        }
+
+        // Auto-load English subtitles on first load only
+        if (!hasAutoLoadedSubtitles) {
+            currentSubtitle = findEnglishSubtitleIndex();
+            hasAutoLoadedSubtitles = true;
+            updateButtonTexts();
+
+            if (currentSubtitle > 0) {
+                Log.i(TAG, "Auto-loading English subtitles at index: " + currentSubtitle);
+                showToast("English subtitles loaded");
+            } else {
+                Log.i(TAG, "No English subtitles found, defaulting to Off");
+            }
         }
 
         currentMediaItem = mediaItemBuilder.build();
@@ -651,7 +748,7 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
         // Seek to saved position if resuming
         if (startPosition > 0) {
             Log.i(TAG, "Resuming from position: " + formatTime((int) startPosition));
-                    exoPlayer.seekTo(startPosition);
+            exoPlayer.seekTo(startPosition);
         }
 
         exoPlayer.setPlayWhenReady(true);
@@ -665,6 +762,7 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
         // Start watch history save timer (saves every 15 seconds)
         startWatchHistoryTimer();
     }
+
     // ============================================
     // Watch History Methods
     // ============================================
@@ -730,15 +828,13 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
      */
     @RequiresApi(api = Build.VERSION_CODES.N)
     private MediaSource createMediaSourceFromMediaItem(MediaItem mediaItem) {
-        Log.i("PlayerActivity", "Creating media source with KidunyiDataSourceFactory");
-        // Always use protected source for consistent header handling (keep-alive, etc.)
-        //return createProtectedMediaSource(mediaItem);
+        Log.i("PlayerActivity", "Creating media source with KiduyuDataSourceFactory");
         return createProtectedMediaSource(mediaItem);
     }
 
     /**
      * Create media source WITH session headers for Cloudflare bypass
-     * Now delegates to KidunyiDataSourceFactory
+     * Now delegates to KiduyuDataSourceFactory
      */
     @OptIn(markerClass = UnstableApi.class)
     @RequiresApi(api = Build.VERSION_CODES.N)
@@ -755,7 +851,7 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
 
     /**
      * Create standard media source WITHOUT custom headers
-     * Now delegates to KidunyiDataSourceFactory
+     * Now delegates to KiduyuDataSourceFactory
      */
     @OptIn(markerClass = UnstableApi.class)
     private MediaSource createStandardMediaSource(MediaItem mediaItem) {
@@ -764,9 +860,10 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
 
     @OptIn(markerClass = UnstableApi.class)
     private Uri getMediaUri(MediaItems mediaItem) {
-        // Use KidunyiDataSourceFactory for source fallback logic
+        // Use KiduyuDataSourceFactory for source fallback logic
         return KiduyuDataSource.getVideoUriWithFallback(mediaItem, currentSourceIndex);
     }
+
     private void showLoadingServer() {
         updateLoadingUi(true);
         loadingStatusText.setText("BUFFERING");
@@ -816,7 +913,6 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
     private void showControls() {
         topInfoContainer.setVisibility(View.VISIBLE);
         bottomControlsContainer.setVisibility(View.VISIBLE);
-        //btnEpisodes.setVisibility(View.VISIBLE);
         btnBack.setVisibility(View.VISIBLE);
         areControlsVisible = true;
 
@@ -880,20 +976,19 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
 
             // Update current time text
             currentTime.setText(formatTime(currentPos));
-            if(currentTime.getVisibility()==View.GONE){
+            if(currentTime.getVisibility() == View.GONE){
                 currentTime.setVisibility(View.VISIBLE);
             }
 
             // Update progress in milliseconds (matching the max value)
             if (duration > 0) {
-                progressBar.setProgress(currentPos); // Changed from progressPercent
+                progressBar.setProgress(currentPos);
             }
 
             // Update buffered progress display
             updateBufferProgress();
         }
     }
-
 
     private String formatTime(int millis) {
         return preferencesManager.formatTime(millis);
@@ -942,8 +1037,8 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
 
             dialog.dismiss();
 
-            // Reload video with selected subtitles
-            loadVideo();
+            // Don't reload video, just update track selection
+            selectSubtitleTrack();
         });
         builder.show();
     }
@@ -1071,31 +1166,29 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
                 }
                 return true;
             }
-
         }
 
         // Seek backward 10 seconds on Left D-pad
         if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT) {
             if (!areControlsVisible) {
-            if (exoPlayer != null) {
-                long currentPosition = exoPlayer.getCurrentPosition();
-                long newPosition = Math.max(currentPosition - 10000, 0); // -10 seconds (10000ms)
+                if (exoPlayer != null) {
+                    long currentPosition = exoPlayer.getCurrentPosition();
+                    long newPosition = Math.max(currentPosition - 10000, 0); // -10 seconds (10000ms)
 
-                exoPlayer.seekTo(newPosition);
-                updateTimeDisplay();
-                showToast("Backward -10s");
+                    exoPlayer.seekTo(newPosition);
+                    updateTimeDisplay();
+                    showToast("Backward -10s");
 
-                // Show controls briefly if hidden
-                if (!areControlsVisible) {
-                    showControls();
+                    // Show controls briefly if hidden
+                    if (!areControlsVisible) {
+                        showControls();
+                    }
+                    resetHideControlsTimer();
                 }
-                resetHideControlsTimer();
+                return true;
             }
-            return true;
         }
-    }
 
-        // Back button
         // Back button - double press to exit
         if (keyCode == KeyEvent.KEYCODE_BACK) {
             if (areControlsVisible) {
@@ -1130,7 +1223,6 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
 
         return super.onKeyDown(keyCode, event);
     }
-
 
     // Runnable to reset back press flag after 5 seconds
     private Runnable backPressResetTask = () -> {
@@ -1170,9 +1262,7 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
     public void surfaceCreated(SurfaceHolder holder) {
         Log.i(TAG, "Surface created");
         isSurfaceReady = true;
-
-                setupExoPlayer();
-
+        setupExoPlayer();
     }
 
     @Override
