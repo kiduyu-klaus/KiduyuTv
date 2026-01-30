@@ -109,7 +109,7 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
 
     // Retry mechanism for playback errors
     private int retryCount = 0;
-    private static final int MAX_RETRIES = 3;
+    private static final int MAX_RETRIES = 8;
 
     // Network monitoring
     private ConnectivityManager.NetworkCallback networkCallback;
@@ -153,6 +153,14 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
 
 
 
+        }
+        if (sourceMediaItem.getSubtitles() != null && !sourceMediaItem.getSubtitles().isEmpty()) {
+            for (MediaItems.SubtitleItem subtitleItem : sourceMediaItem.getSubtitles()) {
+                Log.i(TAG, "Subtitle: " + subtitleItem.getLang());
+                Log.i(TAG, "Subtitle URL: " + subtitleItem.getUrl());
+
+
+            }
         }
 
         //Log.i(TAG, "Quality options:\n" + qualityOptions.toString());
@@ -460,35 +468,92 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
     // Error Handling and Retry Logic
     // ============================================
 
+
+    // ============================================
+    // Error Handling and Retry Logic
+    // ============================================
+
     private void handlePlaybackError(PlaybackException error) {
         hideLoading();
         hideStreamingStatus();
 
         PlayerUtils.PlaybackErrorInfo errorInfo = PlayerUtils.parsePlaybackError(error);
 
-        if (errorInfo.canRetry && retryCount < MAX_RETRIES) {
-            retryCount++;
-            Log.i(TAG, "Retrying playback, attempt " + retryCount + "/" + MAX_RETRIES);
-            showToast("Connection issue, retrying... (" + retryCount + "/" + MAX_RETRIES + ")");
+        // Check if we have more video sources to try
+        boolean hasMoreSources = sourceMediaItem != null &&
+                sourceMediaItem.getVideoSources() != null &&
+                currentSourceIndex < sourceMediaItem.getVideoSources().size() - 1;
 
-            handler.postDelayed(() -> retryPlayback(), 2000);
+        if (errorInfo.canRetry) {
+            if (retryCount < MAX_RETRIES) {
+                // Retry with current source
+                retryCount++;
+                Log.i(TAG, "Retrying playback with current source, attempt " + retryCount + "/" + MAX_RETRIES);
+                showToast("Connection issue, retrying... (" + retryCount + "/" + MAX_RETRIES + ")");
+                handler.postDelayed(() -> retryPlayback(), 2000);
+            } else if (hasMoreSources) {
+                // Max retries reached for current source, try next source
+                retryCount = 0; // Reset retry count for new source
+                currentSourceIndex++;
+
+                String currentQuality = sourceMediaItem.getVideoSources().get(currentSourceIndex).getQuality();
+                Log.i(TAG, "Switching to next video source [" + (currentSourceIndex + 1) + "/" +
+                        sourceMediaItem.getVideoSources().size() + "]: " + currentQuality);
+
+                showToast("Switching to " + currentQuality + " quality...");
+                handler.postDelayed(() -> retryPlayback(), 1000);
+            } else {
+                // No more sources to try
+                showToast("All video sources failed: " + errorInfo.errorMessage);
+                retryCount = 0;
+                currentSourceIndex = 0; // Reset for next time
+                //finish();
+            }
         } else {
-            showToast(errorInfo.errorMessage);
-            retryCount = 0;
-            finish();
+            // Non-retryable error
+            if (hasMoreSources) {
+                // Try next source even for non-retryable errors
+                currentSourceIndex++;
+                retryCount = 0;
+
+                String currentQuality = sourceMediaItem.getVideoSources().get(currentSourceIndex).getQuality();
+                Log.i(TAG, "Non-retryable error, switching to next source [" + (currentSourceIndex + 1) + "/" +
+                        sourceMediaItem.getVideoSources().size() + "]: " + currentQuality);
+
+                showToast("Error occurred, trying " + currentQuality + " quality...");
+                handler.postDelayed(() -> retryPlayback(), 1000);
+            } else {
+                // No more sources
+                showToast(errorInfo.errorMessage);
+                retryCount = 0;
+                currentSourceIndex = 0;
+                //finish();
+            }
         }
     }
 
     private void retryPlayback() {
-        if (exoPlayer != null) {
+        if (exoPlayer != null && sourceMediaItem != null) {
             // Save position
             long position = exoPlayer.getCurrentPosition();
+
+            // Log current source info
+            if (sourceMediaItem.getVideoSources() != null &&
+                    currentSourceIndex < sourceMediaItem.getVideoSources().size()) {
+                MediaItems.VideoSource currentSource = sourceMediaItem.getVideoSources().get(currentSourceIndex);
+                Log.i(TAG, "Retrying with source [" + (currentSourceIndex + 1) + "/" +
+                        sourceMediaItem.getVideoSources().size() + "]: Quality=" + currentSource.getQuality() +
+                        ", URL=" + currentSource.getUrl().substring(0, Math.min(50, currentSource.getUrl().length())) + "...");
+            }
 
             // Reset player
             exoPlayer.stop();
             exoPlayer.clearMediaItems();
 
-            // Reload
+            // Show loading
+            showLoadingServer();
+
+            // Reload with new source index (KiduyuDataSource will use currentSourceIndex)
             loadVideo();
 
             // Restore position
@@ -548,7 +613,7 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
                         Uri.parse(subtitleItem.getUrl()))
                         .setMimeType(MimeTypes.TEXT_VTT)
                         .setLanguage(subtitleItem.getLang())
-                        .setSelectionFlags(C.SELECTION_FLAG_DEFAULT)
+                        .setSelectionFlags(C.SELECTION_FLAG_AUTOSELECT)
                         .build();
                 subtitleList.add(subtitle);
             }
@@ -667,6 +732,7 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
     private MediaSource createMediaSourceFromMediaItem(MediaItem mediaItem) {
         Log.i("PlayerActivity", "Creating media source with KidunyiDataSourceFactory");
         // Always use protected source for consistent header handling (keep-alive, etc.)
+        //return createProtectedMediaSource(mediaItem);
         return createProtectedMediaSource(mediaItem);
     }
 
@@ -984,6 +1050,50 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
             showControls();
             return true;
         }
+
+        // Seek forward 10 seconds on Right D-pad
+        if (keyCode == KeyEvent.KEYCODE_DPAD_RIGHT) {
+            if (!areControlsVisible) {
+                if (exoPlayer != null) {
+                    long currentPosition = exoPlayer.getCurrentPosition();
+                    long duration = exoPlayer.getDuration();
+                    long newPosition = Math.min(currentPosition + 10000, duration); // +10 seconds (10000ms)
+
+                    exoPlayer.seekTo(newPosition);
+                    updateTimeDisplay();
+                    showToast("Forward +10s");
+
+                    // Show controls briefly if hidden
+                    if (!areControlsVisible) {
+                        showControls();
+                    }
+                    resetHideControlsTimer();
+                }
+                return true;
+            }
+
+        }
+
+        // Seek backward 10 seconds on Left D-pad
+        if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT) {
+            if (!areControlsVisible) {
+            if (exoPlayer != null) {
+                long currentPosition = exoPlayer.getCurrentPosition();
+                long newPosition = Math.max(currentPosition - 10000, 0); // -10 seconds (10000ms)
+
+                exoPlayer.seekTo(newPosition);
+                updateTimeDisplay();
+                showToast("Backward -10s");
+
+                // Show controls briefly if hidden
+                if (!areControlsVisible) {
+                    showControls();
+                }
+                resetHideControlsTimer();
+            }
+            return true;
+        }
+    }
 
         // Back button
         // Back button - double press to exit
