@@ -272,12 +272,14 @@ public class DetailsActivityTv extends AppCompatActivity {
             @Override
             public void onSuccess(MediaItems item) {
                 // Add video sources
+                // Add video sources (✅ each source already has headers attached!)
                 if (item.getVideoSources() != null && !item.getVideoSources().isEmpty()) {
                     allVideoSources.addAll(item.getVideoSources());
-                    Log.i(TAG, "Added " + item.getVideoSources().size() + " sources");
+                    Log.i(TAG, "Added " + item.getVideoSources().size() + " sources from server");
                     for (MediaItems.VideoSource source : item.getVideoSources()) {
-                        Log.i(TAG, "Source: " + source.getUrl());
-                        Log.i(TAG, "Quality: " + source.getQuality());
+                        Log.i(TAG, "  Source: " + source.getQuality() +
+                                " - hasHeaders: " + (source.getCustomHeaders() != null &&
+                                !source.getCustomHeaders().isEmpty()));
                     }
                 }
 
@@ -287,13 +289,7 @@ public class DetailsActivityTv extends AppCompatActivity {
                     Log.i(TAG, "Added " + item.getSubtitles().size() + " subtitles");
                 }
 
-                // Copy session data from first successful source
-                if (episodeMedia.getSessionCookie() == null && item.getSessionCookie() != null) {
-                    episodeMedia.setSessionCookie(item.getSessionCookie());
-                    episodeMedia.setCustomHeaders(item.getCustomHeaders());
-                    episodeMedia.setRefererUrl(item.getRefererUrl());
-                    episodeMedia.setResponseHeaders(item.getResponseHeaders());
-                }
+
                 episodeMedia.setBackgroundImageUrl(episodeMedia.getPosterUrl());
 
                 checkAndProceed();

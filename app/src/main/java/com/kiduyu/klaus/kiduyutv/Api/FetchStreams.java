@@ -346,16 +346,6 @@ public class FetchStreams {
         }
 
         String encrypted = response.body().string();
-        Map<String, String> responseHeaders = extractHeaders(response);
-
-
-        Log.i(TAG, "Response headers captured: " + responseHeaders.size());
-        for (Map.Entry<String, String> header : responseHeaders.entrySet()) {
-            Log.i(TAG, "  " + header.getKey() + ": " +
-                    (header.getValue().length() > 100 ?
-                            header.getValue().substring(0, 100) + "..." :
-                            header.getValue()));
-        }
 
 
 
@@ -370,6 +360,18 @@ public class FetchStreams {
         DecryptResponse.Result result = decResponse.body().result;
         String jsonStr = new com.google.gson.Gson().toJson(result);
         Log.i(TAG, "fetchVideasyMovie JSON: " + jsonStr);
+
+
+        Map<String, String> responseHeaders = extractHeaders(decResponse);
+
+
+        Log.i(TAG, "Response headers captured fetchVideasyStreams: " + responseHeaders.size());
+        for (Map.Entry<String, String> header : responseHeaders.entrySet()) {
+            Log.i(TAG, "  " + header.getKey() + ": " +
+                    (header.getValue().length() > 100 ?
+                            header.getValue().substring(0, 100) + "..." :
+                            header.getValue()));
+        }
 
 
 
@@ -417,7 +419,6 @@ public class FetchStreams {
         }
 
         String encrypted = response.body();
-        Map<String, String> responseHeaders = extractHeaders(response);
 
         Response<DecryptResponse> decResponse = encDecApi.decryptHexa(
                 DecryptRequest.withKey(encrypted, key)).execute();
@@ -429,6 +430,16 @@ public class FetchStreams {
         String jsonStr = new com.google.gson.Gson().toJson(result);
 
         Log.i(TAG, "fetchHexaMovie JSON: " + jsonStr);
+        Map<String, String> responseHeaders = extractHeaders(decResponse);
+
+
+        Log.i(TAG, "Response headers captured fetchHexaStreams: " + responseHeaders.size());
+        for (Map.Entry<String, String> header : responseHeaders.entrySet()) {
+            Log.i(TAG, "  " + header.getKey() + ": " +
+                    (header.getValue().length() > 100 ?
+                            header.getValue().substring(0, 100) + "..." :
+                            header.getValue()));
+        }
 
 
         String refererUrl="https://hexa.su/";
@@ -478,14 +489,25 @@ public class FetchStreams {
 // or if it should be key-based:
 // DecryptRequest.withKey(encrypted, null)
 
-        Map<String, String> responseHeaders = extractHeaders(response);
+
         if (!decResponse.isSuccessful() || decResponse.body() == null) {
             throw new IOException("Failed to decrypt");
+        }
+        Map<String, String> responseHeaders = extractHeaders(decResponse);
+
+
+        Log.i(TAG, "Response headers captured fetchOnetouchtvStreams: " + responseHeaders.size());
+        for (Map.Entry<String, String> header : responseHeaders.entrySet()) {
+            Log.i(TAG, "  " + header.getKey() + ": " +
+                    (header.getValue().length() > 100 ?
+                            header.getValue().substring(0, 100) + "..." :
+                            header.getValue()));
         }
 
 
         DecryptResponse.Result result = decResponse.body().result;
         String jsonStr = new com.google.gson.Gson().toJson(result);
+
         return parseStreamData(jsonStr, url, responseHeaders);
     }
 
@@ -550,7 +572,16 @@ public class FetchStreams {
         }
         DecryptResponse.Result result = decResp.body().result;
         String jsonStr = new com.google.gson.Gson().toJson(result);
-        Map<String, String> responseHeaders = extractHeaders(response);
+        Map<String, String> responseHeaders = extractHeaders(decResp);
+
+
+        Log.i(TAG, "Response headers captured fetchSmashystreamType1: " + responseHeaders.size());
+        for (Map.Entry<String, String> header : responseHeaders.entrySet()) {
+            Log.i(TAG, "  " + header.getKey() + ": " +
+                    (header.getValue().length() > 100 ?
+                            header.getValue().substring(0, 100) + "..." :
+                            header.getValue()));
+        }
 
         return parseStreamData(jsonStr, streamUrl, responseHeaders);
     }
@@ -582,6 +613,17 @@ public class FetchStreams {
 
         // ✅ Result is a string, parse it using listParser logic
         String resultString = decResp.body().result;
+
+        Map<String, String> responseHeaders = extractHeaders(decResp);
+
+
+        Log.i(TAG, "Response headers captured fetchSmashystreamType2: " + responseHeaders.size());
+        for (Map.Entry<String, String> header : responseHeaders.entrySet()) {
+            Log.i(TAG, "  " + header.getKey() + ": " +
+                    (header.getValue().length() > 100 ?
+                            header.getValue().substring(0, 100) + "..." :
+                            header.getValue()));
+        }
 
         // Parse the string result (similar to Python's listParser)
         MediaItems mediaItem = parseListResult(resultString, url);
@@ -707,7 +749,16 @@ public class FetchStreams {
         DecryptResponse.Result result = decResp.body().result;
         String jsonStr = new com.google.gson.Gson().toJson(result);
 
-        Map<String, String> responseHeaders = extractHeaders(response);
+        Map<String, String> responseHeaders = extractHeaders(decResp);
+
+
+        Log.i(TAG, "Response headers captured fetchSmashystreamType1: " + responseHeaders.size());
+        for (Map.Entry<String, String> header : responseHeaders.entrySet()) {
+            Log.i(TAG, "  " + header.getKey() + ": " +
+                    (header.getValue().length() > 100 ?
+                            header.getValue().substring(0, 100) + "..." :
+                            header.getValue()));
+        }
         Log.i(TAG, "Decrypted Type 1 TV data: " + jsonStr);
 
         return parseStreamData(jsonStr, streamUrl, responseHeaders);
@@ -880,6 +931,15 @@ public class FetchStreams {
             throw new IOException("Failed to fetch streams");
         }
         Map<String, String> responseHeaders = extractHeaders(response);
+
+
+        Log.i(TAG, "Response headers captured fetchVidlinkStreams: " + responseHeaders.size());
+        for (Map.Entry<String, String> header : responseHeaders.entrySet()) {
+            Log.i(TAG, "  " + header.getKey() + ": " +
+                    (header.getValue().length() > 100 ?
+                            header.getValue().substring(0, 100) + "..." :
+                            header.getValue()));
+        }
         Log.i(TAG, "Response headers captured: " + responseHeaders.size());
         for (Map.Entry<String, String> header : responseHeaders.entrySet()){
             Log.i(TAG, "  " + header.getKey() + ": " + header.getValue());
