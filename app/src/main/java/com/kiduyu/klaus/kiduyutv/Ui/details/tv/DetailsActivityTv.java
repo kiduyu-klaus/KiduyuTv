@@ -9,6 +9,7 @@ import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
+import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -24,10 +25,12 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
 import com.kiduyu.klaus.kiduyutv.Api.CastRepository;
+import com.kiduyu.klaus.kiduyutv.Api.FetchStreams;
 import com.kiduyu.klaus.kiduyutv.Api.TmdbRepository;
 import com.kiduyu.klaus.kiduyutv.R;
 //import com.kiduyu.klaus.kiduyutv.Ui.details.actor.ActorDetailsActivity;
 import com.kiduyu.klaus.kiduyutv.Ui.details.actor.ActorDetailsActivity;
+import com.kiduyu.klaus.kiduyutv.Ui.details.movie.DetailsActivity;
 import com.kiduyu.klaus.kiduyutv.Ui.player.PlayerActivity;
 import com.kiduyu.klaus.kiduyutv.adapter.CastAdapter;
 import com.kiduyu.klaus.kiduyutv.adapter.EpisodeGridAdapter;
@@ -36,9 +39,12 @@ import com.kiduyu.klaus.kiduyutv.model.CastMember;
 import com.kiduyu.klaus.kiduyutv.model.Episode;
 import com.kiduyu.klaus.kiduyutv.model.MediaItems;
 import com.kiduyu.klaus.kiduyutv.model.Season;
+import com.kiduyu.klaus.kiduyutv.utils.utils;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 public class DetailsActivityTv extends AppCompatActivity {
     private static final String TAG = "DetailsActivityTv";
@@ -53,6 +59,7 @@ public class DetailsActivityTv extends AppCompatActivity {
     private LinearLayout genresLayout;
     private TextView descriptionText;
     private TextView creatorsText;
+    private TextView loadingText;
     private TextView starsText;
     private Button watchButton;
     private ImageView favoriteButton;
@@ -71,8 +78,7 @@ public class DetailsActivityTv extends AppCompatActivity {
     private RecyclerView episodesGridRecyclerView;
 
     // Loading
-    private ProgressBar loadingProgress;
-
+    private RelativeLayout loadingOverlay;
     // Data
     private MediaItems tvShow;
     private List<Season> seasons = new ArrayList<>();
@@ -130,7 +136,8 @@ public class DetailsActivityTv extends AppCompatActivity {
         episodesGridRecyclerView = findViewById(R.id.episodesGridRecyclerView);
 
         // Loading
-        loadingProgress = findViewById(R.id.loadingProgress);
+        loadingOverlay = findViewById(R.id.loadingOverlay);
+        loadingText = findViewById(R.id.loadingText);
 
         // Set basic info
         titleText.setText(tvShow.getTitle());
@@ -217,7 +224,12 @@ public class DetailsActivityTv extends AppCompatActivity {
         startActivity(intent);
     }
 
+
+
     private void playEpisode(Episode episode) {
+        loadingOverlay.setVisibility(View.VISIBLE);
+        loadingText.setText("Loading episode...");
+
         MediaItems episodeMedia = new MediaItems();
         episodeMedia.setTitle(tvShow.getTitle());
         episodeMedia.setDescription(episode.getOverview());
@@ -229,22 +241,148 @@ public class DetailsActivityTv extends AppCompatActivity {
         episodeMedia.setPosterUrl(episode.getStillPath());
         episodeMedia.setFromTMDB(true);
 
+        String title = tvShow.getTitle();
+        String year = String.valueOf(tvShow.getYear());
+        String tmdbId = tvShow.getId();
+        String imdbId = tvShow.getId();
+        String season = String.valueOf(selectedSeasonNumber);
+        String episodeNumber = String.valueOf(episode.getEpisodeNumber());
 
-        String season = episodeMedia.getSeason() != null ? episodeMedia.getSeason() : "1";
-        String episode1 = episodeMedia.getEpisode() != null ? episodeMedia.getEpisode() : "1";
-        Intent intent = new Intent(this, PlayerActivity.class);
-        intent.putExtra("media_item", episodeMedia);
-        startActivity(intent);
+// Fetch streams from all TV servers
+        fetchAllTVStreams(episodeMedia, title, year, tmdbId, imdbId, season, episodeNumber);
+
+
 
     }
 
+    private void fetchAllTVStreams(MediaItems episodeMedia, String title, String year,
+                                   String tmdbId, String imdbId, String season, String episodeNumber) {
+
+        final List<MediaItems.VideoSource> allVideoSources = new ArrayList<>();
+        final List<MediaItems.SubtitleItem> allSubtitles = new ArrayList<>();
+
+        // Counter to track completed fetches
+        final int[] completedFetches = {0};
+        final int totalServers = 7; // Number of servers we're querying
+
+        FetchStreams fetchStreams = new FetchStreams();
+
+        // Callback to handle each server response
+        FetchStreams.StreamCallback callback = new FetchStreams.StreamCallback() {
+            @Override
+            public void onSuccess(MediaItems item) {
+                // Add video sources
+                if (item.getVideoSources() != null && !item.getVideoSources().isEmpty()) {
+                    allVideoSources.addAll(item.getVideoSources());
+                    Log.i(TAG, "Added " + item.getVideoSources().size() + " sources");
+                    for (MediaItems.VideoSource source : item.getVideoSources()) {
+                        Log.i(TAG, "Source: " + source.getUrl());
+                        Log.i(TAG, "Quality: " + source.getQuality());
+                    }
+                }
+
+                // Add subtitles
+                if (item.getSubtitles() != null && !item.getSubtitles().isEmpty()) {
+                    allSubtitles.addAll(item.getSubtitles());
+                    Log.i(TAG, "Added " + item.getSubtitles().size() + " subtitles");
+                }
+
+                // Copy session data from first successful source
+                if (episodeMedia.getSessionCookie() == null && item.getSessionCookie() != null) {
+                    episodeMedia.setSessionCookie(item.getSessionCookie());
+                    episodeMedia.setCustomHeaders(item.getCustomHeaders());
+                    episodeMedia.setRefererUrl(item.getRefererUrl());
+                    episodeMedia.setResponseHeaders(item.getResponseHeaders());
+                }
+
+                checkAndProceed();
+            }
+
+            @Override
+            public void onError(String error) {
+                Log.e(TAG, "Server fetch error: " + error);
+                checkAndProceed();
+            }
+
+            private void checkAndProceed() {
+                completedFetches[0]++;
+
+                // Update progress text
+                runOnUiThread(() -> {
+                    // If you have a status text view, update it
+                    loadingText.setText("Fetching streams... " + completedFetches[0] + "/" + totalServers);
+                });
+
+                // Once all servers have responded
+                if (completedFetches[0] >= totalServers) {
+                    runOnUiThread(() -> {
+                        loadingOverlay.setVisibility(View.GONE);
+
+                        if (allVideoSources.isEmpty()) {
+                            Toast.makeText(DetailsActivityTv.this,
+                                    "No streams found for this episode", Toast.LENGTH_LONG).show();
+                            return;
+                        }
+
+                        // Remove duplicates based on URL
+                        List<MediaItems.VideoSource> uniqueSources = utils.removeDuplicateSources(allVideoSources);
+                        List<MediaItems.SubtitleItem> uniqueSubtitles = utils.removeDuplicateSubtitles(allSubtitles);
+
+                        // Move VIP source(s) to index 0
+                        uniqueSources = utils.moveVipSourceToTop(uniqueSources);
+
+                        // Set all sources and subtitles to the media item
+                        episodeMedia.setVideoSources(uniqueSources);
+                        episodeMedia.setSubtitles(uniqueSubtitles);
+
+                        Log.i(TAG, "Total unique sources: " + uniqueSources.size());
+                        Log.i(TAG, "Total unique subtitles: " + uniqueSubtitles.size());
+
+                        // Launch player
+                        Intent intent = new Intent(DetailsActivityTv.this, PlayerActivity.class);
+                        intent.putExtra("media_item", episodeMedia);
+                        startActivity(intent);
+                    });
+                }
+            }
+        };
+
+        // 1. Fetch from Videasy (Multiple sub-servers available)
+        fetchStreams.fetchVideasyTV(title, year, tmdbId, season, episodeNumber, callback);
+
+        // 2. Fetch from Hexa
+        fetchStreams.fetchHexaTV(tmdbId, season, episodeNumber, callback);
+
+        // 3. Fetch from OneTouchTV (if you have the vodId)
+        // Note: OneTouchTV might need a different ID format
+        // fetchStreams.fetchOnetouchtvTV(vodId, episodeNumber, callback);
+        completedFetches[0]++; // Skip if not available
+
+        // 4. Fetch from SmashyStream/Vidstack Type 1
+        fetchStreams.fetchSmashystreamTV(imdbId, tmdbId, season, episodeNumber, "1", callback);
+
+        // 5. Fetch from SmashyStream/Vidstack Type 2
+        fetchStreams.fetchSmashystreamTV(imdbId, tmdbId, season, episodeNumber, "2", callback);
+
+        // 6. Fetch from XPrime (requires server selection - use "primebox" or other available servers)
+        fetchStreams.fetchXprimeTV(title, year, tmdbId, imdbId, season, episodeNumber, "primebox", callback);
+
+        // 7. Fetch from Mapple (if you have the TV slug format)
+        // Note: Mapple TV might need format like "1-1" for season-episode
+        String tvSlug = season + "-" + episodeNumber;
+        // You may need to implement fetchMappleTV in FetchStreams if it doesn't exist yet
+        // fetchStreams.fetchMappleTV(tmdbId, tvSlug, "mapple", callback);
+        completedFetches[0]++; // Skip if not implemented
+    }
+
+
     private void loadTvShowDetails() {
-        loadingProgress.setVisibility(View.VISIBLE);
+        loadingOverlay.setVisibility(View.VISIBLE);
 
         mediaRepository.getTVShowDetails(tvShow.getTmdbId(), new TmdbRepository.TVShowDetailsCallback() {
             @Override
             public void onSuccess(MediaItems detailedShow, List<Season> seasonsList) {
-                loadingProgress.setVisibility(View.GONE);
+                loadingOverlay.setVisibility(View.GONE);
 
                 tvShow = detailedShow;
                 seasons.clear();
@@ -269,7 +407,7 @@ public class DetailsActivityTv extends AppCompatActivity {
 
             @Override
             public void onError(String error) {
-                loadingProgress.setVisibility(View.GONE);
+                loadingOverlay.setVisibility(View.GONE);
                 Log.e(TAG, "Error loading TV show details: " + error);
                 Toast.makeText(DetailsActivityTv.this, "Failed to load details", Toast.LENGTH_SHORT).show();
             }
@@ -407,14 +545,14 @@ public class DetailsActivityTv extends AppCompatActivity {
     }
 
     private void loadEpisodes(int seasonNumber) {
-        loadingProgress.setVisibility(View.VISIBLE);
+        loadingOverlay.setVisibility(View.VISIBLE);
         currentEpisodes.clear();
         episodeGridAdapter.notifyDataSetChanged();
 
         mediaRepository.getSeasonEpisodes(tvShow.getTmdbId(), seasonNumber, new TmdbRepository.EpisodesCallback() {
             @Override
             public void onSuccess(List<Episode> episodes) {
-                loadingProgress.setVisibility(View.GONE);
+                loadingOverlay.setVisibility(View.GONE);
 
                 currentEpisodes.clear();
                 currentEpisodes.addAll(episodes);
@@ -423,7 +561,7 @@ public class DetailsActivityTv extends AppCompatActivity {
 
             @Override
             public void onError(String error) {
-                loadingProgress.setVisibility(View.GONE);
+                loadingOverlay.setVisibility(View.GONE);
                 Log.e(TAG, "Error loading episodes: " + error);
                 Toast.makeText(DetailsActivityTv.this, "Failed to load episodes", Toast.LENGTH_SHORT).show();
             }
