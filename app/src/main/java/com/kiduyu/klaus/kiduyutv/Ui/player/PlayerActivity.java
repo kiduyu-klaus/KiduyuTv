@@ -869,6 +869,7 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
     private MediaSource createMediaSourceFromMediaItem(MediaItem mediaItem) {
         Log.i("PlayerActivity", "Creating media source with KiduyuDataSourceFactory");
         return createProtectedMediaSource(mediaItem);
+       // return createStandardMediaSource(mediaItem);
     }
 
     /**

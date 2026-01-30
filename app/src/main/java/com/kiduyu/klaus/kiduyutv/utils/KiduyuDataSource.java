@@ -239,6 +239,59 @@ public class KiduyuDataSource extends BaseDataSource implements HttpDataSource {
                 false
         ));
 
+        // =====================================================
+        // CLOUDFLARE WORKERS DOMAINS - CRITICAL FOR 403 BYPASS
+        // These domains require specific Origin headers to avoid 403 errors
+        // =====================================================
+
+        // TechParadise Workers domains (frostveil88.live streaming)
+        STREAMING_DOMAINS.put("techparadise-92b.workers.dev", new DomainConfig(
+                "https://frostveil88.live",
+                "https://frostveil88.live/",
+                false
+        ));
+
+        // VOD Video proxy domains
+        STREAMING_DOMAINS.put("vodvidl.site", new DomainConfig(
+                "https://vodvidl.site",
+                "https://vodvidl.site/",
+                false
+        ));
+
+        // 10015 Workers proxy domains (commonly used for streaming)
+        STREAMING_DOMAINS.put("10015.workers.dev", new DomainConfig(
+                "https://frostveil88.live",
+                "https://frostveil88.live/",
+                false
+        ));
+
+        // Generic workers.dev domains - catch-all for dynamic workers
+        STREAMING_DOMAINS.put("workers.dev", new DomainConfig(
+                "https://frostveil88.live",
+                "https://frostveil88.live/",
+                false
+        ));
+
+        // Live streaming domains commonly used with workers
+        STREAMING_DOMAINS.put("frostveil88.live", new DomainConfig(
+                "https://frostveil88.live",
+                "https://frostveil88.live/",
+                false
+        ));
+
+        // Additional video proxy/CDN domains
+        STREAMING_DOMAINS.put("megafiles.store", new DomainConfig(
+                "https://megafiles.store",
+                "https://megafiles.store/",
+                false
+        ));
+
+        STREAMING_DOMAINS.put("streamhub.tv", new DomainConfig(
+                "https://streamhub.tv",
+                "https://streamhub.tv/",
+                false
+        ));
+
         Log.i(TAG, "Initialized " + STREAMING_DOMAINS.size() + " streaming domain configurations");
     }
 
