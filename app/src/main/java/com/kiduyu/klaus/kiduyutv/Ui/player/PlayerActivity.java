@@ -477,30 +477,49 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
      */
     @OptIn(markerClass = UnstableApi.class)
     private void selectSubtitleTrack() {
-        if (exoPlayer == null) return;
+        if (exoPlayer == null) {
+            Log.w(TAG, "Cannot select subtitle track: exoPlayer is null");
+            return;
+        }
+
+        // Check if we have subtitles available
+        boolean hasSubtitles = sourceMediaItem != null &&
+                sourceMediaItem.getSubtitles() != null &&
+                !sourceMediaItem.getSubtitles().isEmpty();
+
+        Log.i(TAG, "selectSubtitleTrack called: currentSubtitle=" + currentSubtitle +
+                ", hasSubtitles=" + hasSubtitles);
 
         TrackSelector trackSelector = exoPlayer.getTrackSelector();
-        if (!(trackSelector instanceof DefaultTrackSelector)) return;
+        if (!(trackSelector instanceof DefaultTrackSelector)) {
+            Log.w(TAG, "TrackSelector is not DefaultTrackSelector");
+            return;
+        }
 
         DefaultTrackSelector defaultTrackSelector = (DefaultTrackSelector) trackSelector;
 
-        if (currentSubtitle == 0) {
+        if (currentSubtitle == 0 || !hasSubtitles) {
             // Disable all subtitle tracks
             defaultTrackSelector.setParameters(
                     defaultTrackSelector.buildUponParameters()
                             .setRendererDisabled(C.TRACK_TYPE_TEXT, true)
             );
-            Log.i(TAG, "Subtitles disabled");
+            Log.i(TAG, "Subtitles disabled (currentSubtitle=" + currentSubtitle + ", hasSubtitles=" + hasSubtitles + ")");
         } else {
-            // Enable subtitle renderer
+            // Enable subtitle renderer with preferred language
             String language = getSelectedSubtitleLanguage();
+            Log.i(TAG, "Enabling subtitles for language: " + language +
+                    ", subtitleIndex=" + currentSubtitle);
+
             defaultTrackSelector.setParameters(
                     defaultTrackSelector.buildUponParameters()
                             .setRendererDisabled(C.TRACK_TYPE_TEXT, false)
                             .setPreferredTextLanguage(language)
-                            .setSelectUndeterminedTextLanguage(false)
+                            .setSelectUndeterminedTextLanguage(true)  // Allow fallback matching
             );
-            Log.i(TAG, "Subtitles enabled for language: " + language);
+
+            // Log available tracks for debugging
+            Log.d(TAG, "Subtitle track selection complete for language: " + language);
         }
     }
 
@@ -676,27 +695,41 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
             for (int i = 0; i < sourceMediaItem.getSubtitles().size(); i++) {
                 MediaItems.SubtitleItem subtitleItem = sourceMediaItem.getSubtitles().get(i);
 
-                // Determine if this is the English subtitle
-                String lang = subtitleItem.getLang().toLowerCase();
-                String language = subtitleItem.getLanguage() != null ?
-                        subtitleItem.getLanguage().toLowerCase() : "";
-                boolean isEnglish = lang.equals("en") || lang.equals("eng") ||
-                        lang.equals("english") || language.contains("english");
+                // Skip subtitles without valid URLs
+                if (subtitleItem.getUrl() == null || subtitleItem.getUrl().isEmpty()) {
+                    Log.w(TAG, "Skipping subtitle with empty URL at index " + i);
+                    continue;
+                }
 
-                MediaItem.SubtitleConfiguration subtitle = new MediaItem.SubtitleConfiguration.Builder(
-                        Uri.parse(subtitleItem.getUrl()))
-                        .setMimeType(MimeTypes.TEXT_VTT)
-                        .setLanguage(subtitleItem.getLang())
-                        .setSelectionFlags(isEnglish ? C.SELECTION_FLAG_DEFAULT : C.SELECTION_FLAG_AUTOSELECT)
-                        .setLabel(subtitleItem.getLanguage() != null ?
-                                subtitleItem.getLanguage() : subtitleItem.getLang())
-                        .build();
+                // Get language codes with null safety
+                String lang = subtitleItem.getLang();
+                String langLower = (lang != null) ? lang.toLowerCase() : "und";
+                String language = subtitleItem.getLanguage();
+                String languageLower = (language != null) ? language.toLowerCase() : "";
+
+                // Determine if this is the English subtitle
+                boolean isEnglish = langLower.equals("en") || langLower.equals("eng") ||
+                        langLower.equals("english") || languageLower.contains("english");
+
+                // Build subtitle configuration with proper language handling
+                MediaItem.SubtitleConfiguration.Builder subtitleBuilder =
+                        new MediaItem.SubtitleConfiguration.Builder(Uri.parse(subtitleItem.getUrl()))
+                                .setMimeType(MimeTypes.TEXT_VTT)
+                                .setSelectionFlags(isEnglish ? C.SELECTION_FLAG_DEFAULT : C.SELECTION_FLAG_AUTOSELECT)
+                                .setLabel(language != null && !language.isEmpty() ? language : lang);
+
+                // Set language - use "und" (undefined) if null to avoid NPE
+                subtitleBuilder.setLanguage(lang != null ? lang : "und");
+
+                MediaItem.SubtitleConfiguration subtitle = subtitleBuilder.build();
                 subtitleList.add(subtitle);
 
-                Log.i(TAG, "Added subtitle: " + subtitleItem.getLang() +
-                        (isEnglish ? " [ENGLISH - DEFAULT]" : "") +
-                        " from " + subtitleItem.getUrl());
+                Log.i(TAG, "Added subtitle[" + i + "]: lang=" + lang +
+                        ", label=" + (language != null ? language : lang) +
+                        ", isDefault=" + isEnglish +
+                        ", url=" + subtitleItem.getUrl());
             }
+            Log.i(TAG, "Total subtitles added: " + subtitleList.size());
         } else if (sourceMediaItem.getSubtitleUrl() != null &&
                 !sourceMediaItem.getSubtitleUrl().isEmpty()) {
             MediaItem.SubtitleConfiguration subtitle = new MediaItem.SubtitleConfiguration.Builder(
@@ -729,6 +762,12 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
         }
 
         currentMediaItem = mediaItemBuilder.build();
+
+        // CRITICAL: Select subtitle track BEFORE preparing player
+        // This ensures the subtitle renderer is enabled with correct language
+        // before playback starts. Previously this was only called in
+        // onPlaybackStateChanged which caused a race condition.
+        selectSubtitleTrack();
 
         // Determine media source based on MediaItem
         MediaSource mediaSource = null;
