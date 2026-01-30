@@ -265,7 +265,7 @@ public class DetailsActivityTv extends AppCompatActivity {
         final int[] completedFetches = {0};
         final int totalServers = 7; // Number of servers we're querying
 
-        FetchStreams fetchStreams = new FetchStreams();
+        FetchStreams fetchStreams = new FetchStreams(this);
 
         // Callback to handle each server response
         FetchStreams.StreamCallback callback = new FetchStreams.StreamCallback() {

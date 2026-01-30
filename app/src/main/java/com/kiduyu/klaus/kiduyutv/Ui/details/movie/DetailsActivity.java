@@ -114,7 +114,7 @@ public class DetailsActivity extends AppCompatActivity {
      * Initialize FetchStreams instance and setup server sources
      */
     private void initializeFetchStreams() {
-        fetchStreams = new FetchStreams();
+        fetchStreams = new FetchStreams(this);
         setupServerSources();
     }
 
