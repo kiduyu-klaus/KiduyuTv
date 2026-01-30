@@ -302,7 +302,7 @@ public class ApiClient {
             }
 
             if (!result.isEmpty()) {
-                Log.d(TAG, "Sending " + result.size() + " cookies for " + domain);
+                Log.i(TAG, "Sending " + result.size() + " cookies for " + domain);
             }
 
             return result;
@@ -422,7 +422,7 @@ public class ApiClient {
             Long timestamp = timestamps.get(hostname);
             if (timestamp != null && 
                     (System.currentTimeMillis() - timestamp) < DNS_CACHE_DURATION_MS) {
-                Log.d(TAG, "Using cached DNS for: " + hostname);
+                Log.i(TAG, "Using cached DNS for: " + hostname);
                 return cache.get(hostname);
             }
             

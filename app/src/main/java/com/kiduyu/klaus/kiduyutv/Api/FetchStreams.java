@@ -1213,7 +1213,7 @@ public class FetchStreams {
                 // Already decoded or not URL encoded
             }
 
-            Log.d(TAG, "Headers JSON string: " + headersJsonStr);
+            Log.i(TAG, "Headers JSON string: " + headersJsonStr);
 
             // Parse the JSON object
             JSONObject headersJson = new JSONObject(headersJsonStr);
@@ -1227,7 +1227,7 @@ public class FetchStreams {
                     // Capitalize header names properly
                     String capitalizedKey = capitalizeHeaderName(key);
                     headers.put(capitalizedKey, value);
-                    Log.d(TAG, "Extracted header: " + capitalizedKey + " = " + value);
+                    Log.i(TAG, "Extracted header: " + capitalizedKey + " = " + value);
                 }
             }
         } catch (Exception e) {

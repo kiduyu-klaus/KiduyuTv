@@ -519,7 +519,7 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
             );
 
             // Log available tracks for debugging
-            Log.d(TAG, "Subtitle track selection complete for language: " + language);
+            Log.i(TAG, "Subtitle track selection complete for language: " + language);
         }
     }
 

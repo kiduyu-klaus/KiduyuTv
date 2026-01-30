@@ -289,7 +289,7 @@ public final class PlayerUtils {
 
         if (artworkUrl != null && !artworkUrl.isEmpty()) {
             metadataBuilder.setArtworkUri(Uri.parse(artworkUrl));
-            Log.d(TAG, "Setting artwork for media: " + artworkUrl);
+            Log.i(TAG, "Setting artwork for media: " + artworkUrl);
         }
 
         // Build media item
@@ -357,7 +357,7 @@ public final class PlayerUtils {
                     subtitleList.add(subtitle);
                 }
             }
-            Log.d(TAG, "Added " + subtitleList.size() + " subtitle configurations");
+            Log.i(TAG, "Added " + subtitleList.size() + " subtitle configurations");
         } else if (fallbackUrl != null && !fallbackUrl.isEmpty()) {
             MediaItem.SubtitleConfiguration subtitle = new MediaItem.SubtitleConfiguration.Builder(
                     Uri.parse(fallbackUrl))
@@ -366,7 +366,7 @@ public final class PlayerUtils {
                     .setSelectionFlags(C.SELECTION_FLAG_DEFAULT)
                     .build();
             subtitleList.add(subtitle);
-            Log.d(TAG, "Added fallback subtitle configuration");
+            Log.i(TAG, "Added fallback subtitle configuration");
         }
 
         return subtitleList;
@@ -397,7 +397,7 @@ public final class PlayerUtils {
                             : subtitle.getLang();
                     subtitleOptionsList.add(displayName);
                 }
-                Log.d(TAG, "Built " + subtitleOptionsList.size() + " subtitle options");
+                Log.i(TAG, "Built " + subtitleOptionsList.size() + " subtitle options");
             } else if (mediaItem.getSubtitleUrl() != null && !mediaItem.getSubtitleUrl().isEmpty()) {
                 subtitleOptionsList.add("English");
             }
@@ -427,7 +427,7 @@ public final class PlayerUtils {
             qualityLabels[i] = sources.get(i).getQuality();
         }
 
-        Log.d(TAG, "Built " + qualityLabels.length + " quality labels");
+        Log.i(TAG, "Built " + qualityLabels.length + " quality labels");
         return qualityLabels;
     }
 
@@ -592,7 +592,7 @@ public final class PlayerUtils {
      */
     public static void logMediaItemDetails(MediaItems mediaItem) {
         if (mediaItem == null) {
-            Log.d(TAG, "Media item is null");
+            Log.i(TAG, "Media item is null");
             return;
         }
 

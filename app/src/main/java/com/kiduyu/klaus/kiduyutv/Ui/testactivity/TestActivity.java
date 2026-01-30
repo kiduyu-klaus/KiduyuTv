@@ -221,7 +221,7 @@ public class TestActivity extends AppCompatActivity {
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
             public void onConsoleMessage(String message, int lineNumber, String sourceId) {
-                Log.d("WebView", "Console: " + message + " (From line " + lineNumber + " of " + sourceId + ")");
+                Log.i("WebView", "Console: " + message + " (From line " + lineNumber + " of " + sourceId + ")");
             }
         });
 

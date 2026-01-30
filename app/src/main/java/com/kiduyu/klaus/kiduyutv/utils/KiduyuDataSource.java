@@ -239,59 +239,6 @@ public class KiduyuDataSource extends BaseDataSource implements HttpDataSource {
                 false
         ));
 
-        // =====================================================
-        // CLOUDFLARE WORKERS DOMAINS - CRITICAL FOR 403 BYPASS
-        // These domains require specific Origin headers to avoid 403 errors
-        // =====================================================
-
-        // TechParadise Workers domains (frostveil88.live streaming)
-        STREAMING_DOMAINS.put("techparadise-92b.workers.dev", new DomainConfig(
-                "https://frostveil88.live",
-                "https://frostveil88.live/",
-                false
-        ));
-
-        // VOD Video proxy domains
-        STREAMING_DOMAINS.put("vodvidl.site", new DomainConfig(
-                "https://vodvidl.site",
-                "https://vodvidl.site/",
-                false
-        ));
-
-        // 10015 Workers proxy domains (commonly used for streaming)
-        STREAMING_DOMAINS.put("10015.workers.dev", new DomainConfig(
-                "https://frostveil88.live",
-                "https://frostveil88.live/",
-                false
-        ));
-
-        // Generic workers.dev domains - catch-all for dynamic workers
-        STREAMING_DOMAINS.put("workers.dev", new DomainConfig(
-                "https://frostveil88.live",
-                "https://frostveil88.live/",
-                false
-        ));
-
-        // Live streaming domains commonly used with workers
-        STREAMING_DOMAINS.put("frostveil88.live", new DomainConfig(
-                "https://frostveil88.live",
-                "https://frostveil88.live/",
-                false
-        ));
-
-        // Additional video proxy/CDN domains
-        STREAMING_DOMAINS.put("megafiles.store", new DomainConfig(
-                "https://megafiles.store",
-                "https://megafiles.store/",
-                false
-        ));
-
-        STREAMING_DOMAINS.put("streamhub.tv", new DomainConfig(
-                "https://streamhub.tv",
-                "https://streamhub.tv/",
-                false
-        ));
-
         Log.i(TAG, "Initialized " + STREAMING_DOMAINS.size() + " streaming domain configurations");
     }
 
@@ -836,7 +783,7 @@ public class KiduyuDataSource extends BaseDataSource implements HttpDataSource {
                 }
             }
             headers.put("Cookie", cookieHeader.toString());
-            Log.d(TAG, "Applied cookies from shared store for: " + host);
+            Log.i(TAG, "Applied cookies from shared store for: " + host);
         }
 
         // FOURTH: Add default request properties
@@ -864,7 +811,7 @@ public class KiduyuDataSource extends BaseDataSource implements HttpDataSource {
                     java.net.URL refererUrl = new java.net.URL(referer);
                     String origin = refererUrl.getProtocol() + "://" + refererUrl.getHost();
                     headers.putIfAbsent("Origin", origin);
-                    Log.d(TAG, "Set Origin from Referer: " + origin);
+                    Log.i(TAG, "Set Origin from Referer: " + origin);
                 } catch (Exception e) {
                     Log.w(TAG, "Failed to extract Origin from Referer: " + referer);
                 }
@@ -905,13 +852,13 @@ public class KiduyuDataSource extends BaseDataSource implements HttpDataSource {
                     headers.put("Referer", config.referer);
                 }
 
-                Log.d(TAG, "Applied domain config for: " + host + " (Origin: " + config.origin + ")");
+                Log.i(TAG, "Applied domain config for: " + host + " (Origin: " + config.origin + ")");
                 return;
             }
         }
 
         // Dynamic configuration for unknown domains
-        Log.d(TAG, "No specific config for domain: " + host + ", using defaults");
+        Log.i(TAG, "No specific config for domain: " + host + ", using defaults");
     }
 
     /**
@@ -1297,19 +1244,19 @@ public class KiduyuDataSource extends BaseDataSource implements HttpDataSource {
         // Pass through cf-ray for session continuity
         if (responseHeaders.containsKey("cf-ray")) {
             requestHeaders.put("X-CF-RAY", responseHeaders.get("cf-ray"));
-            Log.d(TAG, "Added CF-RAY header for session continuity");
+            Log.i(TAG, "Added CF-RAY header for session continuity");
         }
 
         // Pass through cache status
         if (responseHeaders.containsKey("cf-cache-status")) {
             requestHeaders.put("X-CF-Cache-Status", responseHeaders.get("cf-cache-status"));
-            Log.d(TAG, "Added CF-Cache-Status header");
+            Log.i(TAG, "Added CF-Cache-Status header");
         }
 
         // Pass through server info
         if (responseHeaders.containsKey("server")) {
             requestHeaders.put("X-Source-Server", responseHeaders.get("server"));
-            Log.d(TAG, "Added X-Source-Server header");
+            Log.i(TAG, "Added X-Source-Server header");
         }
     }
 
@@ -1464,7 +1411,7 @@ public class KiduyuDataSource extends BaseDataSource implements HttpDataSource {
                 if (config.referer != null) {
                     headers.put("Referer", config.referer);
                 }
-                Log.d(TAG, "Applied domain config for: " + host);
+                Log.i(TAG, "Applied domain config for: " + host);
                 return;
             }
         }
@@ -1506,7 +1453,7 @@ public class KiduyuDataSource extends BaseDataSource implements HttpDataSource {
 
     /**
      * Create media source WITH session headers for Cloudflare bypass
-     * Now uses shared OkHttpClient from ApiClient for cookie sharing between API calls and playback
+     * ✅ FIXED: Now uses OkHttpClient interceptor to inject headers into ALL requests
      * @param context Android context
      * @param mediaItem The media item to play
      * @param sessionCookie The Cloudflare session cookie
@@ -1530,60 +1477,91 @@ public class KiduyuDataSource extends BaseDataSource implements HttpDataSource {
         Log.i(TAG, "Referer URL: " + refererUrl);
 
         // Build headers with session cookie and Cloudflare continuity
-        Map<String, String> headers = buildProtectedStreamHeaders(
+        final Map<String, String> headers = buildProtectedStreamHeaders(
                 sessionCookie, customHeaders, refererUrl, responseHeaders);
 
-        // Get shared OkHttpClient from ApiClient for cookie sharing
-        okhttp3.OkHttpClient sharedClient = ApiClient.getClient(context);
+        // ✅ FIX: Create OkHttpClient with interceptor to inject headers
+        okhttp3.OkHttpClient baseClient = ApiClient.getClient(context);
+        okhttp3.OkHttpClient customClient = baseClient.newBuilder()
+                .addInterceptor(chain -> {
+                    okhttp3.Request originalRequest = chain.request();
+                    okhttp3.Request.Builder requestBuilder = originalRequest.newBuilder();
 
-        // Initialize KiduyuDataSource with shared client for cookie sharing
-        initializeWithSharedClient(sharedClient);
+                    // ✅ Add ALL custom headers to EVERY request (master playlist, segments, etc.)
+                    for (Map.Entry<String, String> header : headers.entrySet()) {
+                        requestBuilder.header(header.getKey(), header.getValue());
+                    }
 
-        // Create data source factory with headers and use OkHttpDataSource with shared client
-        KiduyuDataSource.Factory dataSourceFactory = new KiduyuDataSource.Factory()
-                .setDefaultRequestProperties(headers)
-                .setEnableKeepAlive(true)
+                    okhttp3.Request newRequest = requestBuilder.build();
+
+                    // Log for debugging (only first few requests to avoid spam)
+                    if (originalRequest.url().toString().contains("m3u8") ||
+                            originalRequest.url().toString().contains("master") ||
+                            originalRequest.url().toString().contains("playlist")) {
+                        Log.i(TAG, "📡 HLS Request: " + newRequest.url());
+                        Log.i(TAG, "  Cookie: " + (newRequest.header("Cookie") != null ?
+                                "[present, length=" + newRequest.header("Cookie").length() + "]" : "[MISSING!]"));
+                        Log.i(TAG, "  Referer: " + newRequest.header("Referer"));
+                        Log.i(TAG, "  Origin: " + newRequest.header("Origin"));
+                    }
+
+                    okhttp3.Response response = chain.proceed(newRequest);
+
+                    // Log response status for playlists
+                    if (originalRequest.url().toString().contains("m3u8") ||
+                            originalRequest.url().toString().contains("master") ||
+                            originalRequest.url().toString().contains("playlist")) {
+                        Log.i(TAG, "  Response: " + response.code() + " " + response.message());
+                        if (response.code() == 403) {
+                            Log.e(TAG, "  ❌ 403 FORBIDDEN - Headers may be incorrect!");
+                        } else if (response.code() == 200) {
+                            Log.i(TAG, "  ✅ 200 OK - Headers accepted!");
+                        }
+                    }
+
+                    return response;
+                })
+                .followRedirects(true)
+                .followSslRedirects(true)
+                .build();
+
+        // ✅ Create OkHttpDataSource with custom client
+        OkHttpDataSource.Factory okHttpFactory = new OkHttpDataSource.Factory(customClient)
                 .setUserAgent(getDefaultUserAgent());
 
-        return createMediaSourceWithSharedClient(context, mediaItem, dataSourceFactory, sharedClient);
+        // ✅ Use as upstream factory - DON'T override it!
+        DefaultDataSource.Factory upstreamFactory = new DefaultDataSource.Factory(
+                context, okHttpFactory);
+
+        return createMediaSourceWithFactory(context, mediaItem, upstreamFactory);
     }
 
     /**
-     * Create appropriate media source using shared OkHttpClient
+     * Create appropriate media source using the provided factory
+     * ✅ SIMPLIFIED: Just uses the factory that's passed in (already has headers via interceptor)
      * @param context Android context
      * @param mediaItem The media item to play
-     * @param dataSourceFactory Configured data source factory
-     * @param sharedClient Shared OkHttpClient for OkHttpDataSource
+     * @param upstreamFactory Configured data source factory
      * @return MediaSource configured for the media type
      */
-    private static MediaSource createMediaSourceWithSharedClient(
+    private static MediaSource createMediaSourceWithFactory(
             Context context,
             MediaItem mediaItem,
-            KiduyuDataSource.Factory dataSourceFactory,
-            okhttp3.OkHttpClient sharedClient) {
-
-        // Use OkHttpDataSource.Factory with shared client for proper cookie sharing
-        okhttp3.OkHttpClient okHttpClient = ApiClient.getClient(context);
-        OkHttpDataSource.Factory okHttpDataSourceFactory = new OkHttpDataSource.Factory(okHttpClient);
-
-        DefaultDataSource.Factory upstreamFactory = new DefaultDataSource.Factory(
-                context, dataSourceFactory);
-        // Override with OkHttpDataSource for proper HTTP/2 and cookie handling
-        upstreamFactory = new DefaultDataSource.Factory(context, okHttpDataSourceFactory);
+            DefaultDataSource.Factory upstreamFactory) {
 
         String uriString = mediaItem.localConfiguration.uri.toString().toLowerCase();
 
         if (uriString.contains(".m3u8") || uriString.contains("m3u8")) {
-            Log.i(TAG, "Using HLS media source with shared OkHttpClient");
+            Log.i(TAG, "✅ Creating HLS media source with protected headers");
             return new HlsMediaSource.Factory(upstreamFactory)
                     .setAllowChunklessPreparation(true)
                     .createMediaSource(mediaItem);
         } else if (uriString.contains(".mpd") || uriString.contains("mpd")) {
-            Log.i(TAG, "Using DASH media source with shared OkHttpClient");
+            Log.i(TAG, "✅ Creating DASH media source with protected headers");
             return new DashMediaSource.Factory(upstreamFactory)
                     .createMediaSource(mediaItem);
         } else {
-            Log.i(TAG, "Using Progressive media source with shared OkHttpClient");
+            Log.i(TAG, "✅ Creating Progressive media source with protected headers");
             return new ProgressiveMediaSource.Factory(upstreamFactory)
                     .createMediaSource(mediaItem);
         }
