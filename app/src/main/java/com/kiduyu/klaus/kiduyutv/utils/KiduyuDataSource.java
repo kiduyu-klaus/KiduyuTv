@@ -20,6 +20,7 @@ import androidx.media3.datasource.HttpDataSource;
 import androidx.media3.datasource.HttpUtil;
 import androidx.media3.datasource.TransferListener;
 import androidx.media3.common.MediaItem;
+import androidx.media3.datasource.okhttp.OkHttpDataSource;
 import androidx.media3.exoplayer.dash.DashMediaSource;
 import androidx.media3.exoplayer.hls.HlsMediaSource;
 import androidx.media3.exoplayer.source.MediaSource;
@@ -29,6 +30,7 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.ForwardingMap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
+import com.kiduyu.klaus.kiduyutv.Api.ApiClient;
 import com.kiduyu.klaus.kiduyutv.model.MediaItems;
 
 import java.io.IOException;
@@ -44,13 +46,17 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.zip.GZIPInputStream;
+
+import okhttp3.Cookie;
+import okhttp3.HttpUrl;
 
 import javax.net.ssl.HttpsURLConnection;
 
 /**
  * KiduyuDataSource - Custom HTTP DataSource for ExoPlayer streaming
- * 
+ *
  * This class provides enhanced HTTP data source functionality similar to AnimeTV's AnimeDataSource,
  * with support for:
  * - Custom header injection (Origin, Referer, User-Agent, Cookies)
@@ -60,19 +66,19 @@ import javax.net.ssl.HttpsURLConnection;
  * - Redirect handling (up to 20 redirects)
  * - Cookie management for Cloudflare-protected streams
  * - DNS over HTTPS support
- * 
+ *
  * Usage:
  * <pre>
  * // Create factory with custom headers
  * Map&lt;String, String&gt; headers = new HashMap&lt;&gt;();
  * headers.put("Cookie", "cf_clearance=...");
  * headers.put("Referer", "https://streaming-site.com/");
- * 
+ *
  * KiduyuDataSource.Factory factory = new KiduyuDataSource.Factory(context)
  *     .setUserAgent("Mozilla/5.0...")
  *     .setDefaultRequestProperties(headers)
  *     .setAllowCrossProtocolRedirects(true);
- * 
+ *
  * // Use with HLS source
  * HlsMediaSource.Factory hlsFactory = new HlsMediaSource.Factory(factory);
  * </pre>
@@ -93,38 +99,205 @@ public class KiduyuDataSource extends BaseDataSource implements HttpDataSource {
     // Known streaming domains for automatic header configuration
     private static final Map<String, DomainConfig> STREAMING_DOMAINS = new HashMap<>();
 
+    // Static shared OkHttpClient reference for ExoPlayer integration
+    private static okhttp3.OkHttpClient sharedOkHttpClient = null;
+
+    // Shared cookie store for Cloudflare sessions
+    private static final ConcurrentHashMap<String, List<Cookie>> sharedCookieStore = new ConcurrentHashMap<>();
+
     static {
         // Initialize known streaming domains with their expected headers
+        // These domains require specific Origin/Referer headers to avoid 403 errors
+
+        // Video hosting platforms
         STREAMING_DOMAINS.put("mp4upload.com", new DomainConfig(
                 "https://mp4upload.com",
                 "https://www.mp4upload.com/",
-                true
+                false
         ));
+
         STREAMING_DOMAINS.put("cloudvideo", new DomainConfig(
                 "https://cloudvideo.tv",
                 "https://cloudvideo.tv/",
                 false
         ));
+
         STREAMING_DOMAINS.put("gogoanime", new DomainConfig(
-                null,
+                "https://gogoanime.gg",
                 "https://gogoanime.gg/",
                 false
         ));
+
         STREAMING_DOMAINS.put("streamtape", new DomainConfig(
                 "https://streamtape.com",
                 "https://streamtape.com/",
                 false
         ));
+
         STREAMING_DOMAINS.put("videovard", new DomainConfig(
                 "https://videovard.com",
                 "https://videovard.com/",
                 false
         ));
+
         STREAMING_DOMAINS.put("mega", new DomainConfig(
                 "https://mega.nz",
                 "https://mega.nz/",
                 false
         ));
+
+        // Additional streaming domains commonly used
+        STREAMING_DOMAINS.put("vidstreaming", new DomainConfig(
+                "https://vidstreaming.io",
+                "https://vidstreaming.io/",
+                false
+        ));
+
+        STREAMING_DOMAINS.put("mystream", new DomainConfig(
+                "https://mystream.to",
+                "https://mystream.to/",
+                false
+        ));
+
+        STREAMING_DOMAINS.put("upstream", new DomainConfig(
+                "https://upstream.to",
+                "https://upstream.to/",
+                false
+        ));
+
+        STREAMING_DOMAINS.put("streamlare", new DomainConfig(
+                "https://streamlare.com",
+                "https://streamlare.com/",
+                false
+        ));
+
+        STREAMING_DOMAINS.put("videovip", new DomainConfig(
+                "https://videovip.org",
+                "https://videovip.org/",
+                false
+        ));
+
+        STREAMING_DOMAINS.put("ok.ru", new DomainConfig(
+                "https://ok.ru",
+                "https://ok.ru/",
+                false
+        ));
+
+        STREAMING_DOMAINS.put("vk.com", new DomainConfig(
+                "https://vk.com",
+                "https://vk.com/",
+                false
+        ));
+
+        // Cloudflare-protected streaming CDNs
+        STREAMING_DOMAINS.put("megacloud", new DomainConfig(
+                "https://megacloud.blog",
+                "https://megacloud.blog/",
+                false
+        ));
+
+        STREAMING_DOMAINS.put("vidfast", new DomainConfig(
+                "https://vidfast.org",
+                "https://vidfast.org/",
+                false
+        ));
+
+        STREAMING_DOMAINS.put("vidsfly", new DomainConfig(
+                "https://vidsfly.com",
+                "https://vidsfly.com/",
+                false
+        ));
+
+        STREAMING_DOMAINS.put("vidbeehive", new DomainConfig(
+                "https://vidbeehive.com",
+                "https://vidbeehive.com/",
+                false
+        ));
+
+        // Video API domains (commonly used in streaming apps)
+        STREAMING_DOMAINS.put("videasy.net", new DomainConfig(
+                "https://videasy.net",
+                "https://videasy.net/",
+                false
+        ));
+
+        STREAMING_DOMAINS.put("vidlink.pro", new DomainConfig(
+                "https://vidlink.pro",
+                "https://vidlink.pro/",
+                false
+        ));
+
+        STREAMING_DOMAINS.put("smashystream.top", new DomainConfig(
+                "https://smashystream.top",
+                "https://smashystream.top/",
+                false
+        ));
+
+        STREAMING_DOMAINS.put("hexa.su", new DomainConfig(
+                "https://hexa.su",
+                "https://hexa.su/",
+                false
+        ));
+
+        Log.i(TAG, "Initialized " + STREAMING_DOMAINS.size() + " streaming domain configurations");
+    }
+
+    /**
+     * Initialize KiduyuDataSource with the shared OkHttpClient from FetchStreams.
+     * This ensures cookies and connection pooling are shared between API calls and playback.
+     */
+    public static void initializeWithSharedClient(okhttp3.OkHttpClient client) {
+        sharedOkHttpClient = client;
+        Log.i(TAG, "✓ KiduyuDataSource initialized with shared OkHttpClient");
+    }
+
+    /**
+     * Get the shared OkHttpClient for use with OkHttpDataSource in ExoPlayer.
+     * Returns null if not initialized (will use default factory behavior).
+     */
+    public static okhttp3.OkHttpClient getSharedOkHttpClient() {
+        return sharedOkHttpClient;
+    }
+
+    /**
+     * Add Cloudflare clearance cookie to shared store
+     */
+    public static void addCloudflareCookie(String domain, String cookieValue) {
+        try {
+            HttpUrl url = HttpUrl.parse("https://" + domain + "/");
+            if (url != null) {
+                Cookie cookie = Cookie.parse(url, "cf_clearance=" + cookieValue + "; path=/; secure; HttpOnly; SameSite=Lax");
+                if (cookie != null) {
+                    List<Cookie> cookies = new ArrayList<>();
+                    cookies.add(cookie);
+                    sharedCookieStore.put(domain, cookies);
+                    Log.i(TAG, "✓ Added cf_clearance cookie for domain: " + domain);
+                }
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error adding Cloudflare cookie: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Get cookies for a domain from shared store
+     */
+    public static List<Cookie> getCookiesForDomain(String domain) {
+        return sharedCookieStore.get(domain);
+    }
+
+    /**
+     * Check if we have Cloudflare cookies for a domain
+     */
+    public static boolean hasCloudflareCookies(String domain) {
+        List<Cookie> cookies = sharedCookieStore.get(domain);
+        if (cookies == null) return false;
+        for (Cookie cookie : cookies) {
+            if (cookie.name().equals("cf_clearance") || cookie.name().equals("__cf_bm")) {
+                return true;
+            }
+        }
+        return false;
     }
 
     // Instance variables
@@ -394,7 +567,7 @@ public class KiduyuDataSource extends BaseDataSource implements HttpDataSource {
             @Nullable InputStream errorStream = connection.getErrorStream();
             byte[] errorResponseBody;
             try {
-                errorResponseBody = errorStream != null ? 
+                errorResponseBody = errorStream != null ?
                         Util.toByteArray(errorStream) : Util.EMPTY_BYTE_ARRAY;
             } catch (IOException e) {
                 errorResponseBody = Util.EMPTY_BYTE_ARRAY;
@@ -427,7 +600,7 @@ public class KiduyuDataSource extends BaseDataSource implements HttpDataSource {
                 long contentLength = HttpUtil.getContentLength(
                         connection.getHeaderField("Content-Length"),
                         connection.getHeaderField("Content-Range"));
-                bytesToRead = contentLength != C.LENGTH_UNSET ? 
+                bytesToRead = contentLength != C.LENGTH_UNSET ?
                         (contentLength - bytesToSkip) : C.LENGTH_UNSET;
             }
         } else {
@@ -479,7 +652,7 @@ public class KiduyuDataSource extends BaseDataSource implements HttpDataSource {
         try {
             @Nullable InputStream inputStream = this.inputStream;
             if (inputStream != null) {
-                long bytesRemaining = bytesToRead == C.LENGTH_UNSET ? 
+                long bytesRemaining = bytesToRead == C.LENGTH_UNSET ?
                         C.LENGTH_UNSET : bytesToRead - bytesRead;
                 maybeTerminateInputStream(connection, bytesRemaining);
                 try {
@@ -543,7 +716,7 @@ public class KiduyuDataSource extends BaseDataSource implements HttpDataSource {
             String location = connection.getHeaderField("Location");
 
             // Check for redirect status codes
-            boolean isRedirect = (httpMethod == DataSpec.HTTP_METHOD_GET || 
+            boolean isRedirect = (httpMethod == DataSpec.HTTP_METHOD_GET ||
                     httpMethod == DataSpec.HTTP_METHOD_HEAD) &&
                     (responseCode == HttpURLConnection.HTTP_MULT_CHOICE ||
                             responseCode == HttpURLConnection.HTTP_MOVED_PERM ||
@@ -563,7 +736,7 @@ public class KiduyuDataSource extends BaseDataSource implements HttpDataSource {
                 currentUrl = handleRedirect(currentUrl, location, dataSpec);
             } else if (isPostRedirect) {
                 connection.disconnect();
-                boolean shouldKeepPost = keepPostFor302Redirects && 
+                boolean shouldKeepPost = keepPostFor302Redirects &&
                         responseCode == HttpURLConnection.HTTP_MOVED_TEMP;
                 if (!shouldKeepPost) {
                     httpMethod = DataSpec.HTTP_METHOD_GET;
@@ -584,47 +757,84 @@ public class KiduyuDataSource extends BaseDataSource implements HttpDataSource {
 
     /**
      * Builds request headers with automatic domain configuration
+     * CRITICAL: Domain config is applied FIRST to ensure proper Origin/Referer headers
      */
     private Map<String, String> buildRequestHeaders(URL url, Map<String, String> extraHeaders) {
         Map<String, String> headers = new HashMap<>();
+        String host = url.getHost();
 
-        // Add default request properties
-        if (defaultRequestProperties != null) {
-            headers.putAll(defaultRequestProperties.getSnapshot());
+        // FIRST: Apply domain-specific configuration (highest priority)
+        applyDomainConfiguration(host, headers);
+
+        // SECOND: Add User-Agent
+        if (userAgent != null) {
+            headers.put("User-Agent", userAgent);
         }
 
-        // Add instance-specific request properties
-        headers.putAll(requestProperties.getSnapshot());
+        // THIRD: Add cookies from shared cookie store
+        List<Cookie> cookies = getCookiesForDomain(host);
+        if (cookies != null && !cookies.isEmpty()) {
+            StringBuilder cookieHeader = new StringBuilder();
+            for (int i = 0; i < cookies.size(); i++) {
+                Cookie cookie = cookies.get(i);
+                cookieHeader.append(cookie.name()).append("=").append(cookie.value());
+                if (i < cookies.size() - 1) {
+                    cookieHeader.append("; ");
+                }
+            }
+            headers.put("Cookie", cookieHeader.toString());
+            Log.d(TAG, "Applied cookies from shared store for: " + host);
+        }
 
-        // Add extra headers from DataSpec
+        // FOURTH: Add default request properties
+        if (defaultRequestProperties != null) {
+            for (Map.Entry<String, String> entry : defaultRequestProperties.getSnapshot().entrySet()) {
+                headers.putIfAbsent(entry.getKey(), entry.getValue());
+            }
+        }
+
+        // FIFTH: Add instance-specific request properties
+        for (Map.Entry<String, String> entry : requestProperties.getSnapshot().entrySet()) {
+            headers.putIfAbsent(entry.getKey(), entry.getValue());
+        }
+
+        // SIXTH: Add extra headers from DataSpec (lowest priority)
         if (extraHeaders != null) {
             headers.putAll(extraHeaders);
         }
 
-        // Apply domain-specific configuration
-        String host = url.getHost();
-        applyDomainConfiguration(host, headers);
-
-        // Ensure User-Agent is set
-        if (userAgent != null && !headers.containsKey("User-Agent")) {
-            headers.put("User-Agent", userAgent);
+        // CRITICAL: Ensure Origin header when Referer is present
+        if (headers.containsKey("Referer")) {
+            String referer = headers.get("Referer");
+            if (referer != null && !referer.isEmpty()) {
+                try {
+                    java.net.URL refererUrl = new java.net.URL(referer);
+                    String origin = refererUrl.getProtocol() + "://" + refererUrl.getHost();
+                    headers.putIfAbsent("Origin", origin);
+                    Log.d(TAG, "Set Origin from Referer: " + origin);
+                } catch (Exception e) {
+                    Log.w(TAG, "Failed to extract Origin from Referer: " + referer);
+                }
+            }
         }
 
         // Add keep-alive headers if enabled
         if (enableKeepAlive) {
-            if (!headers.containsKey("Connection")) {
-                headers.put("Connection", "keep-alive");
-            }
-            if (!headers.containsKey("Keep-Alive")) {
-                headers.put("Keep-Alive", "timeout=300, max=1000");
-            }
+            headers.putIfAbsent("Connection", "keep-alive");
+            headers.putIfAbsent("Keep-Alive", "timeout=300, max=1000");
         }
+
+        // Add Accept headers if missing
+        headers.putIfAbsent("Accept", "*/*");
+        headers.putIfAbsent("Accept-Language", "en-US,en;q=0.9");
+        headers.putIfAbsent("Accept-Encoding", "gzip, deflate, br");
 
         return headers;
     }
 
     /**
      * Applies domain-specific header configuration for known streaming domains
+     * This is called FIRST in header building to ensure proper Origin/Referer headers
      */
     private void applyDomainConfiguration(String host, Map<String, String> headers) {
         // Check for known streaming domains
@@ -632,20 +842,23 @@ public class KiduyuDataSource extends BaseDataSource implements HttpDataSource {
             if (host.contains(entry.getKey())) {
                 DomainConfig config = entry.getValue();
 
-                // Set Origin if not already present
-                if (config.origin != null && !headers.containsKey("Origin")) {
+                // Set Origin
+                if (config.origin != null) {
                     headers.put("Origin", config.origin);
                 }
 
-                // Set Referer if not already present
-                if (config.referer != null && !headers.containsKey("Referer")) {
+                // Set Referer
+                if (config.referer != null) {
                     headers.put("Referer", config.referer);
                 }
 
-                Log.d(TAG, "Applied domain config for: " + host);
+                Log.d(TAG, "Applied domain config for: " + host + " (Origin: " + config.origin + ")");
                 return;
             }
         }
+
+        // Dynamic configuration for unknown domains
+        Log.d(TAG, "No specific config for domain: " + host + ", using defaults");
     }
 
     /**
@@ -1010,10 +1223,11 @@ public class KiduyuDataSource extends BaseDataSource implements HttpDataSource {
 
     /**
      * Get default User-Agent string for streaming
+     * Uses a recent Chrome version to avoid 403 errors from servers checking User-Agent
      */
     public static String getDefaultUserAgent() {
         return "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
-               "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+                "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
     }
 
     /**
@@ -1092,36 +1306,76 @@ public class KiduyuDataSource extends BaseDataSource implements HttpDataSource {
             Map<String, String> responseHeaders) {
 
         Map<String, String> headers = new HashMap<>();
+        String host = extractHost(refererUrl);
 
-        // CRITICAL: Always add keep-alive headers to prevent socket closure
-        headers.put("Connection", "keep-alive");
-        headers.put("Keep-Alive", "timeout=300, max=1000");
-        headers.put("Accept-Encoding", "gzip, deflate");
+        // FIRST: Apply domain-specific configuration
+        applyDomainConfigurationForHeaders(host, headers);
 
-        // Add session cookie if provided
+        // SECOND: Add User-Agent
+        headers.put("User-Agent", getDefaultUserAgent());
+
+        // THIRD: Add cookies from multiple sources (priority order)
+        StringBuilder cookieBuilder = new StringBuilder();
+
+        // 1. Add session cookie if provided
         if (sessionCookie != null && !sessionCookie.isEmpty()) {
             String cookie = sessionCookie;
             // Parse JSON format if needed
             if (cookie.startsWith("[{") && cookie.contains("\"name\"")) {
                 cookie = parseJsonCookie(cookie);
             }
-            headers.put("Cookie", cookie);
-            Log.i(TAG, "Parsed session cookie: " + cookie);
-            Log.i(TAG, "Added session cookie to headers (length: " + cookie.length() + ")");
-        } else {
-            Log.w(TAG, "No session cookie available!");
+            cookieBuilder.append(cookie);
+            if (cookieBuilder.length() > 0) {
+                cookieBuilder.append("; ");
+            }
         }
 
-        // Add custom headers from MediaItems (may override some values)
+        // 2. Add cookies from shared cookie store
+        List<Cookie> storedCookies = getCookiesForDomain(host);
+        if (storedCookies != null && !storedCookies.isEmpty()) {
+            for (Cookie cookie : storedCookies) {
+                cookieBuilder.append(cookie.name()).append("=").append(cookie.value()).append("; ");
+            }
+            Log.i(TAG, "Added " + storedCookies.size() + " cookies from shared store for: " + host);
+        }
+
+        String cookieHeader = cookieBuilder.toString().trim();
+        if (!cookieHeader.isEmpty()) {
+            if (cookieHeader.endsWith(";")) {
+                cookieHeader = cookieHeader.substring(0, cookieHeader.length() - 1);
+            }
+            headers.put("Cookie", cookieHeader);
+            Log.i(TAG, "Final cookie header (length: " + cookieHeader.length() + ")");
+        }
+
+        // CRITICAL: Always add keep-alive headers to prevent socket closure
+        headers.put("Connection", "keep-alive");
+        headers.put("Keep-Alive", "timeout=300, max=1000");
+        headers.put("Accept-Encoding", "gzip, deflate, br");
+        headers.put("Accept", "*/*");
+        headers.put("Accept-Language", "en-US,en;q=0.9");
+
+        // Add custom headers from MediaItems
         if (customHeaders != null) {
-            headers.putAll(customHeaders);
-            Log.i(TAG, "Added " + customHeaders.size() + " custom headers");
+            for (Map.Entry<String, String> entry : customHeaders.entrySet()) {
+                headers.put(entry.getKey(), entry.getValue());
+            }
+            Log.i(TAG, "Added/overriden with " + customHeaders.size() + " custom headers");
         }
 
         // Add referer if available
         if (refererUrl != null && !refererUrl.isEmpty()) {
             headers.put("Referer", refererUrl);
-            Log.i(TAG, "Added referer: " + refererUrl);
+
+            // CRITICAL: Add Origin header to match Referer for CORS compliance
+            try {
+                java.net.URL refererParsed = new java.net.URL(refererUrl);
+                String origin = refererParsed.getProtocol() + "://" + refererParsed.getHost();
+                headers.put("Origin", origin);
+                Log.i(TAG, "Set Origin from Referer: " + origin);
+            } catch (Exception e) {
+                Log.w(TAG, "Failed to extract Origin from Referer: " + refererUrl);
+            }
         }
 
         // Apply Cloudflare response headers for session continuity
@@ -1132,16 +1386,48 @@ public class KiduyuDataSource extends BaseDataSource implements HttpDataSource {
         // Log all headers being applied (mask sensitive values)
         Log.i(TAG, "Built " + headers.size() + " headers for protected stream:");
         for (Map.Entry<String, String> entry : headers.entrySet()) {
-            String value = entry.getValue();
-            // Mask sensitive header values for logging
-            if (entry.getKey().equalsIgnoreCase("Cookie") || entry.getKey().equalsIgnoreCase("Authorization")) {
-                Log.i(TAG, "  " + entry.getKey() + ": [MASKED - length: " + value.length() + "]");
+            if (entry.getKey().equalsIgnoreCase("Cookie")) {
+                Log.i(TAG, "  " + entry.getKey() + ": [MASKED - length: " + entry.getValue().length() + "]");
             } else {
-                Log.i(TAG, "  " + entry.getKey() + ": " + value);
+                Log.i(TAG, "  " + entry.getKey() + ": " + entry.getValue());
             }
         }
 
         return headers;
+    }
+
+    /**
+     * Apply domain configuration for headers map
+     */
+    private static void applyDomainConfigurationForHeaders(String host, Map<String, String> headers) {
+        if (host == null || host.isEmpty()) return;
+
+        for (Map.Entry<String, DomainConfig> entry : STREAMING_DOMAINS.entrySet()) {
+            if (host.contains(entry.getKey())) {
+                DomainConfig config = entry.getValue();
+                if (config.origin != null) {
+                    headers.put("Origin", config.origin);
+                }
+                if (config.referer != null) {
+                    headers.put("Referer", config.referer);
+                }
+                Log.d(TAG, "Applied domain config for: " + host);
+                return;
+            }
+        }
+    }
+
+    /**
+     * Extract host from URL string
+     */
+    private static String extractHost(String url) {
+        if (url == null || url.isEmpty()) return null;
+        try {
+            java.net.URL parsed = new java.net.URL(url);
+            return parsed.getHost();
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     // ============================================
@@ -1159,13 +1445,15 @@ public class KiduyuDataSource extends BaseDataSource implements HttpDataSource {
         Log.i(TAG, "Creating standard media source");
 
         KiduyuDataSource.Factory dataSourceFactory = new KiduyuDataSource.Factory()
-                .setUserAgent(getDefaultUserAgent());
+                .setUserAgent(getDefaultUserAgent())
+                .setEnableKeepAlive(true);
 
         return createMediaSource(context, mediaItem, dataSourceFactory);
     }
 
     /**
      * Create media source WITH session headers for Cloudflare bypass
+     * Now uses shared OkHttpClient from ApiClient for cookie sharing between API calls and playback
      * @param context Android context
      * @param mediaItem The media item to play
      * @param sessionCookie The Cloudflare session cookie
@@ -1184,21 +1472,68 @@ public class KiduyuDataSource extends BaseDataSource implements HttpDataSource {
             Map<String, String> responseHeaders) {
 
         Log.i(TAG, "Creating protected media source for: " + mediaItem.localConfiguration.uri);
-        Log.i(TAG,"Session cookie: " + sessionCookie);
-        Log.i(TAG, "Custom headers: " + customHeaders);
+        Log.i(TAG, "Session cookie: " + (sessionCookie != null ? "[length: " + sessionCookie.length() + "]" : "null"));
+        Log.i(TAG, "Custom headers: " + (customHeaders != null ? customHeaders.size() + " headers" : "null"));
         Log.i(TAG, "Referer URL: " + refererUrl);
 
         // Build headers with session cookie and Cloudflare continuity
         Map<String, String> headers = buildProtectedStreamHeaders(
                 sessionCookie, customHeaders, refererUrl, responseHeaders);
 
-        // Create data source factory with headers
+        // Get shared OkHttpClient from ApiClient for cookie sharing
+        okhttp3.OkHttpClient sharedClient = ApiClient.getClient(context);
+
+        // Initialize KiduyuDataSource with shared client for cookie sharing
+        initializeWithSharedClient(sharedClient);
+
+        // Create data source factory with headers and use OkHttpDataSource with shared client
         KiduyuDataSource.Factory dataSourceFactory = new KiduyuDataSource.Factory()
                 .setDefaultRequestProperties(headers)
                 .setEnableKeepAlive(true)
                 .setUserAgent(getDefaultUserAgent());
 
-        return createMediaSource(context, mediaItem, dataSourceFactory);
+        return createMediaSourceWithSharedClient(context, mediaItem, dataSourceFactory, sharedClient);
+    }
+
+    /**
+     * Create appropriate media source using shared OkHttpClient
+     * @param context Android context
+     * @param mediaItem The media item to play
+     * @param dataSourceFactory Configured data source factory
+     * @param sharedClient Shared OkHttpClient for OkHttpDataSource
+     * @return MediaSource configured for the media type
+     */
+    private static MediaSource createMediaSourceWithSharedClient(
+            Context context,
+            MediaItem mediaItem,
+            KiduyuDataSource.Factory dataSourceFactory,
+            okhttp3.OkHttpClient sharedClient) {
+
+        // Use OkHttpDataSource.Factory with shared client for proper cookie sharing
+        okhttp3.OkHttpClient okHttpClient = ApiClient.getClient(context);
+        OkHttpDataSource.Factory okHttpDataSourceFactory = new OkHttpDataSource.Factory(okHttpClient);
+
+        DefaultDataSource.Factory upstreamFactory = new DefaultDataSource.Factory(
+                context, dataSourceFactory);
+        // Override with OkHttpDataSource for proper HTTP/2 and cookie handling
+        upstreamFactory = new DefaultDataSource.Factory(context, okHttpDataSourceFactory);
+
+        String uriString = mediaItem.localConfiguration.uri.toString().toLowerCase();
+
+        if (uriString.contains(".m3u8") || uriString.contains("m3u8")) {
+            Log.i(TAG, "Using HLS media source with shared OkHttpClient");
+            return new HlsMediaSource.Factory(upstreamFactory)
+                    .setAllowChunklessPreparation(true)
+                    .createMediaSource(mediaItem);
+        } else if (uriString.contains(".mpd") || uriString.contains("mpd")) {
+            Log.i(TAG, "Using DASH media source with shared OkHttpClient");
+            return new DashMediaSource.Factory(upstreamFactory)
+                    .createMediaSource(mediaItem);
+        } else {
+            Log.i(TAG, "Using Progressive media source with shared OkHttpClient");
+            return new ProgressiveMediaSource.Factory(upstreamFactory)
+                    .createMediaSource(mediaItem);
+        }
     }
 
     /**
