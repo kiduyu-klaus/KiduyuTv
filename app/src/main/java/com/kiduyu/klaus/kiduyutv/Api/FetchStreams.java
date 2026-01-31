@@ -362,7 +362,7 @@ public class FetchStreams {
         Log.i(TAG, "fetchVideasyMovie JSON: " + jsonStr);
 
 
-        Map<String, String> responseHeaders = extractHeaders(decResponse);
+        Map<String, String> responseHeaders = extractHeaders(response);
 
 
         Log.i(TAG, "Response headers captured fetchVideasyStreams: " + responseHeaders.size());
@@ -430,7 +430,7 @@ public class FetchStreams {
         String jsonStr = new com.google.gson.Gson().toJson(result);
 
         Log.i(TAG, "fetchHexaMovie JSON: " + jsonStr);
-        Map<String, String> responseHeaders = extractHeaders(decResponse);
+        Map<String, String> responseHeaders = extractHeaders(response);
 
 
         Log.i(TAG, "Response headers captured fetchHexaStreams: " + responseHeaders.size());
@@ -493,7 +493,7 @@ public class FetchStreams {
         if (!decResponse.isSuccessful() || decResponse.body() == null) {
             throw new IOException("Failed to decrypt");
         }
-        Map<String, String> responseHeaders = extractHeaders(decResponse);
+        Map<String, String> responseHeaders = extractHeaders(response);
 
 
         Log.i(TAG, "Response headers captured fetchOnetouchtvStreams: " + responseHeaders.size());
@@ -572,7 +572,7 @@ public class FetchStreams {
         }
         DecryptResponse.Result result = decResp.body().result;
         String jsonStr = new com.google.gson.Gson().toJson(result);
-        Map<String, String> responseHeaders = extractHeaders(decResp);
+        Map<String, String> responseHeaders = extractHeaders(response);
 
 
         Log.i(TAG, "Response headers captured fetchSmashystreamType1: " + responseHeaders.size());
@@ -749,7 +749,7 @@ public class FetchStreams {
         DecryptResponse.Result result = decResp.body().result;
         String jsonStr = new com.google.gson.Gson().toJson(result);
 
-        Map<String, String> responseHeaders = extractHeaders(decResp);
+        Map<String, String> responseHeaders = extractHeaders(response);
 
 
         Log.i(TAG, "Response headers captured fetchSmashystreamType1: " + responseHeaders.size());

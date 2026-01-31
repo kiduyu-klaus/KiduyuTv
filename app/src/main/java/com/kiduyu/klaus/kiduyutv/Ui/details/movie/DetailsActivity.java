@@ -359,7 +359,7 @@ public class DetailsActivity extends AppCompatActivity {
 
         // Counter to track completed fetches
         final int[] completedFetches = {0};
-        final int totalServers = 6; // Number of servers we're querying
+        final int totalServers = 1; // Number of servers we're querying
 
         // Callback to handle each server response
         FetchStreams.StreamCallback callback = new FetchStreams.StreamCallback() {
@@ -445,19 +445,19 @@ public class DetailsActivity extends AppCompatActivity {
         fetchStreams.fetchVideasyMovie(title, year, tmdbId, callback);
 
         // 2. Fetch from Hexa
-        fetchStreams.fetchHexaMovie(tmdbId, callback);
+        //fetchStreams.fetchHexaMovie(tmdbId, callback);
 
         // 3. Fetch from Vidlink
-        fetchStreams.fetchVidlinkMovie(tmdbId, callback);
+        //fetchStreams.fetchVidlinkMovie(tmdbId, callback);
 
         // 4. Fetch from SmashyStream/Vidstack Type 1
-        fetchStreams.fetchSmashystreamMovie(imdbId, tmdbId, "1", callback);
+        //fetchStreams.fetchSmashystreamMovie(imdbId, tmdbId, "1", callback);
 
         // 5. Fetch from SmashyStream/Vidstack Type 2
-        fetchStreams.fetchSmashystreamMovie(imdbId, tmdbId, "2", callback);
+        //fetchStreams.fetchSmashystreamMovie(imdbId, tmdbId, "2", callback);
 
         // 6. Fetch from XPrime (using "primebox" server)
-        fetchStreams.fetchXprimeMovie(title, year, tmdbId, imdbId, "primebox", callback);
+        //fetchStreams.fetchXprimeMovie(title, year, tmdbId, imdbId, "primebox", callback);
     }
 
 

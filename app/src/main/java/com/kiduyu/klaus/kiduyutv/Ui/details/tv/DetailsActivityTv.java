@@ -263,7 +263,7 @@ public class DetailsActivityTv extends AppCompatActivity {
 
         // Counter to track completed fetches
         final int[] completedFetches = {0};
-        final int totalServers = 7; // Number of servers we're querying
+        final int totalServers = 1; // Number of servers we're querying
 
         FetchStreams fetchStreams = new FetchStreams(this);
 
@@ -345,7 +345,7 @@ public class DetailsActivityTv extends AppCompatActivity {
         };
 
         // 1. Fetch from Videasy (Multiple sub-servers available)
-        fetchStreams.fetchVideasyTV(title, year, tmdbId, season, episodeNumber, callback);
+        //fetchStreams.fetchVideasyTV(title, year, tmdbId, season, episodeNumber, callback);
 
         // 2. Fetch from Hexa
         fetchStreams.fetchHexaTV(tmdbId, season, episodeNumber, callback);
@@ -356,20 +356,20 @@ public class DetailsActivityTv extends AppCompatActivity {
         completedFetches[0]++; // Skip if not available
 
         // 4. Fetch from SmashyStream/Vidstack Type 1
-        fetchStreams.fetchSmashystreamTV(imdbId, tmdbId, season, episodeNumber, "1", callback);
+        //fetchStreams.fetchSmashystreamTV(imdbId, tmdbId, season, episodeNumber, "1", callback);
 
         // 5. Fetch from SmashyStream/Vidstack Type 2
-        fetchStreams.fetchSmashystreamTV(imdbId, tmdbId, season, episodeNumber, "2", callback);
+        //fetchStreams.fetchSmashystreamTV(imdbId, tmdbId, season, episodeNumber, "2", callback);
 
         // 6. Fetch from XPrime (requires server selection - use "primebox" or other available servers)
-        fetchStreams.fetchXprimeTV(title, year, tmdbId, imdbId, season, episodeNumber, "primebox", callback);
+        //fetchStreams.fetchXprimeTV(title, year, tmdbId, imdbId, season, episodeNumber, "primebox", callback);
 
         // 7. Fetch from Mapple (if you have the TV slug format)
         // Note: Mapple TV might need format like "1-1" for season-episode
         String tvSlug = season + "-" + episodeNumber;
         // You may need to implement fetchMappleTV in FetchStreams if it doesn't exist yet
         // fetchStreams.fetchMappleTV(tmdbId, tvSlug, "mapple", callback);
-        completedFetches[0]++; // Skip if not implemented
+        //completedFetches[0]++; // Skip if not implemented
     }
 
 
