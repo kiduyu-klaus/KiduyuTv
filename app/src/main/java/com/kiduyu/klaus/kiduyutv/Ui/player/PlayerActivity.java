@@ -538,7 +538,7 @@ public class PlayerActivity extends AppCompatActivity {
 
         // Try next server if available
         if (currentSourceIndex < videoSources.size() - 1) {
-            
+
             loadVideoSource(currentSourceIndex + 1);
 
         } else {
