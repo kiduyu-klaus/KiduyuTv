@@ -345,10 +345,10 @@ public class DetailsActivityTv extends AppCompatActivity {
         };
 
         // 1. Fetch from Videasy (Multiple sub-servers available)
-        //fetchStreams.fetchVideasyTV(title, year, tmdbId, season, episodeNumber, callback);
+        fetchStreams.fetchVideasyTV(title, year, tmdbId, season, episodeNumber, callback);
 
         // 2. Fetch from Hexa
-        fetchStreams.fetchHexaTV(tmdbId, season, episodeNumber, callback);
+        //fetchStreams.fetchHexaTV(tmdbId, season, episodeNumber, callback);
 
         // 3. Fetch from OneTouchTV (if you have the vodId)
         // Note: OneTouchTV might need a different ID format

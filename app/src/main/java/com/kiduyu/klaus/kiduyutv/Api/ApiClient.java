@@ -61,7 +61,7 @@ public class ApiClient {
 
     // Default User-Agent mimicking a modern desktop browser
     // Updated to a recent stable version
-    private static final String DEFAULT_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
+    public static final String DEFAULT_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
             "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
     // Singleton instance

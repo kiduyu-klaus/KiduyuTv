@@ -1,5 +1,7 @@
 package com.kiduyu.klaus.kiduyutv.Ui.player;
 
+import static com.kiduyu.klaus.kiduyutv.Api.ApiClient.DEFAULT_USER_AGENT;
+
 import android.content.pm.ActivityInfo;
 import android.os.Bundle;
 import android.os.Handler;
@@ -191,6 +193,8 @@ public class PlayerActivity extends AppCompatActivity {
         loadingStatusContainer = findViewById(R.id.loadingStatusContainer);
         loadingStatusText = findViewById(R.id.loadingStatusText);
         hardsubBadge = findViewById(R.id.hardsubBadge);
+        totalTime.setText(formatTime(0));
+        currentTime.setText(formatTime(0));
     }
 
     private void setupClickListeners() {
@@ -310,6 +314,7 @@ public class PlayerActivity extends AppCompatActivity {
             public void onPlaybackStateChanged(int playbackState) {
                 switch (playbackState) {
                     case Player.STATE_BUFFERING:
+
                         showLoadingServer();
                         break;
                     case Player.STATE_READY:
@@ -400,9 +405,7 @@ public class PlayerActivity extends AppCompatActivity {
         Log.i(TAG, "Loading video source: " + source.getQuality() + " - " + source.getUrl());
 
         // Show loading
-        loadingIndicator.setVisibility(View.VISIBLE);
-        loadingStatusContainer.setVisibility(View.VISIBLE);
-        loadingStatusText.setText("LOADING VIDEO");
+        showLoadingServer();
 
         // Build data source factory with custom headers
         DataSource.Factory dataSourceFactory = buildDataSourceFactory(source);
@@ -465,20 +468,24 @@ public class PlayerActivity extends AppCompatActivity {
         // Build custom headers from the video source
         Map<String, String> headers = new HashMap<>();
 
-        // Add custom headers from the source
-        if (source.getCustomHeaders() != null && !source.getCustomHeaders().isEmpty()) {
-            headers.putAll(source.getCustomHeaders());
+        headers.put("User-Agent", DEFAULT_USER_AGENT);
+        headers.put("Accept", "*/*");
+        headers.put("Accept-Encoding", "gzip, deflate");
+        headers.put("Accept-Language", "en-US,en;q=0.9");
+        headers.put("Connection", "keep-alive");
+        if (source.getUrl().startsWith("https://one.techparadise")) {
+            headers.put("Referer", "https://videasy.net/");
+            headers.put("Origin", "https://videasy.net/");
         }
-
-        // Add session cookie if available
-        if (source.getSessionCookie() != null && !source.getSessionCookie().isEmpty()) {
-            headers.put("Cookie", source.getSessionCookie());
+        if (source.getUrl().startsWith("https://p.10015")) {
+            headers.put("Referer", "https://hexa.su/");
+            headers.put("Origin", "https://hexa.su/");
         }
 
         // Add referer if available
-        if (source.getRefererUrl() != null && !source.getRefererUrl().isEmpty()) {
-            headers.put("Referer", source.getRefererUrl());
-        }
+//        if (source.getRefererUrl() != null && !source.getRefererUrl().isEmpty()) {
+//            headers.put("Referer", source.getRefererUrl());
+//        }
 
         // Build HTTP data source with headers
         DefaultHttpDataSource.Factory httpDataSourceFactory = new DefaultHttpDataSource.Factory()
@@ -531,14 +538,9 @@ public class PlayerActivity extends AppCompatActivity {
 
         // Try next server if available
         if (currentSourceIndex < videoSources.size() - 1) {
-            new AlertDialog.Builder(this)
-                    .setTitle("Playback Error")
-                    .setMessage("Failed to play current source. Try next server?")
-                    .setPositiveButton("Yes", (dialog, which) -> {
-                        loadVideoSource(currentSourceIndex + 1);
-                    })
-                    .setNegativeButton("Cancel", null)
-                    .show();
+            
+            loadVideoSource(currentSourceIndex + 1);
+
         } else {
             loadingIndicator.setVisibility(View.GONE);
             loadingStatusContainer.setVisibility(View.GONE);
@@ -660,12 +662,12 @@ public class PlayerActivity extends AppCompatActivity {
 
     private void showLoadingServer() {
         updateLoadingUi(true);
-        loadingStatusText.setText("BUFFERING");
+        loadingStatusText.setText("LOADING SERVER");
     }
 
     private void showStreamingStatus() {
         updateLoadingUi(true);
-        loadingStatusText.setText("STREAMING");
+        loadingStatusText.setText("STREAMING VIDEO");
     }
 
     private void hideLoading() {

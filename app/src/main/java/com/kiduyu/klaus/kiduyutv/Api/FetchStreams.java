@@ -1041,128 +1041,162 @@ public class FetchStreams {
         Log.i(TAG, "SourceId: " + sourceId);
 
         // ============================================
-        // VIDLINK FORMAT: Parse stream object
+        // HEXA FORMAT: Parse sources array with server names
         // ============================================
-        JSONObject streamObj = data.optJSONObject("stream");
-        if (streamObj != null) {
-            Log.i(TAG, "Detected Vidlink format response");
+        JSONArray hexaSourcesArray = data.optJSONArray("sources");
+        if (hexaSourcesArray != null && hexaSourcesArray.length() > 0) {
+            // Check if first element has "server" field (Hexa format indicator)
+            JSONObject firstSource = hexaSourcesArray.optJSONObject(0);
+            if (firstSource != null && firstSource.has("server")) {
+                Log.i(TAG, "Detected Hexa format response");
 
-            // Get playlist URL from stream object
-            String playlistUrl = streamObj.optString("playlist", "");
-            if (!playlistUrl.isEmpty()) {
-                Log.i(TAG, "Original playlist URL: " + playlistUrl);
+                for (int i = 0; i < hexaSourcesArray.length(); i++) {
+                    JSONObject sourceObj = hexaSourcesArray.getJSONObject(i);
+                    String server = sourceObj.optString("server", "");
+                    String url = sourceObj.optString("url", "");
 
-                // Extract headers and clean URL
-                String cleanUrl = playlistUrl;
-                Map<String, String> extractedHeaders = extractHeadersFromUrl(playlistUrl);
-
-                // Remove the ?headers=...&host=... part to get clean URL
-                int headersIndex = playlistUrl.indexOf("?headers=");
-                if (headersIndex != -1) {
-                    cleanUrl = playlistUrl.substring(0, headersIndex);
-                    Log.i(TAG, "Clean playlist URL: " + cleanUrl);
-                }
-
-                // Add the CLEAN playlist URL as a video source
-                String streamType = streamObj.optString("type", "hls").toUpperCase();
-                sources.add(new MediaItems.VideoSource(streamType, cleanUrl));
-
-                Log.i(TAG, "Added source - Type: " + streamType + ", URL: " + cleanUrl);
-
-                // Apply extracted headers to custom headers
-                if (!extractedHeaders.isEmpty()) {
-                    customHeaders.put("User-Agent", getUserAgent());
-                    customHeaders.putAll(extractedHeaders);
-
-                    // Update referer if extracted from URL
-                    if (extractedHeaders.containsKey("Referer")) {
-                        refererUrl = extractedHeaders.get("Referer");
-                        Log.i(TAG, "Updated referer from URL: " + refererUrl);
-                    }
-
-                    Log.i(TAG, "Extracted " + extractedHeaders.size() + " headers from playlist URL");
-                    Log.i(TAG, "extractedHeaders: " + extractedHeaders.toString());
-                }
-            }
-
-            // Parse captions array from stream object (NOT from root)
-            JSONArray captionsArray = streamObj.optJSONArray("captions");
-            if (captionsArray != null) {
-                Log.i(TAG, "Found " + captionsArray.length() + " caption(s)");
-
-                for (int i = 0; i < captionsArray.length(); i++) {
-                    JSONObject captionObj = captionsArray.getJSONObject(i);
-                    String captionUrl = captionObj.optString("url", "");
-                    String captionId = captionObj.optString("id", "");
-                    String language = captionObj.optString("language", "Unknown");
-
-                    // Use url if available, otherwise use id
-                    String subtitleUrl = !captionUrl.isEmpty() ? captionUrl : captionId;
-
-                    if (!subtitleUrl.isEmpty()) {
-                        // Extract language code (e.g., "English" -> "en")
-                        String langCode = extractLanguageCode(language, captionId);
-
-                        subs.add(new MediaItems.SubtitleItem(
-                                subtitleUrl,
-                                langCode,
-                                language
-                        ));
-
-                        Log.i(TAG, "Added subtitle: " + language + " (" + langCode + ")");
+                    if (!url.isEmpty()) {
+                        // Use server name as quality identifier
+                        sources.add(new MediaItems.VideoSource(server, url));
+                        Log.i(TAG, "Added Hexa source - Server: " + server + ", URL: " + url);
                     }
                 }
+
+                // Set headers for Hexa format
+                customHeaders.put("User-Agent", getUserAgent());
+                customHeaders.put("Accept", "*/*");
+                customHeaders.put("Accept-Encoding", "gzip, deflate");
+                customHeaders.put("Accept-Language", "en-US,en;q=0.9");
+                customHeaders.put("Connection", "keep-alive");
+                customHeaders.put("Referer", "https://api.videasy.net/");
+                customHeaders.put("Origin", "https://api.videasy.net");
+
+                Log.i(TAG, "Applied Hexa format headers");
             }
-        }
+            // ============================================
+            // VIDLINK FORMAT: Check for stream object
+            // ============================================
+            else {
+                JSONObject streamObj = data.optJSONObject("stream");
+                if (streamObj != null) {
+                    Log.i(TAG, "Detected Vidlink format response");
 
-        // ============================================
-        // STANDARD FORMAT: Fallback for other APIs
-        // ============================================
-        else {
-            Log.i(TAG, "Detected standard format response");
+                    // Get playlist URL from stream object
+                    String playlistUrl = streamObj.optString("playlist", "");
+                    if (!playlistUrl.isEmpty()) {
+                        Log.i(TAG, "Original playlist URL: " + playlistUrl);
 
-            // Parse sources array
-            JSONArray sourcesArray = data.optJSONArray("sources");
-            if (sourcesArray != null) {
-                for (int i = 0; i < sourcesArray.length(); i++) {
-                    JSONObject obj = sourcesArray.getJSONObject(i);
-                    sources.add(new MediaItems.VideoSource(
-                            obj.optString("quality", "auto"),
-                            obj.optString("url", "")
-                    ));
+                        // Extract headers and clean URL
+                        String cleanUrl = playlistUrl;
+                        Map<String, String> extractedHeaders = extractHeadersFromUrl(playlistUrl);
+
+                        // Remove the ?headers=...&host=... part to get clean URL
+                        int headersIndex = playlistUrl.indexOf("?headers=");
+                        if (headersIndex != -1) {
+                            cleanUrl = playlistUrl.substring(0, headersIndex);
+                            Log.i(TAG, "Clean playlist URL: " + cleanUrl);
+                        }
+
+                        // Add the CLEAN playlist URL as a video source
+                        String streamType = streamObj.optString("type", "hls").toUpperCase();
+                        sources.add(new MediaItems.VideoSource(streamType, cleanUrl));
+
+                        Log.i(TAG, "Added source - Type: " + streamType + ", URL: " + cleanUrl);
+
+                        // Apply extracted headers to custom headers
+                        if (!extractedHeaders.isEmpty()) {
+                            customHeaders.put("User-Agent", getUserAgent());
+                            customHeaders.putAll(extractedHeaders);
+
+                            // Update referer if extracted from URL
+                            if (extractedHeaders.containsKey("Referer")) {
+                                refererUrl = extractedHeaders.get("Referer");
+                                Log.i(TAG, "Updated referer from URL: " + refererUrl);
+                            }
+
+                            Log.i(TAG, "Extracted " + extractedHeaders.size() + " headers from playlist URL");
+                            Log.i(TAG, "extractedHeaders: " + extractedHeaders.toString());
+                        }
+                    }
+
+                    // Parse captions array from stream object (NOT from root)
+                    JSONArray captionsArray = streamObj.optJSONArray("captions");
+                    if (captionsArray != null) {
+                        Log.i(TAG, "Found " + captionsArray.length() + " caption(s)");
+
+                        for (int i = 0; i < captionsArray.length(); i++) {
+                            JSONObject captionObj = captionsArray.getJSONObject(i);
+                            String captionUrl = captionObj.optString("url", "");
+                            String captionId = captionObj.optString("id", "");
+                            String language = captionObj.optString("language", "Unknown");
+
+                            // Use url if available, otherwise use id
+                            String subtitleUrl = !captionUrl.isEmpty() ? captionUrl : captionId;
+
+                            if (!subtitleUrl.isEmpty()) {
+                                // Extract language code (e.g., "English" -> "en")
+                                String langCode = extractLanguageCode(language, captionId);
+
+                                subs.add(new MediaItems.SubtitleItem(
+                                        subtitleUrl,
+                                        langCode,
+                                        language
+                                ));
+
+                                Log.i(TAG, "Added subtitle: " + language + " (" + langCode + ")");
+                            }
+                        }
+                    }
                 }
-                Log.i(TAG, "Parsed " + sources.size() + " source(s)");
-            }
+                // ============================================
+                // STANDARD FORMAT: Fallback for other APIs
+                // ============================================
+                else {
+                    Log.i(TAG, "Detected standard format response");
 
-            // Parse subtitles array
-            JSONArray subsArray = data.optJSONArray("subtitles");
-            if (subsArray != null) {
-                for (int i = 0; i < subsArray.length(); i++) {
-                    JSONObject obj = subsArray.getJSONObject(i);
-                    subs.add(new MediaItems.SubtitleItem(
-                            obj.optString("url", ""),
-                            obj.optString("lang", ""),
-                            obj.optString("language", "")
-                    ));
-                }
-                Log.i(TAG, "Parsed " + subs.size() + " subtitle(s)");
-            }
+                    // Parse sources array (standard format)
+                    if (hexaSourcesArray != null) {
+                        for (int i = 0; i < hexaSourcesArray.length(); i++) {
+                            JSONObject obj = hexaSourcesArray.getJSONObject(i);
+                            sources.add(new MediaItems.VideoSource(
+                                    obj.optString("quality", "auto"),
+                                    obj.optString("url", "")
+                            ));
+                        }
+                        Log.i(TAG, "Parsed " + sources.size() + " source(s)");
+                    }
 
-            // Also check for captions at root level (some APIs)
-            JSONArray captionsArray = data.optJSONArray("captions");
-            if (captionsArray != null && subs.isEmpty()) {
-                for (int i = 0; i < captionsArray.length(); i++) {
-                    JSONObject captionObj = captionsArray.getJSONObject(i);
-                    String captionUrl = captionObj.optString("url", "");
-                    String language = captionObj.optString("language", "Unknown");
-                    String langCode = extractLanguageCode(language, captionObj.optString("id", ""));
+                    // Parse subtitles array
+                    JSONArray subsArray = data.optJSONArray("subtitles");
+                    if (subsArray != null) {
+                        for (int i = 0; i < subsArray.length(); i++) {
+                            JSONObject obj = subsArray.getJSONObject(i);
+                            subs.add(new MediaItems.SubtitleItem(
+                                    obj.optString("url", ""),
+                                    obj.optString("lang", ""),
+                                    obj.optString("language", "")
+                            ));
+                        }
+                        Log.i(TAG, "Parsed " + subs.size() + " subtitle(s)");
+                    }
 
-                    if (!captionUrl.isEmpty()) {
-                        subs.add(new MediaItems.SubtitleItem(
-                                captionUrl,
-                                langCode,
-                                language
-                        ));
+                    // Also check for captions at root level (some APIs)
+                    JSONArray captionsArray = data.optJSONArray("captions");
+                    if (captionsArray != null && subs.isEmpty()) {
+                        for (int i = 0; i < captionsArray.length(); i++) {
+                            JSONObject captionObj = captionsArray.getJSONObject(i);
+                            String captionUrl = captionObj.optString("url", "");
+                            String language = captionObj.optString("language", "Unknown");
+                            String langCode = extractLanguageCode(language, captionObj.optString("id", ""));
+
+                            if (!captionUrl.isEmpty()) {
+                                subs.add(new MediaItems.SubtitleItem(
+                                        captionUrl,
+                                        langCode,
+                                        language
+                                ));
+                            }
+                        }
                     }
                 }
             }
