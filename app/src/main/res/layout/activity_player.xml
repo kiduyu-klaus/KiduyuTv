@@ -19,6 +19,13 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
+    <!-- Subtitle Overlay View - REQUIRED for displaying subtitles -->
+    <androidx.media3.ui.SubtitleView
+        android:id="@+id/subtitleView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="visible" />
+
     <!-- Loading Indicator -->
     <ProgressBar
         android:id="@+id/loadingIndicator"
@@ -156,7 +163,7 @@
             <Button
                 android:id="@+id/btnSettings"
                 android:layout_width="wrap_content"
-                android:layout_height="35dp"
+                android:layout_height="25dp"
                 android:text="Settings"
                 android:textColor="@android:color/white"
                 android:background="@drawable/tv_control_selector"
@@ -164,7 +171,7 @@
                 android:paddingEnd="16dp"
                 android:layout_marginEnd="12dp"
                 android:focusable="true"
-                android:textSize="8sp"
+                android:textSize="5sp"
                 android:textAllCaps="false" />
 
             <Button

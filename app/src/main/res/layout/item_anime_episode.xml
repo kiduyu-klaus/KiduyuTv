@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_margin="8dp"
+    android:focusable="true"
+    android:clickable="true"
+    app:cardBackgroundColor="#1a1a1a"
+    app:cardCornerRadius="8dp"
+    app:cardElevation="4dp">
+
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="16dp">
+
+        <!-- Episode Number -->
+        <TextView
+            android:id="@+id/episodeNumberText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Episode 1"
+            android:textColor="@color/white"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <!-- Play Icon (shown on focus) -->
+        <ImageView
+            android:id="@+id/playIcon"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:layout_alignParentEnd="true"
+            android:layout_centerVertical="true"
+            android:src="@drawable/ic_play"
+            android:visibility="gone"
+            app:tint="@color/cinema_red" />
+
+        <!-- Episode Name -->
+        <TextView
+            android:id="@+id/episodeNameText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/episodeNumberText"
+            android:layout_marginTop="8dp"
+            android:layout_toStartOf="@id/playIcon"
+            android:ellipsize="end"
+            android:maxLines="2"
+            android:text="Episode Title"
+            android:textColor="@color/gray_light"
+            android:textSize="14sp" />
+
+    </RelativeLayout>
+
+</androidx.cardview.widget.CardView>

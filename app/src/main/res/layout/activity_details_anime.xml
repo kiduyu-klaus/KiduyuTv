@@ -1,0 +1,361 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/main"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#000000">
+
+    <!-- Background Image -->
+    <ImageView
+        android:id="@+id/backgroundImage"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:scaleType="centerCrop"
+        android:alpha="0.4"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <!-- Gradient Overlay -->
+    <View
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:background="@drawable/gradient_overlay"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <!-- Scrollable Content -->
+    <ScrollView
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:fillViewport="true"
+        android:scrollbars="none"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="48dp">
+
+            <!-- Hero Section -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <!-- Poster -->
+                <ImageView
+                    android:id="@+id/posterImage"
+                    android:layout_width="200dp"
+                    android:layout_height="270dp"
+                    android:scaleType="centerCrop"
+                    android:background="#333" />
+
+                <!-- Info Section -->
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginStart="32dp"
+                    android:orientation="vertical">
+
+                    <!-- Title -->
+                    <TextView
+                        android:id="@+id/titleText"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Anime Title"
+                        android:textColor="@color/white"
+                        android:textSize="42sp"
+                        android:textStyle="bold" />
+
+                    <!-- Meta Info Row -->
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+
+                        <TextView
+                            android:id="@+id/yearText"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="2024"
+                            android:textColor="@color/white"
+                            android:textSize="18sp" />
+
+                        <View
+                            android:layout_width="4dp"
+                            android:layout_height="4dp"
+                            android:layout_marginStart="12dp"
+                            android:layout_marginEnd="12dp"
+                            android:background="@color/white" />
+
+                        <TextView
+                            android:id="@+id/statusText"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Ongoing"
+                            android:textColor="@color/white"
+                            android:textSize="18sp" />
+
+                        <View
+                            android:layout_width="4dp"
+                            android:layout_height="4dp"
+                            android:layout_marginStart="12dp"
+                            android:layout_marginEnd="12dp"
+                            android:background="@color/white" />
+
+                        <TextView
+                            android:id="@+id/durationText"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="24 min"
+                            android:textColor="@color/white"
+                            android:textSize="18sp" />
+
+                        <TextView
+                            android:id="@+id/ratingText"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="16dp"
+                            android:background="@drawable/rating_badge_background"
+                            android:padding="6dp"
+                            android:text="8.5"
+                            android:textColor="@color/white"
+                            android:textSize="14sp"
+                            android:textStyle="bold" />
+
+                    </LinearLayout>
+
+                    <!-- Genres -->
+                    <LinearLayout
+                        android:id="@+id/genresLayout"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp"
+                        android:orientation="horizontal" />
+
+                    <!-- Description -->
+                    <TextView
+                        android:id="@+id/descriptionText"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp"
+                        android:maxLines="4"
+                        android:text="Anime description..."
+                        android:textColor="@color/gray_light"
+                        android:textSize="16sp"
+                        android:lineSpacingExtra="4dp" />
+
+                    <!-- Studio and Producers -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="24dp"
+                        android:orientation="horizontal">
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Studio"
+                                android:textColor="@color/gray_light"
+                                android:textSize="14sp" />
+
+                            <TextView
+                                android:id="@+id/studioText"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="4dp"
+                                android:text="Unknown"
+                                android:textColor="@color/white"
+                                android:textSize="16sp" />
+
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:layout_marginStart="32dp"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Country"
+                                android:textColor="@color/gray_light"
+                                android:textSize="14sp" />
+
+                            <TextView
+                                android:id="@+id/countryText"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="4dp"
+                                android:text="Japan"
+                                android:textColor="@color/white"
+                                android:textSize="16sp" />
+
+                        </LinearLayout>
+
+                    </LinearLayout>
+
+                    <!-- Buttons Row -->
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="32dp"
+                        android:orientation="horizontal">
+
+                        <ImageView
+                            android:id="@+id/favoriteButton"
+                            android:layout_width="56dp"
+                            android:layout_height="56dp"
+                            android:src="@drawable/ic_favorite"
+                            android:background="@drawable/button_icon"
+                            android:padding="12dp"
+                            android:focusable="true"
+                            app:tint="@color/white" />
+
+                    </LinearLayout>
+
+                </LinearLayout>
+
+            </LinearLayout>
+
+            <!-- Season Tabs (for multi-season anime) -->
+            <TextView
+                android:id="@+id/episodesTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="40dp"
+                android:text="Episodes"
+                android:textColor="@color/white"
+                android:textSize="24sp"
+                android:textStyle="bold" />
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/seasonTabsRecyclerView"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:clipToPadding="false"
+                android:overScrollMode="never"
+                android:visibility="gone" />
+
+            <!-- Server Type Selection (SUB/DUB/SOFTSUB) -->
+            <LinearLayout
+                android:id="@+id/serverTypeLayout"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:orientation="horizontal"
+                android:visibility="visible">
+
+                <Button
+                    android:id="@+id/subButton"
+                    android:layout_width="100dp"
+                    android:layout_height="48dp"
+                    android:text="SUB"
+                    android:textColor="@color/white"
+                    android:background="@drawable/button_selected"
+                    android:focusable="true" />
+
+                <Button
+                    android:id="@+id/dubButton"
+                    android:layout_width="100dp"
+                    android:layout_height="48dp"
+                    android:layout_marginStart="12dp"
+                    android:text="DUB"
+                    android:textColor="@color/white"
+                    android:background="@drawable/button_unselected"
+                    android:focusable="true" />
+
+                <Button
+                    android:id="@+id/softsubButton"
+                    android:layout_width="120dp"
+                    android:layout_height="48dp"
+                    android:layout_marginStart="12dp"
+                    android:text="SOFTSUB"
+                    android:textColor="@color/white"
+                    android:background="@drawable/button_unselected"
+                    android:focusable="true" />
+
+            </LinearLayout>
+
+            <!-- Episodes Grid -->
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/episodesGridRecyclerView"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:nestedScrollingEnabled="false"
+                android:overScrollMode="never" />
+
+            <!-- Empty State -->
+            <TextView
+                android:id="@+id/emptyEpisodesText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:text="Loading episodes..."
+                android:textColor="@color/gray_light"
+                android:textSize="16sp"
+                android:visibility="gone" />
+
+        </LinearLayout>
+
+    </ScrollView>
+
+    <!-- Loading Overlay -->
+    <RelativeLayout
+        android:id="@+id/loadingOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#CC000000"
+        android:visibility="gone"
+        android:clickable="true">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_centerInParent="true"
+            android:gravity="center"
+            android:orientation="vertical">
+
+            <ProgressBar
+                android:id="@+id/loadingProgressBar"
+                style="?android:attr/progressBarStyleLarge"
+                android:layout_width="80dp"
+                android:layout_height="80dp"
+                android:indeterminateTint="@color/cinema_red" />
+
+            <TextView
+                android:id="@+id/loadingText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:text="Loading anime..."
+                android:textColor="@android:color/white"
+                android:textSize="20sp" />
+
+        </LinearLayout>
+
+    </RelativeLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

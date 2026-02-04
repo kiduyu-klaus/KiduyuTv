@@ -12,8 +12,10 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
+import androidx.annotation.OptIn;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.AppCompatButton;
+import androidx.media3.common.util.UnstableApi;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -466,6 +468,7 @@ public class DetailsActivity extends AppCompatActivity {
      * Launch the player activity
      * If watch history exists, starts from saved position
      */
+    @OptIn(markerClass = UnstableApi.class)
     private void launchPlayer() {
         if (!mediaItems.hasValidVideoSources()) {
             Toast.makeText(this, "No video sources available", Toast.LENGTH_SHORT).show();

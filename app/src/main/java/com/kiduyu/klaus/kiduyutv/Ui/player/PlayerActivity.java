@@ -20,6 +20,7 @@ import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
@@ -30,7 +31,11 @@ import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
+import androidx.media3.common.TrackSelectionParameters;
+import androidx.media3.common.Tracks;
+import androidx.media3.common.text.CueGroup;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.ui.SubtitleView;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DefaultDataSource;
 import androidx.media3.datasource.DefaultHttpDataSource;
@@ -65,6 +70,7 @@ public class PlayerActivity extends AppCompatActivity {
 
     // UI Components
     private SurfaceView videoSurface;
+    private SubtitleView subtitleView;
     private ImageView backgroundImage;
     private ProgressBar loadingIndicator;
     private ImageView centerPauseIcon;
@@ -193,6 +199,7 @@ public class PlayerActivity extends AppCompatActivity {
         loadingStatusContainer = findViewById(R.id.loadingStatusContainer);
         loadingStatusText = findViewById(R.id.loadingStatusText);
         hardsubBadge = findViewById(R.id.hardsubBadge);
+        subtitleView = findViewById(R.id.subtitleView);
         totalTime.setText(formatTime(0));
         currentTime.setText(formatTime(0));
     }
@@ -306,10 +313,18 @@ public class PlayerActivity extends AppCompatActivity {
                 .build();
 
 
+        // Configure subtitle view
+        subtitleView.setUserDefaultStyle();
+        subtitleView.setUserDefaultTextSize();
+
         player.setVideoSurfaceView(videoSurface);
 
         // Add player listener
         player.addListener(new Player.Listener() {
+            @Override
+            public void onCues(@NonNull CueGroup cueGroup) {
+                subtitleView.setCues(cueGroup.cues);
+            }
             @Override
             public void onPlaybackStateChanged(int playbackState) {
                 switch (playbackState) {
@@ -333,7 +348,7 @@ public class PlayerActivity extends AppCompatActivity {
                         hideStreamingStatus();
 
                         // Select subtitle track after media is ready
-                        //selectSubtitleTrack();
+                        selectSubtitleTrack();
 
                         // Show controls so user can see seekbar and time
                         showControls();
@@ -528,6 +543,42 @@ public class PlayerActivity extends AppCompatActivity {
         } else {
             btnSubtitles.setText("No Subtitles");
         }
+    }
+
+    private void selectSubtitleTrack() {
+        if (player == null || currentSubtitleIndex < 0) {
+            return;
+        }
+
+        if (subtitles == null || currentSubtitleIndex >= subtitles.size()) {
+            Log.w(TAG, "Cannot select subtitle track: subtitles list is null or index is out of bounds");
+            return;
+        }
+
+        MediaItems.SubtitleItem subtitle = subtitles.get(currentSubtitleIndex);
+        if (subtitle == null || subtitle.getLang() == null) {
+            Log.w(TAG, "Cannot select subtitle track: subtitle is null or has no language");
+            return;
+        }
+
+        // Get the current media item configuration
+        MediaItem mediaItem = player.getCurrentMediaItem();
+        if (mediaItem == null) {
+            Log.w(TAG, "Cannot select subtitle track: current media item is null");
+            return;
+        }
+
+        Log.i(TAG, "Selecting subtitle track: " + subtitle.getLanguage() + " (" + subtitle.getLang() + ")");
+
+        // Build track selection parameters with preferred text language
+        TrackSelectionParameters trackSelectionParameters = new TrackSelectionParameters.Builder(this)
+                .setPreferredTextLanguage(subtitle.getLang())
+                .build();
+
+        // Apply track selection parameters
+        player.setTrackSelectionParameters(trackSelectionParameters);
+
+        Log.i(TAG, "Subtitle track selection completed for: " + subtitle.getLanguage());
     }
 
 
@@ -875,6 +926,26 @@ public class PlayerActivity extends AppCompatActivity {
 
         // Seek backward 10 seconds on Left D-pad
         if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT) {
+            if (!controlsVisible) {
+                if (player != null) {
+                    long currentPosition = player.getCurrentPosition();
+                    long newPosition = Math.max(currentPosition - 10000, 0); // -10 seconds (10000ms)
+
+                    player.seekTo(newPosition);
+                    updateTimeDisplay();
+                    showToast("Backward -10s");
+
+                    // Show controls briefly if hidden
+                    if (!controlsVisible) {
+                        showControls();
+                    }
+                    resetHideControlsTimer();
+                }
+                return true;
+            }
+        }
+
+        if (keyCode == KeyEvent.KEYCODE_DPAD_DOWN) {
             if (!controlsVisible) {
                 if (player != null) {
                     long currentPosition = player.getCurrentPosition();

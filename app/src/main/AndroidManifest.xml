@@ -21,10 +21,11 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.KiduyuTv">
         <activity
+            android:name=".Ui.details.anime.DetailsActivityAnime"
+            android:exported="false" />
+        <activity
             android:name=".Ui.testactivity.TestActivity"
-            android:exported="false">
-
-        </activity>
+            android:exported="false"></activity>
         <activity
             android:name=".Ui.splash.SplashActivity"
             android:exported="true">
@@ -54,7 +55,7 @@
             android:exported="false" />
         <activity
             android:name=".Ui.home.MainActivity"
-            android:exported="false"></activity>
+            android:exported="false" />
     </application>
 
 </manifest>

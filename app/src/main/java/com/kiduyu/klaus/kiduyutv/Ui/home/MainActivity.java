@@ -22,8 +22,10 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
+import com.kiduyu.klaus.kiduyutv.Api.AnimekaiApi;
 import com.kiduyu.klaus.kiduyutv.Api.TmdbRepository;
 import com.kiduyu.klaus.kiduyutv.R;
+import com.kiduyu.klaus.kiduyutv.Ui.details.anime.DetailsActivityAnime;
 import com.kiduyu.klaus.kiduyutv.Ui.details.movie.DetailsActivity;
 import com.kiduyu.klaus.kiduyutv.Ui.details.tv.DetailsActivityTv;
 import com.kiduyu.klaus.kiduyutv.Ui.search.SearchActivity;
@@ -37,6 +39,10 @@ import com.kiduyu.klaus.kiduyutv.utils.PreferencesManager;
 import java.util.ArrayList;
 import java.util.List;
 
+// Don't forget to add the import at the top of MainActivity.java:
+import com.kiduyu.klaus.kiduyutv.Api.AnimekaiApi;
+import com.kiduyu.klaus.kiduyutv.model.AnimeModel;
+
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "NetflixMainActivity";
 
@@ -47,8 +53,10 @@ public class MainActivity extends AppCompatActivity {
     private ImageView searchIcon;
     private ImageView homeIcon;
     private ImageView moviesIcon;
+
+    private AnimekaiApi animekaiApi;
     private ImageView tvIcon;
-    private ImageView apiIcon;
+    private ImageView animeIcon;
     private ImageView myListIcon;
     private ImageView settingsIcon;
     private TextView nSeriesBadge;
@@ -94,6 +102,8 @@ public class MainActivity extends AppCompatActivity {
 
         preferencesManager = PreferencesManager.getInstance(this);
 
+        animekaiApi = new AnimekaiApi();
+
         initializeViews();
         setupClickListeners();
         setupNavigationFocus();
@@ -108,7 +118,7 @@ public class MainActivity extends AppCompatActivity {
         homeIcon = findViewById(R.id.homeIcon);
         moviesIcon = findViewById(R.id.moviesIcon);
         tvIcon = findViewById(R.id.tvIcon);
-        apiIcon = findViewById(R.id.apiIcon);
+        animeIcon = findViewById(R.id.apiIcon);
         myListIcon = findViewById(R.id.myListIcon);
         settingsIcon = findViewById(R.id.settingsIcon);
         nSeriesBadge = findViewById(R.id.nSeriesBadge);
@@ -156,7 +166,7 @@ public class MainActivity extends AppCompatActivity {
         homeIcon.setOnFocusChangeListener(navFocusListener);
         moviesIcon.setOnFocusChangeListener(navFocusListener);
         tvIcon.setOnFocusChangeListener(navFocusListener);
-        apiIcon.setOnFocusChangeListener(navFocusListener);
+        animeIcon.setOnFocusChangeListener(navFocusListener);
         myListIcon.setOnFocusChangeListener(navFocusListener);
         settingsIcon.setOnFocusChangeListener(navFocusListener);
     }
@@ -198,8 +208,9 @@ public class MainActivity extends AppCompatActivity {
             Toast.makeText(this, "TV Shows - Coming Soon", Toast.LENGTH_SHORT).show();
         });
 
-        apiIcon.setOnClickListener(v -> {
-            Toast.makeText(this, "API Content", Toast.LENGTH_SHORT).show();
+        animeIcon.setOnClickListener(v -> {
+            //Toast.makeText(this, "API Content", Toast.LENGTH_SHORT).show();
+            loadAnimeContent();
         });
 
         myListIcon.setOnClickListener(v -> {
@@ -212,6 +223,119 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
+    private void loadAnimeContent() {
+        if (isLoadingContent) {
+            Log.i(TAG, "Already loading content, skipping duplicate request");
+            return;
+        }
+
+        isLoadingContent = true;
+        loadedCategories = 0;
+        loadingOverlay.setVisibility(View.VISIBLE);
+
+        categories.clear();
+
+        // Fetch anime from AnimekaiApi
+        animekaiApi.fetchAnimeUpdatesAsync(new AnimekaiApi.AnimeCallback() {
+            @Override
+            public void onSuccess(List<AnimeModel> animeList) {
+                // Run on UI thread since this callback comes from background thread
+                runOnUiThread(() -> {
+                    Log.i(TAG, "Successfully loaded " + animeList.size() + " anime entries");
+
+                    if (!animeList.isEmpty()) {
+                        // Convert AnimeModel list to MediaItems list for the adapter
+                        List<MediaItems> animeMediaItems = convertAnimeToMediaItems(animeList);
+
+                        // Create category section
+                        CategorySection animeSection = new CategorySection("🎌 Latest Anime Updates", animeMediaItems);
+                        categories.add(animeSection);
+
+                        // Setup adapter if needed
+                        if (categoryAdapter == null) {
+                            categoryAdapter = new CategoryAdapter(categories);
+                            categoriesRecyclerView.setAdapter(categoryAdapter);
+                            setupCategoryListeners();
+                        } else {
+                            categoryAdapter.notifyDataSetChanged();
+                        }
+
+                        // Update hero content with first anime
+                        if (!animeMediaItems.isEmpty()) {
+                            currentSelectedItem = animeMediaItems.get(0);
+                            updateHeroContent(currentSelectedItem, 0);
+                        }
+
+                        Toast.makeText(MainActivity.this,
+                                "Loaded " + animeList.size() + " anime",
+                                Toast.LENGTH_SHORT).show();
+                    } else {
+                        Toast.makeText(MainActivity.this,
+                                "No anime found",
+                                Toast.LENGTH_SHORT).show();
+                    }
+
+                    isLoadingContent = false;
+                    loadingOverlay.setVisibility(View.GONE);
+                });
+            }
+
+            @Override
+            public void onError(String error) {
+                // Run on UI thread
+                runOnUiThread(() -> {
+                    Log.e(TAG, "Failed to load anime: " + error);
+                    Toast.makeText(MainActivity.this,
+                            "Failed to load anime: " + error,
+                            Toast.LENGTH_LONG).show();
+
+                    isLoadingContent = false;
+                    loadingOverlay.setVisibility(View.GONE);
+                });
+            }
+        });
+    }
+
+    // Add this helper method to convert AnimeModel to MediaItems:
+    private List<MediaItems> convertAnimeToMediaItems(List<AnimeModel> animeList) {
+        List<MediaItems> mediaItemsList = new ArrayList<>();
+
+        for (AnimeModel anime : animeList) {
+            MediaItems mediaItem = new MediaItems();
+
+            // Set basic info
+            mediaItem.setTitle(anime.getAnimeName() != null ? anime.getAnimeName() : "Unknown Anime");
+            mediaItem.setDescription(anime.getAnimeDescription() != null ? anime.getAnimeDescription() : "");
+
+            // Set image URL - use the background image
+            if (anime.getAnime_image_backgroud() != null) {
+                mediaItem.setPosterUrl(anime.getAnime_image_backgroud());
+                mediaItem.setBackgroundImageUrl(anime.getAnime_image_backgroud());
+                mediaItem.setCardImageUrl(anime.getAnime_image_backgroud());
+            }
+
+            // Set anime link as a data field (you might need to add this field to MediaItems)
+            // For now, we can use the description or create a custom field
+            if (anime.getAnime_link() != null) {
+                // You might want to store this in a custom field or use existing fields
+                mediaItem.setVideoUrl(anime.getAnime_link());
+            }
+
+            // Mark as anime type
+            mediaItem.setMediaType("anime");
+
+            // Set default values
+            mediaItem.setYear(2024); // You could parse from data_tip if available
+            mediaItem.setDuration("24 min"); // Default anime episode duration
+
+            // Mark as from API
+            //mediaItem.setFromAPI(true);
+
+            mediaItemsList.add(mediaItem);
+        }
+
+        return mediaItemsList;
+    }
     private void loadContent() {
         if (isLoadingContent) {
             Log.i(TAG, "Already loading content, skipping duplicate request");
@@ -318,6 +442,9 @@ public class MainActivity extends AppCompatActivity {
         mediaItem.setSeason(historyItem.season);
         mediaItem.setEpisode(historyItem.episode);
         mediaItem.setDescription(historyItem.description);
+        mediaItem.setTmdbId(historyItem.tmdbId);
+        mediaItem.setRating(historyItem.rating);
+
         if(historyItem.rating != null) {
             mediaItem.setRating(historyItem.rating);
         } else {
@@ -640,6 +767,8 @@ public class MainActivity extends AppCompatActivity {
                 updateHeroContent(mediaItems, categoryPosition);
                 if (mediaItems.getMediaType().toLowerCase().equals("movie")) {
                     launchDetails(currentSelectedItem);
+                } else if (mediaItems.getMediaType().toLowerCase().equals("anime")) {
+                    launchAnimeDetails(currentSelectedItem);
                 } else {
                     launchTvDetails(currentSelectedItem);
                 }
@@ -654,6 +783,12 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         });
+    }
+
+    private void launchAnimeDetails(MediaItems currentSelectedItem) {
+        Intent intent = new Intent(this, DetailsActivityAnime.class);
+        intent.putExtra("media_item", currentSelectedItem);
+        startActivity(intent);
     }
 
     private void updateHeroContent(MediaItems mediaItems, int categoryPosition) {
