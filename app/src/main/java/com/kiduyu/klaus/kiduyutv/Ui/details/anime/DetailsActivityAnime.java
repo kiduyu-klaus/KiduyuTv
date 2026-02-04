@@ -243,6 +243,8 @@ public class DetailsActivityAnime extends AppCompatActivity {
 
     private void loadAnimeDetails() {
         String contentId = anime.getData_tip();
+        Log.i(TAG, "Loading anime details for content ID: " + contentId);
+
 
         if (contentId == null || contentId.isEmpty()) {
             Toast.makeText(this, "Invalid anime data", Toast.LENGTH_SHORT).show();
@@ -530,6 +532,8 @@ public class DetailsActivityAnime extends AppCompatActivity {
 
                         // Launch player
                         Intent intent = new Intent(DetailsActivityAnime.this, PlayerActivity.class);
+
+                        intent.putExtra("media_type", "anime");
                         intent.putExtra("video_url", videoUrl);
                         intent.putExtra("title", anime.getAnimeName());
                         intent.putExtra("subtitle", "S" + episode.getSeason() +

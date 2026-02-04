@@ -1,10 +1,18 @@
 package com.kiduyu.klaus.kiduyutv.model;
 
+import android.os.Build;
+import android.os.Parcel;
+import android.os.Parcelable;
+
+import androidx.annotation.RequiresApi;
+
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class AnimeModel {
+public class AnimeModel implements Parcelable {
 
     /* =======================
        Default / Core Info
@@ -104,7 +112,125 @@ public class AnimeModel {
         this.anime_image_backgroud = anime_image_backgroud;
     }
 
+    /* =======================
+       Parcelable Implementation
+       ======================= */
 
+    @RequiresApi(api = Build.VERSION_CODES.O)
+    protected AnimeModel(Parcel in) {
+        animeName = in.readString();
+        animeDescription = in.readString();
+        data_tip = in.readString();
+        anime_link = in.readString();
+        anime_image_backgroud = in.readString();
+
+        // Read episodes map
+        int episodesSize = in.readInt();
+        episodes = new HashMap<>();
+        for (int i = 0; i < episodesSize; i++) {
+            int seasonKey = in.readInt();
+            int innerMapSize = in.readInt();
+            Map<Integer, EpisodeModel> innerMap = new HashMap<>();
+            for (int j = 0; j < innerMapSize; j++) {
+                int episodeKey = in.readInt();
+                EpisodeModel episode = in.readParcelable(EpisodeModel.class.getClassLoader());
+                innerMap.put(episodeKey, episode);
+            }
+            episodes.put(seasonKey, innerMap);
+        }
+
+        country = in.readString();
+        genres = in.createStringArrayList();
+        premiered = in.readString();
+        dateAiredFrom = (LocalDate) in.readValue(LocalDate.class.getClassLoader());
+        dateAiredTo = (LocalDate) in.readValue(LocalDate.class.getClassLoader());
+        broadcast = in.readString();
+        totalEpisodes = in.readInt();
+        duration = in.readString();
+        status = in.readString();
+        malScore = in.readDouble();
+        malUserCount = in.readInt();
+        studio = in.readString();
+        producers = in.createStringArrayList();
+        links = new HashMap<>();
+        int linksSize = in.readInt();
+        for (int i = 0; i < linksSize; i++) {
+            String key = in.readString();
+            String value = in.readString();
+            links.put(key, value);
+        }
+    }
+
+    public static final Creator<AnimeModel> CREATOR = new Creator<AnimeModel>() {
+        @RequiresApi(api = Build.VERSION_CODES.O)
+        @Override
+        public AnimeModel createFromParcel(Parcel in) {
+            return new AnimeModel(in);
+        }
+
+        @Override
+        public AnimeModel[] newArray(int size) {
+            return new AnimeModel[size];
+        }
+    };
+
+    @Override
+    public int describeContents() {
+        return 0;
+    }
+
+    @Override
+    public void writeToParcel(Parcel dest, int flags) {
+        dest.writeString(animeName);
+        dest.writeString(animeDescription);
+        dest.writeString(data_tip);
+        dest.writeString(anime_link);
+        dest.writeString(anime_image_backgroud);
+
+        // Write episodes map
+        if (episodes == null) {
+            dest.writeInt(0);
+        } else {
+            dest.writeInt(episodes.size());
+            for (Map.Entry<Integer, Map<Integer, EpisodeModel>> entry : episodes.entrySet()) {
+                dest.writeInt(entry.getKey());
+                if (entry.getValue() == null) {
+                    dest.writeInt(0);
+                } else {
+                    dest.writeInt(entry.getValue().size());
+                    for (Map.Entry<Integer, EpisodeModel> innerEntry : entry.getValue().entrySet()) {
+                        dest.writeInt(innerEntry.getKey());
+                        dest.writeParcelable(innerEntry.getValue(), flags);
+                    }
+                }
+            }
+        }
+
+        dest.writeString(country);
+        dest.writeStringList(genres);
+        dest.writeString(premiered);
+        dest.writeValue(dateAiredFrom);
+        dest.writeValue(dateAiredTo);
+        dest.writeString(broadcast);
+        dest.writeInt(totalEpisodes);
+        dest.writeString(duration);
+        dest.writeString(status);
+        dest.writeDouble(malScore);
+        dest.writeInt(malUserCount);
+        dest.writeString(studio);
+        dest.writeStringList(producers);
+
+        // Write links map
+        if (links == null) {
+            dest.writeInt(0);
+        } else {
+            dest.writeInt(links.size());
+            for (Map.Entry<String, String> entry : links.entrySet()) {
+                dest.writeString(entry.getKey());
+                dest.writeString(entry.getValue());
+            }
+        }
+    }
 
     /* =======================
        Getters & Setters
@@ -246,4 +372,3 @@ public class AnimeModel {
         this.links = links;
     }
 }
-

@@ -325,6 +325,7 @@ public class MainActivity extends AppCompatActivity {
 
             // Mark as anime type
             mediaItem.setMediaType("anime");
+            mediaItem.setId(anime.getData_tip());
 
             // Set default values
             mediaItem.setYear(2024); // You could parse from data_tip if available
@@ -786,10 +787,23 @@ public class MainActivity extends AppCompatActivity {
             }
         });
     }
-
+    private AnimeModel convertMediaItemsToAnime(MediaItems mediaItem) {
+        AnimeModel anime = new AnimeModel();
+        anime.setAnimeName(mediaItem.getTitle());
+        anime.setAnimeDescription(mediaItem.getDescription());
+        anime.setAnime_image_backgroud(mediaItem.getBackgroundImageUrl() != null ?
+                mediaItem.getBackgroundImageUrl() : mediaItem.getPosterUrl());
+        anime.setAnime_link(mediaItem.getVideoUrl());
+        anime.setData_tip(mediaItem.getId());
+        return anime;
+    }
     private void launchAnimeDetails(MediaItems currentSelectedItem) {
+        // Convert MediaItems back to AnimeModel
+        AnimeModel animeModel = convertMediaItemsToAnime(currentSelectedItem);
+
         Intent intent = new Intent(this, DetailsActivityAnime.class);
-        intent.putExtra("media_item", currentSelectedItem);
+        intent.putExtra("media_item", animeModel);
+        intent.putExtra("media_type", "anime");
         startActivity(intent);
     }
 

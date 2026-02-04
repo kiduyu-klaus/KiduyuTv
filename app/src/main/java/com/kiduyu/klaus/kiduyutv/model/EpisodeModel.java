@@ -1,9 +1,12 @@
 package com.kiduyu.klaus.kiduyutv.model;
 
-import java.util.List;
-import java.util.Map;
+import android.os.Parcel;
+import android.os.Parcelable;
 
-public class EpisodeModel {
+import java.util.ArrayList;
+import java.util.List;
+
+public class EpisodeModel implements Parcelable {
 
     /* =======================
        Core Episode Info
@@ -35,6 +38,52 @@ public class EpisodeModel {
         this.episodeNumber = episodeNumber;
         this.episodeName = episodeName;
         this.episodeToken = episodeToken;
+    }
+
+    /* =======================
+       Parcelable Implementation
+       ======================= */
+
+    protected EpisodeModel(Parcel in) {
+        season = in.readInt();
+        episodeNumber = in.readInt();
+        episodeName = in.readString();
+        episodeToken = in.readString();
+        embedUrl = in.readString();
+        sources = in.createStringArrayList();
+        tracks = in.createTypedArrayList(Track.CREATOR);
+        downloadLink = in.readString();
+        skip = in.readParcelable(SkipInfo.class.getClassLoader());
+    }
+
+    public static final Creator<EpisodeModel> CREATOR = new Creator<EpisodeModel>() {
+        @Override
+        public EpisodeModel createFromParcel(Parcel in) {
+            return new EpisodeModel(in);
+        }
+
+        @Override
+        public EpisodeModel[] newArray(int size) {
+            return new EpisodeModel[size];
+        }
+    };
+
+    @Override
+    public int describeContents() {
+        return 0;
+    }
+
+    @Override
+    public void writeToParcel(Parcel dest, int flags) {
+        dest.writeInt(season);
+        dest.writeInt(episodeNumber);
+        dest.writeString(episodeName);
+        dest.writeString(episodeToken);
+        dest.writeString(embedUrl);
+        dest.writeStringList(sources);
+        dest.writeTypedList(tracks);
+        dest.writeString(downloadLink);
+        dest.writeParcelable(skip, flags);
     }
 
     /* =======================
@@ -70,7 +119,7 @@ public class EpisodeModel {
     /* =======================
        Nested Classes
        ======================= */
-    public static class Track {
+    public static class Track implements Parcelable {
         private String file;
         private String label;
         private String kind;
@@ -86,6 +135,38 @@ public class EpisodeModel {
             this.isDefault = isDefault;
         }
 
+        protected Track(Parcel in) {
+            file = in.readString();
+            label = in.readString();
+            kind = in.readString();
+            isDefault = in.readByte() != 0;
+        }
+
+        public static final Creator<Track> CREATOR = new Creator<Track>() {
+            @Override
+            public Track createFromParcel(Parcel in) {
+                return new Track(in);
+            }
+
+            @Override
+            public Track[] newArray(int size) {
+                return new Track[size];
+            }
+        };
+
+        @Override
+        public int describeContents() {
+            return 0;
+        }
+
+        @Override
+        public void writeToParcel(Parcel dest, int flags) {
+            dest.writeString(file);
+            dest.writeString(label);
+            dest.writeString(kind);
+            dest.writeByte((byte) (isDefault ? 1 : 0));
+        }
+
         public String getFile() { return file; }
         public void setFile(String file) { this.file = file; }
 
@@ -99,7 +180,7 @@ public class EpisodeModel {
         public void setDefault(boolean isDefault) { this.isDefault = isDefault; }
     }
 
-    public static class SkipInfo {
+    public static class SkipInfo implements Parcelable {
         private int[] intro; // [startSec, endSec]
         private int[] outro; // [startSec, endSec]
 
@@ -109,6 +190,34 @@ public class EpisodeModel {
         public SkipInfo(int[] intro, int[] outro) {
             this.intro = intro;
             this.outro = outro;
+        }
+
+        protected SkipInfo(Parcel in) {
+            intro = in.createIntArray();
+            outro = in.createIntArray();
+        }
+
+        public static final Creator<SkipInfo> CREATOR = new Creator<SkipInfo>() {
+            @Override
+            public SkipInfo createFromParcel(Parcel in) {
+                return new SkipInfo(in);
+            }
+
+            @Override
+            public SkipInfo[] newArray(int size) {
+                return new SkipInfo[size];
+            }
+        };
+
+        @Override
+        public int describeContents() {
+            return 0;
+        }
+
+        @Override
+        public void writeToParcel(Parcel dest, int flags) {
+            dest.writeIntArray(intro);
+            dest.writeIntArray(outro);
         }
 
         public int[] getIntro() { return intro; }
