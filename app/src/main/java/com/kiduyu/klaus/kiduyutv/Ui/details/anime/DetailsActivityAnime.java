@@ -97,7 +97,7 @@ public class DetailsActivityAnime extends AppCompatActivity {
         executorService = Executors.newFixedThreadPool(3);
 
         // Get anime from intent
-        anime = (AnimeModel) getIntent().getSerializableExtra("anime");
+        anime = getIntent().getParcelableExtra("media_item");
         if (anime == null) {
             Toast.makeText(this, "Error loading anime", Toast.LENGTH_SHORT).show();
             finish();

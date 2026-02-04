@@ -73,6 +73,8 @@ public class MainActivity extends AppCompatActivity {
     private RelativeLayout loadingOverlay;
     private ProgressBar loadingProgressBar;
 
+    private AnimeModel animeListload;
+
     // Navigation
     private LinearLayout navigationSidebar;
 
