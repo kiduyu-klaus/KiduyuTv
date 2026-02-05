@@ -3,6 +3,7 @@ package com.kiduyu.klaus.kiduyutv.Ui.player;
 import static com.kiduyu.klaus.kiduyutv.Api.ApiClient.DEFAULT_USER_AGENT;
 
 import android.content.pm.ActivityInfo;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -20,8 +21,8 @@ import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
+import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
@@ -62,6 +63,7 @@ import java.util.Locale;
 import java.util.Map;
 
 @UnstableApi
+@RequiresApi(api = Build.VERSION_CODES.O)
 public class PlayerActivity extends AppCompatActivity {
     private static final String TAG = "PlayerActivity";
     private static final int CONTROLS_HIDE_DELAY = 5000; // 5 seconds
@@ -168,37 +170,6 @@ public class PlayerActivity extends AppCompatActivity {
             finish();
             return;
         }
-        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
-            @Override
-            public void handleOnBackPressed() {
-
-                // 1️⃣ If controls are visible, just hide them
-                if (controlsVisible) {
-                    hideControls();
-                    return;
-                }
-
-                // 2️⃣ Double back to exit
-                if (backPressedOnce) {
-                    backPressedOnce = false;
-                    saveWatchProgress();
-                    backPressHandler.removeCallbacks(backPressResetTask);
-
-                    // Disable callback BEFORE exiting
-                    setEnabled(false);
-                    finish();
-                    return;
-                }
-
-                // 3️⃣ First back press
-                backPressedOnce = true;
-                showToast("Press back again to exit");
-
-                // Reset after 5 seconds
-                backPressHandler.postDelayed(backPressResetTask, 5000);
-            }
-        });
-
 
         // Initialize preferences manager
         preferencesManager = PreferencesManager.getInstance(this);
@@ -233,11 +204,21 @@ public class PlayerActivity extends AppCompatActivity {
     /**
      * Handle anime playback with extras passed from DetailsActivityAnime
      */
+
     private void handleAnimePlayback() {
         Log.i(TAG, "Handling anime playback");
 
         // Extract all intent extras from DetailsActivityAnime
         String videoUrl = getIntent().getStringExtra("video_url");
+        String animeName = getIntent().getStringExtra("anime_name");
+        String episodeName = getIntent().getStringExtra("episode_name");
+        String animeDescription = getIntent().getStringExtra("anime_description");
+        Log.i(TAG, "Episode name: " + episodeName);
+        Log.i(TAG, "Anime description: " + animeDescription);
+        Log.i(TAG, "Anime name: " + animeName);
+
+        String backgroundImageUrl = getIntent().getStringExtra("background_image_url");
+        Log.i(TAG, "Background image URL: " + backgroundImageUrl);
         String title = getIntent().getStringExtra("title");
         String subtitle = getIntent().getStringExtra("subtitle");
 
@@ -246,7 +227,6 @@ public class PlayerActivity extends AppCompatActivity {
 
         // Server switching data
         episodeToken = getIntent().getStringExtra("episode_token");
-        String description = getIntent().getStringExtra("description");
         currentServerType = getIntent().getStringExtra("current_server_type");
         currentServerIndex = getIntent().getIntExtra("current_server_index", 0);
         availableServerTypes = getIntent().getStringArrayListExtra("available_server_types");
@@ -266,8 +246,8 @@ public class PlayerActivity extends AppCompatActivity {
         }
 
         Log.i(TAG, "Anime video URL: " + videoUrl);
-        Log.i(TAG, "Title: " + title);
-        Log.i(TAG, "Subtitle: " + subtitle);
+        Log.i(TAG, "Anime Name: " + animeName);
+        Log.i(TAG, "Episode Name: " + episodeName);
         Log.i(TAG, "Server Type: " + currentServerType + ", Server Index: " + currentServerIndex);
 
         // Initialize AnimekaiApi for server switching
@@ -278,8 +258,8 @@ public class PlayerActivity extends AppCompatActivity {
 
         // Create a MediaItems object for anime playback
         mediaItems = new MediaItems();
-        mediaItems.setTitle(title != null ? title : "Anime");
-        mediaItems.setDescription(subtitle != null ? subtitle : "");
+        mediaItems.setTitle(animeName != null ? animeName : "Anime");
+        mediaItems.setDescription(animeDescription != null ? animeDescription : "");
 
         // Create video source
         videoSources = new ArrayList<>();
@@ -316,24 +296,52 @@ public class PlayerActivity extends AppCompatActivity {
         setupClickListeners();
 
         // Set anime-specific UI info
-        videoTitle.setText(title != null ? title : "Anime");
-        videoDescription.setText(description != null ? subtitle : "");
-        episodeInfo.setVisibility(View.VISIBLE);
-        episodeInfo.setText(subtitle != null ? subtitle : "");
+        // videoTitle should show current episode name
+        if (episodeName != null && !episodeName.isEmpty()) {
+            videoTitle.setText(episodeName);
+            Log.i(TAG, "Set videoTitle to episode name: " + episodeName);
+        } else {
+            videoTitle.setText(animeName != null ? animeName : "Anime");
+            Log.i(TAG, "Set videoTitle to anime name: " + animeName);
+        }
+
+        // videoDescription should show anime description
+        if (animeDescription != null && !animeDescription.isEmpty()) {
+            videoDescription.setText(animeDescription);
+            Log.i(TAG, "Set videoDescription to: " + animeDescription);
+        } else {
+            videoDescription.setText("");
+        }
+
+        // episodeInfo shows the formatted subtitle (S1E1 - Episode Name)
+        //episodeInfo.setVisibility(View.VISIBLE);
+        //episodeInfo.setText(subtitle != null ? subtitle : "");
+
+        // Load background image
+        if (backgroundImageUrl != null && !backgroundImageUrl.isEmpty()) {
+            Log.i(TAG, "Loading background image: " + backgroundImageUrl);
+            Glide.with(this)
+                    .load(backgroundImageUrl)
+                    .centerCrop()
+                    .into(backgroundImage);
+        } else {
+            Log.w(TAG, "No background image URL provided");
+        }
 
         // Initialize player
         initializePlayer();
 
-        // Auto-select first subtitle if available (usually English)
+        // Auto-select first subtitle if available (usually English) - BEFORE loading video
         if (subtitles != null && !subtitles.isEmpty()) {
             currentSubtitleIndex = 0; // Select first subtitle by default
+            btnSubtitles.setText(subtitles.get(0).getLanguage());
             Log.i(TAG, "Auto-selected subtitle: " + subtitles.get(0).getLanguage());
         }
 
         // Update button labels for anime
         updateAnimeServerButtons();
 
-        // Start playing
+        // Start playing - now subtitle will be included
         currentSourceIndex = 0;
         loadVideoSource(currentSourceIndex);
 
@@ -508,7 +516,25 @@ public class PlayerActivity extends AppCompatActivity {
             @Override
             public void onCues(@NonNull CueGroup cueGroup) {
                 subtitleView.setCues(cueGroup.cues);
+                Log.i(TAG, "Subtitle cues updated");
             }
+
+            @Override
+            public void onTracksChanged(@NonNull Tracks tracks) {
+                // Log available tracks for debugging
+                for (Tracks.Group trackGroup : tracks.getGroups()) {
+                    if (trackGroup.getType() == C.TRACK_TYPE_TEXT) {
+                        Log.i(TAG, "Text track group found with " + trackGroup.length + " tracks");
+                        for (int i = 0; i < trackGroup.length; i++) {
+                            if (trackGroup.isTrackSupported(i)) {
+                                Log.i(TAG, "  Track " + i + " is supported and selected: " +
+                                        trackGroup.isTrackSelected(i));
+                            }
+                        }
+                    }
+                }
+            }
+
             @Override
             public void onPlaybackStateChanged(int playbackState) {
                 switch (playbackState) {
@@ -518,7 +544,10 @@ public class PlayerActivity extends AppCompatActivity {
                         break;
                     case Player.STATE_READY:
                         loadingIndicator.setVisibility(View.GONE);
-                        showStreamingStatus();
+                        hideLoading();
+                        updateLoadingUi(false);
+
+
                         // Immediately show seekbar, total time, and reset current time
                         long duration = player.getDuration();
                         progressBar.setMax((int) duration);
@@ -585,8 +614,8 @@ public class PlayerActivity extends AppCompatActivity {
                 // Use actual millisecond values since max is set to duration in ms
                 progressBar.setSecondaryProgress((int) bufferedPosition);
 
-//                Log.i(TAG, "Current: " + currentPosition + "ms | Buffered: " + bufferedPosition +
-//                        "ms | Max: " + duration + "ms | Buffer Duration: " + formatTime((int) bufferDuration));
+                Log.i(TAG, "Current: " + currentPosition + "ms | Buffered: " + bufferedPosition +
+                        "ms | Max: " + duration + "ms | Buffer Duration: " + formatTime((int) bufferDuration));
             }
         }
     }
@@ -617,17 +646,32 @@ public class PlayerActivity extends AppCompatActivity {
         // Add subtitle if selected
         if (currentSubtitleIndex >= 0 && currentSubtitleIndex < subtitles.size()) {
             MediaItems.SubtitleItem subtitle = subtitles.get(currentSubtitleIndex);
-            MediaItem.SubtitleConfiguration subtitleConfig = new MediaItem.SubtitleConfiguration.Builder(
-                    android.net.Uri.parse(subtitle.getUrl()))
-                    .setMimeType(MimeTypes.TEXT_VTT)
-                    .setLanguage(subtitle.getLang())
-                    .setLabel(subtitle.getLanguage())
-                    .setSelectionFlags(C.SELECTION_FLAG_DEFAULT)
-                    .build();
+
+            Log.i(TAG, "Adding subtitle to MediaItem: " + subtitle.getLanguage() + " - " + subtitle.getUrl());
+
+            // Build subtitle configuration with proper headers
+            MediaItem.SubtitleConfiguration.Builder subtitleBuilder =
+                    new MediaItem.SubtitleConfiguration.Builder(android.net.Uri.parse(subtitle.getUrl()))
+                            .setMimeType(MimeTypes.TEXT_VTT)
+                            .setLanguage("en") // Use generic "en" for English
+                            .setLabel(subtitle.getLanguage())
+                            .setSelectionFlags(C.SELECTION_FLAG_DEFAULT | C.SELECTION_FLAG_AUTOSELECT)
+                            .setRoleFlags(C.ROLE_FLAG_SUBTITLE);
+
+            // Note: In Media3, subtitle tracks use the same DataSource.Factory as the video,
+            // so custom headers are automatically applied through buildDataSourceFactory()
+
+            MediaItem.SubtitleConfiguration subtitleConfig = subtitleBuilder.build();
+
             mediaItemBuilder.setSubtitleConfigurations(java.util.Collections.singletonList(subtitleConfig));
+        } else {
+            Log.i(TAG, "No subtitle selected (index: " + currentSubtitleIndex + ", subtitles size: " +
+                    (subtitles != null ? subtitles.size() : "null") + ")");
         }
 
         MediaItem mediaItem = mediaItemBuilder.build();
+        hideLoading();
+        showStreamingStatus();
 
         // Build media source based on URL type
         MediaSource videoSource;
@@ -730,7 +774,20 @@ public class PlayerActivity extends AppCompatActivity {
     }
 
     private void selectSubtitleTrack() {
-        if (player == null || currentSubtitleIndex < 0) {
+        if (player == null) {
+            Log.w(TAG, "Cannot select subtitle track: player is null");
+            return;
+        }
+
+        if (currentSubtitleIndex < 0) {
+            Log.i(TAG, "No subtitle selected (index -1), disabling text tracks");
+            // Disable text tracks
+            TrackSelectionParameters disableParams = player.getTrackSelectionParameters()
+                    .buildUpon()
+                    .setPreferredTextLanguage(null)
+                    .setIgnoredTextSelectionFlags(~C.SELECTION_FLAG_DEFAULT)
+                    .build();
+            player.setTrackSelectionParameters(disableParams);
             return;
         }
 
@@ -740,27 +797,23 @@ public class PlayerActivity extends AppCompatActivity {
         }
 
         MediaItems.SubtitleItem subtitle = subtitles.get(currentSubtitleIndex);
-        if (subtitle == null || subtitle.getLang() == null) {
-            Log.w(TAG, "Cannot select subtitle track: subtitle is null or has no language");
+        if (subtitle == null) {
+            Log.w(TAG, "Cannot select subtitle track: subtitle is null");
             return;
         }
 
-        // Get the current media item configuration
-        MediaItem mediaItem = player.getCurrentMediaItem();
-        if (mediaItem == null) {
-            Log.w(TAG, "Cannot select subtitle track: current media item is null");
-            return;
-        }
+        Log.i(TAG, "Selecting subtitle track: " + subtitle.getLanguage());
 
-        Log.i(TAG, "Selecting subtitle track: " + subtitle.getLanguage() + " (" + subtitle.getLang() + ")");
-
-        // Build track selection parameters with preferred text language
-        TrackSelectionParameters trackSelectionParameters = new TrackSelectionParameters.Builder(this)
-                .setPreferredTextLanguage(subtitle.getLang())
-                .build();
+        // Build track selection parameters to enable text tracks
+        TrackSelectionParameters.Builder builder = player.getTrackSelectionParameters()
+                .buildUpon()
+                .setPreferredTextLanguage("en")
+                .setPreferredTextRoleFlags(C.ROLE_FLAG_SUBTITLE | C.ROLE_FLAG_CAPTION)
+                .setSelectUndeterminedTextLanguage(true)
+                .setIgnoredTextSelectionFlags(0); // Don't ignore any text tracks
 
         // Apply track selection parameters
-        player.setTrackSelectionParameters(trackSelectionParameters);
+        player.setTrackSelectionParameters(builder.build());
 
         Log.i(TAG, "Subtitle track selection completed for: " + subtitle.getLanguage());
     }
@@ -854,9 +907,9 @@ public class PlayerActivity extends AppCompatActivity {
 
             // Update current time text
             currentTime.setText(formatTime(currentPos));
-            if (currentTime.getVisibility() == View.GONE) {
-                currentTime.setVisibility(View.VISIBLE);
-            }
+//            if (currentTime.getVisibility() == View.GONE) {
+//                currentTime.setVisibility(View.VISIBLE);
+//            }
 
             // Update progress in milliseconds (matching the max value)
             if (duration > 0) {
@@ -865,6 +918,8 @@ public class PlayerActivity extends AppCompatActivity {
 
             // Update buffered progress display
             updateBufferProgress();
+            hideLoading();
+            updateLoadingUi(false);
         }
     }
 
@@ -897,22 +952,30 @@ public class PlayerActivity extends AppCompatActivity {
 
     private void showLoadingServer() {
         updateLoadingUi(true);
+        // Hide play/pause button and current time when loading
+        btnPlayPause.setVisibility(View.GONE);
+        currentTime.setVisibility(View.GONE);
         loadingStatusText.setText("LOADING SERVER");
     }
 
     private void showStreamingStatus() {
         updateLoadingUi(true);
+        // Hide play/pause button and current time when loading
+        btnPlayPause.setVisibility(View.GONE);
+        currentTime.setVisibility(View.GONE);
         loadingStatusText.setText("STREAMING VIDEO");
     }
 
     private void hideLoading() {
         loadingIndicator.setVisibility(View.GONE);
         btnPlayPause.setVisibility(View.VISIBLE);
+        currentTime.setVisibility(View.VISIBLE);
     }
 
     private void hideStreamingStatus() {
         loadingStatusContainer.setVisibility(View.GONE);
         btnPlayPause.setVisibility(View.VISIBLE);
+        currentTime.setVisibility(View.VISIBLE);
     }
 
 
@@ -1087,7 +1150,6 @@ public class PlayerActivity extends AppCompatActivity {
                             String newServerType = availableServerTypes.get(which);
                             if (!newServerType.equals(currentServerType)) {
                                 switchToServerType(newServerType);
-                                Log.i(TAG, "Switched to server type: " + newServerType);
                             }
                             dialog.dismiss();
                         })
@@ -1165,8 +1227,6 @@ public class PlayerActivity extends AppCompatActivity {
                 Map<String, Map<String, AnimekaiApi.ServerInfo>> servers =
                         animekaiApi.fetchEpisodeServers(episodeToken);
 
-
-
                 if (!servers.containsKey(serverType)) {
                     runOnUiThread(() -> {
                         loadingIndicator.setVisibility(View.GONE);
@@ -1178,21 +1238,11 @@ public class PlayerActivity extends AppCompatActivity {
                 }
 
                 Map<String, AnimekaiApi.ServerInfo> typeServers = servers.get(serverType);
-                Log.i(TAG, "Found " + typeServers.size() + " servers of type " + serverType);
-
                 AnimekaiApi.ServerInfo targetServer = null;
 
                 // Find server by index
                 for (AnimekaiApi.ServerInfo server : typeServers.values()) {
-                    Log.i(TAG, "Found server linkId: " + server.linkId);
-                    Log.i(TAG, "Found server type: " + server.serverType);
-                    Log.i(TAG, "Found server index: " + server.index);
-                    Log.i(TAG, "server.index: " + server.index);
-                    Log.i(TAG, "serverIndex: " + serverIndex);
-
-
-
-                    if (server.index == serverIndex + 1){
+                    if (server.index == serverIndex+1) {
                         targetServer = server;
                         break;
                     }
@@ -1329,7 +1379,7 @@ public class PlayerActivity extends AppCompatActivity {
     @Override
     public boolean onKeyDown(int keyCode, KeyEvent event) {
         // Show controls on Up button or Center button when hidden
-        if ((keyCode == KeyEvent.KEYCODE_DPAD_UP || keyCode == KeyEvent.KEYCODE_DPAD_CENTER)
+        if ((keyCode == KeyEvent.KEYCODE_DPAD_UP || keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_DPAD_DOWN)
                 && !controlsVisible) {
             showControls();
             return true;
@@ -1378,13 +1428,10 @@ public class PlayerActivity extends AppCompatActivity {
             }
         }
 
-        if (keyCode == KeyEvent.KEYCODE_DPAD_DOWN && !controlsVisible) {
-            showControls();
-            return true;
-        }
+
 
         // Back button - double press to exit
-        /**if (keyCode == KeyEvent.KEYCODE_BACK) {
+        if (keyCode == KeyEvent.KEYCODE_BACK) {
             if (controlsVisible) {
                 hideControls();
                 return true;
@@ -1404,7 +1451,7 @@ public class PlayerActivity extends AppCompatActivity {
             // Reset flag after 5 seconds
             backPressHandler.postDelayed(backPressResetTask, 5000);
             return true;
-        }**/
+        }
 
         // Play/pause on center when controls visible and no button focused
         if (keyCode == KeyEvent.KEYCODE_DPAD_CENTER && controlsVisible) {
@@ -1474,5 +1521,25 @@ public class PlayerActivity extends AppCompatActivity {
         getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
     }
 
+    @Override
+    public void onBackPressed() {
+        saveWatchProgress();
+        if (controlsVisible) {
+            hideControls();
+        }
 
+        // Double press back to exit
+        if (backPressedOnce) {
+            backPressedOnce = false;
+            backPressHandler.removeCallbacks(backPressResetTask);
+            finish();
+        }
+
+        backPressedOnce = true;
+        showToast("Press back again to exit");
+
+        // Reset flag after 5 seconds
+        backPressHandler.postDelayed(backPressResetTask, 5000);
+
+    }
 }

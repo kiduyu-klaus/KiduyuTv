@@ -4,7 +4,6 @@ import android.content.Intent;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
-import android.view.KeyEvent;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
@@ -43,7 +42,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-
+@RequiresApi(api = Build.VERSION_CODES.O)
 public class DetailsActivityAnime extends AppCompatActivity {
     private static final String TAG = "DetailsActivityAnime";
 
@@ -75,6 +74,9 @@ public class DetailsActivityAnime extends AppCompatActivity {
     private RelativeLayout loadingOverlay;
     private TextView loadingText;
 
+    private String descriptionAnime;
+
+
     // Data
     private AnimeModel anime;
     private List<Season> seasons = new ArrayList<>();
@@ -88,6 +90,7 @@ public class DetailsActivityAnime extends AppCompatActivity {
     private String selectedServerType = "sub"; // Default to SUB
     private Map<String, Map<String, AnimekaiApi.ServerInfo>> currentServers;
 
+    @RequiresApi(api = Build.VERSION_CODES.O)
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -124,7 +127,7 @@ public class DetailsActivityAnime extends AppCompatActivity {
         descriptionText = findViewById(R.id.descriptionText);
         studioText = findViewById(R.id.studioText);
         countryText = findViewById(R.id.countryText);
-        //favoriteButton = findViewById(R.id.favoriteButton);
+        favoriteButton = findViewById(R.id.favoriteButton);
 
         // Episodes section
         episodesTitle = findViewById(R.id.episodesTitle);
@@ -143,9 +146,7 @@ public class DetailsActivityAnime extends AppCompatActivity {
         // Set basic info
         titleText.setText(anime.getAnimeName());
 
-        if (anime.getAnimeDescription() != null && !anime.getAnimeDescription().isEmpty()) {
-            descriptionText.setText(anime.getAnimeDescription());
-        }
+
 
         // Load images
         String bgUrl = anime.getAnime_image_backgroud();
@@ -163,12 +164,12 @@ public class DetailsActivityAnime extends AppCompatActivity {
         }
 
         // Server type buttons
-        //setupServerTypeButtons();
+        setupServerTypeButtons();
 
         // Favorite button
-//        favoriteButton.setOnClickListener(v -> {
-//            Toast.makeText(this, "Added to favorites", Toast.LENGTH_SHORT).show();
-//        });
+        favoriteButton.setOnClickListener(v -> {
+            Toast.makeText(this, "Added to favorites", Toast.LENGTH_SHORT).show();
+        });
 
         // Focus listeners
         View.OnFocusChangeListener focusChangeListener = (v, hasFocus) -> {
@@ -179,12 +180,12 @@ public class DetailsActivityAnime extends AppCompatActivity {
             }
         };
 
-        //favoriteButton.setOnFocusChangeListener(focusChangeListener);
+        favoriteButton.setOnFocusChangeListener(focusChangeListener);
         subButton.setOnFocusChangeListener(focusChangeListener);
         dubButton.setOnFocusChangeListener(focusChangeListener);
         softsubButton.setOnFocusChangeListener(focusChangeListener);
     }
-    /**
+
     private void setupServerTypeButtons() {
         subButton.setOnClickListener(v -> {
             selectServerType("sub");
@@ -198,7 +199,6 @@ public class DetailsActivityAnime extends AppCompatActivity {
             selectServerType("softsub");
         });
     }
-
 
     private void selectServerType(String serverType) {
         selectedServerType = serverType;
@@ -216,7 +216,7 @@ public class DetailsActivityAnime extends AppCompatActivity {
 
         // Note: Server type selection is now set, episodes will use this when played
         Toast.makeText(this, "Selected " + serverType.toUpperCase(), Toast.LENGTH_SHORT).show();
-    } **/
+    }
 
     private void setupRecyclerViews() {
         // Season tabs - horizontal
@@ -244,6 +244,7 @@ public class DetailsActivityAnime extends AppCompatActivity {
         episodeGridAdapter.setOnEpisodeClickListener(this::onEpisodeClick);
     }
 
+    @RequiresApi(api = Build.VERSION_CODES.O)
     private void loadAnimeDetails() {
         String contentId = anime.getData_tip();
         String animeurl = anime.getAnime_link();
@@ -266,6 +267,10 @@ public class DetailsActivityAnime extends AppCompatActivity {
 
                     // Update anime object
                     anime = detailedAnime;
+                    if (anime.getAnimeDescription() != null && !anime.getAnimeDescription().isEmpty()) {
+                        descriptionText.setText(anime.getAnimeDescription());
+                        descriptionAnime = anime.getAnimeDescription();
+                    }
 
                     // Update UI with detailed info
                     updateDetailedInfo(detailedAnime);
@@ -308,9 +313,6 @@ public class DetailsActivityAnime extends AppCompatActivity {
         // Duration
         if (anime.getDuration() != null && !anime.getDuration().isEmpty()) {
             durationText.setText(anime.getDuration());
-        }
-        if (anime.getAnimeDescription() != null && !anime.getAnimeDescription().isEmpty()) {
-            descriptionText.setText(anime.getAnimeDescription());
         }
 
         // Studio
@@ -486,6 +488,7 @@ public class DetailsActivityAnime extends AppCompatActivity {
     /**
      * Play episode with all available servers - server/type switching handled in PlayerActivity
      */
+
     @OptIn(markerClass = UnstableApi.class)
     private void playEpisodeWithServers(EpisodeModel episode,
                                         Map<String, Map<String, AnimekaiApi.ServerInfo>> allServers,
@@ -531,6 +534,18 @@ public class DetailsActivityAnime extends AppCompatActivity {
                         // Launch player with ALL server data
                         Intent intent = new Intent(DetailsActivityAnime.this, PlayerActivity.class);
                         intent.putExtra("video_url", videoUrl);
+
+                        // Pass anime and episode info for proper UI display
+                        intent.putExtra("anime_name", anime.getAnimeName());
+                        intent.putExtra("episode_name", episode.getEpisodeName());
+                        intent.putExtra("anime_description", anime.getAnimeDescription());
+                        Log.i(TAG, "Anime description: " + anime.getAnimeDescription());
+                        Log.i(TAG, "Anime description variable: " + descriptionAnime);
+                        intent.putExtra("background_image_url", anime.getAnime_image_backgroud());
+                        Log.i(TAG, "Background image URL: " + anime.getAnime_image_backgroud());
+
+
+                        // Pass formatted episode info
                         intent.putExtra("title", anime.getAnimeName());
                         intent.putExtra("subtitle", "S" + episode.getSeason() +
                                 "E" + episode.getEpisodeNumber() +
@@ -543,7 +558,6 @@ public class DetailsActivityAnime extends AppCompatActivity {
                         // Pass current server info
                         intent.putExtra("current_server_type", initialServerType);
                         intent.putExtra("current_server_index", initialServerIndex);
-                        intent.putExtra("description", anime.getAnimeDescription());
 
                         // Serialize and pass all available servers
                         intent.putExtra("available_server_types",

@@ -35,6 +35,7 @@ import okhttp3.Response;
  * Complete API for AnimeKai scraping
  * Handles anime list fetching and detailed episode information
  */
+@RequiresApi(api = Build.VERSION_CODES.O)
 public class AnimekaiApi {
     private static final String TAG = "AnimekaiApi";
     private static final String BASE_URL = "https://animekai.to";
@@ -168,6 +169,7 @@ public class AnimekaiApi {
      * @param animeurl The anime page URL for fetching additional metadata
      * @param callback Callback for results
      */
+    @RequiresApi(api = Build.VERSION_CODES.O)
     public void fetchAnimeDetailsAsync(final String contentId, final String animeurl, final AnimeDetailsCallback callback) {
         executorService.execute(() -> {
             try {
@@ -186,6 +188,7 @@ public class AnimekaiApi {
      * @param animeurl The anime page URL for fetching additional metadata
      * @return AnimeModel with episodes populated
      */
+    @RequiresApi(api = Build.VERSION_CODES.O)
     public AnimeModel fetchAnimeDetails(String contentId, String animeurl) throws IOException, JSONException {
         Log.i(TAG, "Fetching anime details for contentId: " + contentId);
 
@@ -219,13 +222,14 @@ public class AnimekaiApi {
         return anime;
     }
 
+
+    @RequiresApi(api = Build.VERSION_CODES.O)
     /**
      * Fetch additional anime metadata from the anime page URL
      * Converts the Python scraping logic to Java
      * @param animeurl The anime page URL
      * @param anime The AnimeModel to populate with metadata
      */
-    @RequiresApi(api = Build.VERSION_CODES.O)
     private void fetchAnimeMetadataFromUrl(String animeurl, AnimeModel anime) {
         Log.i(TAG, "Fetching additional metadata from: " + animeurl);
 
@@ -234,6 +238,41 @@ public class AnimekaiApi {
                     .userAgent(USER_AGENT)
                     .timeout(TIMEOUT_MS)
                     .get();
+
+            // =======================
+            // Extract MAL ID from watch-section
+            // =======================
+            String mal_id = "";
+            Element watchSection = doc.selectFirst("div.watch-section");
+            if (watchSection != null) {
+                mal_id = watchSection.attr("data-mal-id");
+                Log.i(TAG, "MAL ID: " + mal_id);
+            } else {
+                Log.w(TAG, "Could not find watch-section div");
+            }
+
+            // =======================
+            // Extract background image URL from player-bg
+            // =======================
+            String backgroundImageUrl = "";
+            Element playerBg = doc.selectFirst("div.player-bg");
+            if (playerBg != null) {
+                String style = playerBg.attr("style");
+                if (!style.isEmpty()) {
+                    // Extract URL from style attribute using regex
+                    java.util.regex.Pattern urlPattern = java.util.regex.Pattern.compile("url\\(['\"]?([^'\"\\)]+)['\"]?\\)");
+                    java.util.regex.Matcher urlMatcher = urlPattern.matcher(style);
+                    if (urlMatcher.find()) {
+                        backgroundImageUrl = urlMatcher.group(1);
+                        if (!backgroundImageUrl.isEmpty()) {
+                            anime.setAnime_image_backgroud(backgroundImageUrl);
+                        }
+                        Log.i(TAG, "Background Image URL: " + backgroundImageUrl);
+                    }
+                }
+            } else {
+                Log.w(TAG, "Could not find player-bg div");
+            }
 
             // Locate main section
             Element mainSection = doc.selectFirst("section.entity-section");
@@ -381,7 +420,6 @@ public class AnimekaiApi {
                 }
             }
 
-
             // =======================
             // External Links
             // =======================
@@ -413,7 +451,7 @@ public class AnimekaiApi {
      * @param dateStr Date string in format "Oct 03, 2025"
      * @return LocalDate object or null if parsing fails
      */
-    @RequiresApi(api = Build.VERSION_CODES.O)
+
     private java.time.LocalDate parseDate(String dateStr) {
         try {
             java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("MMM dd, yyyy");
