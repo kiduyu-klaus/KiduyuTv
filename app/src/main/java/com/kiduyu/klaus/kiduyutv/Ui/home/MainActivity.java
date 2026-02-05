@@ -803,7 +803,6 @@ public class MainActivity extends AppCompatActivity {
 
         Intent intent = new Intent(this, DetailsActivityAnime.class);
         intent.putExtra("media_item", animeModel);
-        intent.putExtra("media_type", "anime");
         startActivity(intent);
     }
 

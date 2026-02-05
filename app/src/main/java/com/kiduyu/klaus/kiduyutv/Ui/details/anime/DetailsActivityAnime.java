@@ -243,8 +243,7 @@ public class DetailsActivityAnime extends AppCompatActivity {
 
     private void loadAnimeDetails() {
         String contentId = anime.getData_tip();
-        Log.i(TAG, "Loading anime details for content ID: " + contentId);
-
+        String animeurl = anime.getAnime_link();
 
         if (contentId == null || contentId.isEmpty()) {
             Toast.makeText(this, "Invalid anime data", Toast.LENGTH_SHORT).show();
@@ -256,7 +255,7 @@ public class DetailsActivityAnime extends AppCompatActivity {
         loadingText.setText("Loading anime details...");
 
         // Fetch detailed anime information with episodes
-        animekaiApi.fetchAnimeDetailsAsync(contentId, new AnimekaiApi.AnimeDetailsCallback() {
+        animekaiApi.fetchAnimeDetailsAsync(contentId, animeurl, new AnimekaiApi.AnimeDetailsCallback() {
             @Override
             public void onSuccess(AnimeModel detailedAnime) {
                 runOnUiThread(() -> {
@@ -515,6 +514,8 @@ public class DetailsActivityAnime extends AppCompatActivity {
     private void playEpisode(EpisodeModel episode, AnimekaiApi.ServerInfo server) {
         loadingOverlay.setVisibility(View.VISIBLE);
         loadingText.setText("Loading video...");
+        Log.i(TAG, "Selected server: " + server.linkId);
+
 
         executorService.execute(() -> {
             try {
@@ -532,13 +533,12 @@ public class DetailsActivityAnime extends AppCompatActivity {
 
                         // Launch player
                         Intent intent = new Intent(DetailsActivityAnime.this, PlayerActivity.class);
-
-                        intent.putExtra("media_type", "anime");
                         intent.putExtra("video_url", videoUrl);
                         intent.putExtra("title", anime.getAnimeName());
                         intent.putExtra("subtitle", "S" + episode.getSeason() +
                                 "E" + episode.getEpisodeNumber() +
                                 " - " + episode.getEpisodeName());
+                        intent.putExtra("media_type", "anime");
 
                         // Add subtitles if available
                         if (mediaData.getTracks() != null && !mediaData.getTracks().isEmpty()) {

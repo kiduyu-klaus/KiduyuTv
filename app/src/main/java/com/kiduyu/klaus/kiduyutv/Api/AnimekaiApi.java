@@ -1,8 +1,11 @@
 package com.kiduyu.klaus.kiduyutv.Api;
 
+import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
+
+import androidx.annotation.RequiresApi;
 
 import com.kiduyu.klaus.kiduyutv.model.AnimeModel;
 import com.kiduyu.klaus.kiduyutv.model.EpisodeModel;
@@ -104,7 +107,7 @@ public class AnimekaiApi {
                     .get();
 
             Elements innerDivs = doc.select("div.inner");
-            Log.d(TAG, "Found " + innerDivs.size() + " anime entries");
+            Log.i(TAG, "Found " + innerDivs.size() + " anime entries");
 
             for (Element inner : innerDivs) {
                 try {
@@ -138,7 +141,7 @@ public class AnimekaiApi {
                                 animeImageBackground
                         );
                         animeList.add(anime);
-                        Log.d(TAG, "Parsed anime: " + animeName + " (dataTip: " + dataTip + ")");
+                        Log.i(TAG, "Parsed anime: " + animeName + " (dataTip: " + dataTip + ")");
                     }
                 } catch (Exception e) {
                     Log.e(TAG, "Error parsing individual anime entry", e);
@@ -162,12 +165,13 @@ public class AnimekaiApi {
     /**
      * Fetch detailed anime information including episodes
      * @param contentId The data-tip value (e.g., "c4C8-aI")
+     * @param animeurl The anime page URL for fetching additional metadata
      * @param callback Callback for results
      */
-    public void fetchAnimeDetailsAsync(final String contentId, final AnimeDetailsCallback callback) {
+    public void fetchAnimeDetailsAsync(final String contentId, final String animeurl, final AnimeDetailsCallback callback) {
         executorService.execute(() -> {
             try {
-                AnimeModel anime = fetchAnimeDetails(contentId);
+                AnimeModel anime = fetchAnimeDetails(contentId, animeurl);
                 mainHandler.post(() -> callback.onSuccess(anime));
             } catch (Exception e) {
                 Log.e(TAG, "Error fetching anime details for: " + contentId, e);
@@ -179,17 +183,19 @@ public class AnimekaiApi {
     /**
      * Fetch detailed anime information synchronously
      * @param contentId The data-tip value (e.g., "c4C8-aI")
+     * @param animeurl The anime page URL for fetching additional metadata
      * @return AnimeModel with episodes populated
      */
-    public AnimeModel fetchAnimeDetails(String contentId) throws IOException, JSONException {
+    public AnimeModel fetchAnimeDetails(String contentId, String animeurl) throws IOException, JSONException {
         Log.i(TAG, "Fetching anime details for contentId: " + contentId);
 
         AnimeModel anime = new AnimeModel();
         anime.setData_tip(contentId);
+        anime.setAnime_link(animeurl);
 
         // Step 1: Encrypt the content ID
         String encryptedId = encryptionService.encrypt(contentId);
-        Log.d(TAG, "Encrypted ID: " + encryptedId);
+        Log.i(TAG, "Encrypted ID: " + encryptedId);
 
         // Step 2: Fetch episodes list
         String episodesUrl = KAI_AJAX + "/episodes/list?ani_id=" + contentId + "&_=" + encryptedId;
@@ -197,15 +203,216 @@ public class AnimekaiApi {
 
         // Step 3: Parse HTML response to get episodes structure
         String parsedEpisodes = encryptionService.parseHtml(episodesJson);
-        Log.d(TAG, "Parsed episodes JSON: " + parsedEpisodes);
+        Log.i(TAG, "Parsed episodes JSON: " + parsedEpisodes);
 
         // Step 4: Parse episodes into structured data
         Map<Integer, Map<Integer, EpisodeModel>> episodesMap = parseEpisodesJson(parsedEpisodes);
         anime.setEpisodes(episodesMap);
 
+        // Step 5: Fetch additional metadata from anime page URL if available
+        if (animeurl != null && !animeurl.isEmpty()) {
+            fetchAnimeMetadataFromUrl(animeurl, anime);
+        }
+
         Log.i(TAG, "Successfully fetched details for " + episodesMap.size() + " seasons");
 
         return anime;
+    }
+
+    /**
+     * Fetch additional anime metadata from the anime page URL
+     * Converts the Python scraping logic to Java
+     * @param animeurl The anime page URL
+     * @param anime The AnimeModel to populate with metadata
+     */
+    private void fetchAnimeMetadataFromUrl(String animeurl, AnimeModel anime) {
+        Log.i(TAG, "Fetching additional metadata from: " + animeurl);
+
+        try {
+            Document doc = Jsoup.connect(animeurl)
+                    .userAgent(USER_AGENT)
+                    .timeout(TIMEOUT_MS)
+                    .get();
+
+            // Locate main section
+            Element mainSection = doc.selectFirst("section.entity-section");
+            if (mainSection == null) {
+                Log.w(TAG, "Could not find entity-section in anime page");
+                return;
+            }
+
+            // Select inner detail divs containing label+value
+            Elements detailDivs = mainSection.select("div.detail > div > div");
+
+            // Helper: find value based on label text
+            java.util.function.Function<String, String> getValue = (label) -> {
+                for (Element div : detailDivs) {
+                    if (div.text().trim().startsWith(label)) {
+                        Element span = div.selectFirst("span");
+                        if (span != null) {
+                            return span.text().trim();
+                        }
+                    }
+                }
+                return "";
+            };
+
+            // =======================
+            // Metadata
+            // =======================
+            String country = getValue.apply("Country:");
+            if (!country.isEmpty()) {
+                anime.setCountry(country);
+            }
+
+            // Genres
+            List<String> genres = new ArrayList<>();
+            Elements genreLinks = mainSection.select("div.detail div:has(span a[href^='/genres']) span a");
+            for (Element link : genreLinks) {
+                genres.add(link.text().trim());
+            }
+            if (!genres.isEmpty()) {
+                anime.setGenres(genres);
+            }
+
+            String premiered = getValue.apply("Premiered:");
+            if (!premiered.isEmpty()) {
+                anime.setPremiered(premiered);
+            }
+
+            // Date aired
+            String dateAiredText = getValue.apply("Date aired:");
+            if (!dateAiredText.isEmpty()) {
+                try {
+                    String[] dateParts = dateAiredText.split("to");
+                    java.time.LocalDate dateAiredFrom = null;
+                    java.time.LocalDate dateAiredTo = null;
+
+                    if (dateParts.length > 0 && !dateParts[0].trim().isEmpty()) {
+                        dateAiredFrom = parseDate(dateParts[0].trim());
+                    }
+                    if (dateParts.length > 1 && !dateParts[1].trim().isEmpty()) {
+                        dateAiredTo = parseDate(dateParts[1].trim());
+                    }
+
+                    if (dateAiredFrom != null) {
+                        anime.setDateAiredFrom(dateAiredFrom);
+                    }
+                    if (dateAiredTo != null) {
+                        anime.setDateAiredTo(dateAiredTo);
+                    }
+                } catch (Exception e) {
+                    Log.w(TAG, "Error parsing date aired: " + dateAiredText);
+                }
+            }
+
+            String broadcast = getValue.apply("Broadcast:");
+            if (!broadcast.isEmpty()) {
+                anime.setBroadcast(broadcast);
+            }
+
+            String totalEpisodesStr = getValue.apply("Episodes:");
+            if (!totalEpisodesStr.isEmpty()) {
+                try {
+                    anime.setTotalEpisodes(Integer.parseInt(totalEpisodesStr));
+                } catch (NumberFormatException e) {
+                    Log.w(TAG, "Error parsing total episodes: " + totalEpisodesStr);
+                }
+            }
+
+            String duration = getValue.apply("Duration:");
+            if (!duration.isEmpty()) {
+                anime.setDuration(duration);
+            }
+
+            // =======================
+            // Status & Ratings
+            // =======================
+            String status = getValue.apply("Status:");
+            if (!status.isEmpty()) {
+                anime.setStatus(status);
+            }
+
+            // MAL score
+            Element malSpan = mainSection.selectFirst("div.detail div:has(span:contains(\"MAL\")) span");
+            if (malSpan != null) {
+                String malText = malSpan.text().trim();
+                // Extract score using regex
+                java.util.regex.Pattern scorePattern = java.util.regex.Pattern.compile("(\\d+\\.\\d+)");
+                java.util.regex.Matcher scoreMatcher = scorePattern.matcher(malText);
+                if (scoreMatcher.find()) {
+                    anime.setMalScore(Double.parseDouble(scoreMatcher.group(1)));
+                }
+                // Extract user count using regex
+                java.util.regex.Pattern usersPattern = java.util.regex.Pattern.compile("by ([\\d,]+) users");
+                java.util.regex.Matcher usersMatcher = usersPattern.matcher(malText);
+                if (usersMatcher.find()) {
+                    String userCountStr = usersMatcher.group(1).replace(",", "");
+                    anime.setMalUserCount(Integer.parseInt(userCountStr));
+                }
+            }
+
+            // =======================
+            // Production
+            // =======================
+            String studio = getValue.apply("Studios:");
+            if (!studio.isEmpty()) {
+                anime.setStudio(studio);
+            }
+
+            List<String> producers = new ArrayList<>();
+            Elements producerLinks = mainSection.select("div.detail div:has(span a[href^='/producers']) span a");
+            for (Element link : producerLinks) {
+                producers.add(link.text().trim());
+            }
+            if (!producers.isEmpty()) {
+                anime.setProducers(producers);
+            }
+
+            // =======================
+            // External Links
+            // =======================
+            Map<String, String> links = new HashMap<>();
+            Elements linkElements = mainSection.select("div.detail div:has(span a[href^='http']) span a");
+            for (Element link : linkElements) {
+                String linkText = link.text().trim();
+                String href = link.attr("href");
+                if (!linkText.isEmpty() && !href.isEmpty()) {
+                    links.put(linkText, href);
+                }
+            }
+            if (!links.isEmpty()) {
+                anime.setLinks(links);
+            }
+
+            Log.i(TAG, "Successfully fetched metadata from anime page");
+
+        } catch (IOException e) {
+            Log.e(TAG, "Error fetching anime metadata from URL: " + animeurl, e);
+        }
+    }
+
+    /**
+     * Parse date string to LocalDate
+     * @param dateStr Date string in format "Oct 03, 2025"
+     * @return LocalDate object or null if parsing fails
+     */
+    @RequiresApi(api = Build.VERSION_CODES.O)
+    private java.time.LocalDate parseDate(String dateStr) {
+        try {
+            java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("MMM dd, yyyy");
+            return java.time.LocalDate.parse(dateStr, formatter);
+        } catch (Exception e) {
+            Log.w(TAG, "Error parsing date: " + dateStr);
+            return null;
+        }
+    }
+
+    /**
+     * Backward compatibility method - fetches details without URL metadata
+     */
+    public AnimeModel fetchAnimeDetails(String contentId) throws IOException, JSONException {
+        return fetchAnimeDetails(contentId, null);
     }
 
     /* ========================================
@@ -220,7 +427,7 @@ public class AnimekaiApi {
     public Map<String, Map<String, ServerInfo>> fetchEpisodeServers(String episodeToken)
             throws IOException, JSONException {
 
-        Log.d(TAG, "Fetching servers for episode token: " + episodeToken);
+        Log.i(TAG, "Fetching servers for episode token: " + episodeToken);
 
         // Encrypt token
         String encryptedToken = encryptionService.encrypt(episodeToken);
@@ -241,7 +448,7 @@ public class AnimekaiApi {
      * @return MediaData with sources, tracks, download link, and skip info
      */
     public MediaData resolveEmbedUrl(String linkId) throws IOException, JSONException {
-        Log.d(TAG, "Resolving embed for linkId: " + linkId);
+        Log.i(TAG, "Resolving embed for linkId: " + linkId);
 
         // Step 1: Encrypt link ID
         String encryptedLinkId = encryptionService.encrypt(linkId);
@@ -249,6 +456,8 @@ public class AnimekaiApi {
         // Step 2: Get embed URL
         String embedUrl = KAI_AJAX + "/links/view?id=" + linkId + "&_=" + encryptedLinkId;
         String embedJson = getJson(embedUrl);
+        Log.i(TAG, "Embed JSON: " + embedJson);
+
 
         // Step 3: Extract encrypted result
         JSONObject embedResponse = new JSONObject(embedJson);
@@ -261,7 +470,7 @@ public class AnimekaiApi {
         String embedUrlActual = decryptedJson.getString("url");
         JSONObject skipInfo = decryptedJson.optJSONObject("skip");
 
-        Log.d(TAG, "Embed URL: " + embedUrlActual);
+        Log.i(TAG, "Embed URL: " + embedUrlActual);
 
         // Step 5: Resolve the actual media from embed
         MediaData mediaData = resolveEmbed(embedUrlActual);
@@ -280,7 +489,7 @@ public class AnimekaiApi {
     private MediaData resolveEmbed(String embedUrl) throws IOException, JSONException {
         // Replace /e/ with /media/
         String mediaUrl = embedUrl.replace("/e/", "/media/");
-        Log.d(TAG, "Media URL: " + mediaUrl);
+        Log.i(TAG, "Media URL: " + mediaUrl);
 
         // Fetch encrypted media payload
         Request request = new Request.Builder()
@@ -302,7 +511,7 @@ public class AnimekaiApi {
 
         // Decrypt media
         String decryptedMedia = encryptionService.decryptMega(encryptedMedia, USER_AGENT);
-        Log.d(TAG, "Decrypted media data");
+        Log.i(TAG, "Decrypted media data");
 
         // Parse media data
         return parseMediaData(decryptedMedia);
@@ -393,6 +602,7 @@ public class AnimekaiApi {
                     info.index = Integer.parseInt(key);
 
                     serverInfoMap.put(key, info);
+                    Log.i(TAG, "Parsed server info: " +info);
                 }
 
                 serversMap.put(serverType, serverInfoMap);

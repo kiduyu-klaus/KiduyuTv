@@ -27,29 +27,7 @@ public class AnimeModel implements Parcelable {
 
     private String anime_image_backgroud;
 
-    public String getData_tip() {
-        return data_tip;
-    }
 
-    public void setData_tip(String data_tip) {
-        this.data_tip = data_tip;
-    }
-
-    public String getAnime_link() {
-        return anime_link;
-    }
-
-    public void setAnime_link(String anime_link) {
-        this.anime_link = anime_link;
-    }
-
-    public String getAnime_image_backgroud() {
-        return anime_image_backgroud;
-    }
-
-    public void setAnime_image_backgroud(String anime_image_backgroud) {
-        this.anime_image_backgroud = anime_image_backgroud;
-    }
 
     /**
      * Episodes grouped by season
@@ -178,7 +156,29 @@ public class AnimeModel implements Parcelable {
     public int describeContents() {
         return 0;
     }
+    public String getData_tip() {
+        return data_tip;
+    }
 
+    public void setData_tip(String data_tip) {
+        this.data_tip = data_tip;
+    }
+
+    public String getAnime_link() {
+        return anime_link;
+    }
+
+    public void setAnime_link(String anime_link) {
+        this.anime_link = anime_link;
+    }
+
+    public String getAnime_image_backgroud() {
+        return anime_image_backgroud;
+    }
+
+    public void setAnime_image_backgroud(String anime_image_backgroud) {
+        this.anime_image_backgroud = anime_image_backgroud;
+    }
     @Override
     public void writeToParcel(Parcel dest, int flags) {
         dest.writeString(animeName);

@@ -105,6 +105,7 @@ public class PlayerActivity extends AppCompatActivity {
     private int currentSourceIndex = 0;
     private int currentSubtitleIndex = -1; // -1 means no subtitle selected
     private float currentSpeed = 1.0f;
+    private String mediaType; // "anime", "movie", "tv", etc.
 
     // Control visibility
     private Handler controlsHandler = new Handler(Looper.getMainLooper());
@@ -138,6 +139,8 @@ public class PlayerActivity extends AppCompatActivity {
         // Get media item from intent
         mediaItems = getIntent().getParcelableExtra("media_item");
         startPosition = getIntent().getLongExtra("start_position", 0);
+        mediaType = getIntent().getStringExtra("media_type");
+        Log.i(TAG, "Media type: " + mediaType);
 
         if (mediaItems == null) {
             Toast.makeText(this, "Error: No media to play", Toast.LENGTH_SHORT).show();
