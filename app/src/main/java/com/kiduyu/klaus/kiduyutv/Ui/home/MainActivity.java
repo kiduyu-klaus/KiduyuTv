@@ -647,7 +647,7 @@ public class MainActivity extends AppCompatActivity {
                 Log.i(TAG, "Successfully loaded " + tvShows.size() + " featured Tv series");
                 if (!tvShows.isEmpty()) {
                     CategorySection featuredSection = new CategorySection("Featured Tv Series", tvShows);
-                    categories.add(0, featuredSection);
+                    categories.add( featuredSection);
                     categoryAdapter.notifyDataSetChanged();
                     currentSelectedItem = tvShows.get(0);
                     updateHeroContent(currentSelectedItem, 0);
@@ -674,7 +674,7 @@ public class MainActivity extends AppCompatActivity {
                 Log.i(TAG, "Successfully loaded " + tvShows.size() + " top rated Tv series");
                 if (!tvShows.isEmpty()) {
                     CategorySection featuredSection = new CategorySection("Top Rated Tv Series", tvShows);
-                    categories.add(0, featuredSection);
+                    categories.add(1, featuredSection);
                     categoryAdapter.notifyDataSetChanged();
                     currentSelectedItem = tvShows.get(0);
                     updateHeroContent(currentSelectedItem, 0);

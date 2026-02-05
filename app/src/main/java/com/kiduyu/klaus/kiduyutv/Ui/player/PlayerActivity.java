@@ -3,6 +3,7 @@ package com.kiduyu.klaus.kiduyutv.Ui.player;
 import static com.kiduyu.klaus.kiduyutv.Api.ApiClient.DEFAULT_USER_AGENT;
 
 import android.content.pm.ActivityInfo;
+import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -11,11 +12,13 @@ import android.util.Log;
 import android.view.KeyEvent;
 import android.view.SurfaceView;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.ListView;
 import android.widget.ProgressBar;
 import android.widget.SeekBar;
 import android.widget.TextView;
@@ -1010,16 +1013,20 @@ public class PlayerActivity extends AppCompatActivity {
             speedLabels[i] = String.format(Locale.US, "%.2fx", speeds[i]);
         }
 
-        new AlertDialog.Builder(this)
-                .setTitle("Playback Speed")
-                .setItems(speedLabels, (dialog, which) -> {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Playback Speed");
+        builder.setItems(speedLabels, (dialog, which) -> {
                     currentSpeed = speeds[which];
                     if (player != null) {
                         player.setPlaybackSpeed(currentSpeed);
                     }
                     btnSpeed.setText(String.format(Locale.US, "Speed %.2fx", currentSpeed));
-                })
-                .show();
+                });
+
+        AlertDialog dialog = builder.create();
+        applyFocusHighlight(dialog);
+        dialog.show();
+
     }
 
     private void showServerDialog() {
@@ -1030,39 +1037,42 @@ public class PlayerActivity extends AppCompatActivity {
 
         String[] serverLabels = new String[videoSources.size()];
         for (int i = 0; i < videoSources.size(); i++) {
-            MediaItems.VideoSource source = videoSources.get(i);
-            serverLabels[i] = "Server " + (i + 1) + " - " + source.getQuality();
+            serverLabels[i] = "Server " + (i + 1);
         }
 
-        new AlertDialog.Builder(this)
-                .setTitle("Select Server")
-                .setSingleChoiceItems(serverLabels, currentSourceIndex, (dialog, which) -> {
-                    if (which != currentSourceIndex) {
-                        long currentPos = player.getCurrentPosition();
-                        loadVideoSource(which);
-                        player.seekTo(currentPos);
-                    }
-                    dialog.dismiss();
-                })
-                .show();
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Select Server");
+        builder.setItems(serverLabels, (dialog, which) -> {
+            currentSourceIndex = which;
+            loadVideoSource(currentSourceIndex);
+        });
+
+        AlertDialog dialog = builder.create();
+        applyFocusHighlight(dialog);
+        dialog.show();
     }
 
     private void showQualityDialog() {
-        // Get unique qualities from current source
-        List<String> qualities = new ArrayList<>();
-        qualities.add("Auto");
-        qualities.add(videoSources.get(currentSourceIndex).getQuality());
+        if (videoSources == null || videoSources.isEmpty()) {
+            Toast.makeText(this, "No qualities available", Toast.LENGTH_SHORT).show();
+            return;
+        }
 
-        new AlertDialog.Builder(this)
-                .setTitle("Video Quality")
-                .setItems(qualities.toArray(new String[0]), (dialog, which) -> {
-                    if (which == 0) {
-                        Toast.makeText(this, "Auto quality selected", Toast.LENGTH_SHORT).show();
-                    } else {
-                        btnQuality.setText(qualities.get(which));
-                    }
-                })
-                .show();
+        String[] qualityLabels = new String[videoSources.size()];
+        for (int i = 0; i < videoSources.size(); i++) {
+            qualityLabels[i] = videoSources.get(i).getQuality();
+        }
+
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Select Quality");
+        builder.setItems(qualityLabels, (dialog, which) -> {
+            currentSourceIndex = which;
+            loadVideoSource(currentSourceIndex);
+        });
+
+        AlertDialog dialog = builder.create();
+        applyFocusHighlight(dialog);
+        dialog.show();
     }
 
     private void showSubtitleDialog() {
@@ -1071,33 +1081,22 @@ public class PlayerActivity extends AppCompatActivity {
             return;
         }
 
-        List<String> subtitleLabels = new ArrayList<>();
-        subtitleLabels.add("None");
-
-        for (MediaItems.SubtitleItem subtitle : subtitles) {
-            subtitleLabels.add(subtitle.getLanguage());
+        String[] subtitleLabels = new String[subtitles.size()];
+        for (int i = 0; i < subtitles.size(); i++) {
+            subtitleLabels[i] = subtitles.get(i).getLanguage();
         }
 
-        new AlertDialog.Builder(this)
-                .setTitle("Select Subtitle")
-                .setSingleChoiceItems(subtitleLabels.toArray(new String[0]),
-                        currentSubtitleIndex + 1, (dialog, which) -> {
-                            int newIndex = which - 1; // Adjust for "None" option
-                            if (newIndex != currentSubtitleIndex) {
-                                currentSubtitleIndex = newIndex;
-                                long currentPos = player.getCurrentPosition();
-                                loadVideoSource(currentSourceIndex);
-                                player.seekTo(currentPos);
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Select Subtitle");
+        builder.setItems(subtitleLabels, (dialog, which) -> {
+            currentSubtitleIndex = which;
+            btnSubtitles.setText(subtitles.get(which).getLanguage());
+            loadVideoSource(currentSourceIndex);
+        });
 
-                                if (newIndex >= 0) {
-                                    btnSubtitles.setText(subtitles.get(newIndex).getLanguage());
-                                } else {
-                                    btnSubtitles.setText("No Subtitles");
-                                }
-                            }
-                            dialog.dismiss();
-                        })
-                .show();
+        AlertDialog dialog = builder.create();
+        applyFocusHighlight(dialog); // ✅ apply focus listeners
+        dialog.show();
     }
 
     /**
@@ -1126,66 +1125,50 @@ public class PlayerActivity extends AppCompatActivity {
      */
     private void showAnimeServerTypeDialog() {
         if (availableServerTypes == null || availableServerTypes.isEmpty()) {
-            Toast.makeText(this, "No other server types available", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "No server types available", Toast.LENGTH_SHORT).show();
             return;
         }
 
-        List<String> typeLabels = new ArrayList<>();
-        for (String type : availableServerTypes) {
-            Integer count = serverCounts.get(type);
-            String label = type.toUpperCase();
-            if (count != null) {
-                label += " (" + count + " server" + (count > 1 ? "s" : "") + ")";
-            }
-            typeLabels.add(label);
-        }
+        String[] typeLabels = availableServerTypes.toArray(new String[0]);
 
-        // Find current selection index
-        int currentSelection = availableServerTypes.indexOf(currentServerType);
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Select Server Type");
+        builder.setItems(typeLabels, (dialog, which) -> {
+            currentServerType = availableServerTypes.get(which);
+            btnAudio.setText(currentServerType);
+            // TODO: reload video with new server type
+            switchToServerType(currentServerType);
+        });
 
-        new AlertDialog.Builder(this)
-                .setTitle("Select Server Type")
-                .setSingleChoiceItems(typeLabels.toArray(new String[0]),
-                        currentSelection, (dialog, which) -> {
-                            String newServerType = availableServerTypes.get(which);
-                            if (!newServerType.equals(currentServerType)) {
-                                switchToServerType(newServerType);
-                            }
-                            dialog.dismiss();
-                        })
-                .show();
+        AlertDialog dialog = builder.create();
+        applyFocusHighlight(dialog);
+        dialog.show();
     }
 
     /**
      * Show dialog to switch between different servers of the same type
      */
     private void showAnimeServerDialog() {
-        if (currentServerType == null || serverCounts == null) {
-            Toast.makeText(this, "Server information not available", Toast.LENGTH_SHORT).show();
+        if (videoSources == null || videoSources.isEmpty()) {
+            Toast.makeText(this, "No anime servers available", Toast.LENGTH_SHORT).show();
             return;
         }
 
-        Integer count = serverCounts.get(currentServerType);
-        if (count == null || count <= 1) {
-            Toast.makeText(this, "Only one server available for " +
-                    currentServerType.toUpperCase(), Toast.LENGTH_SHORT).show();
-            return;
+        String[] serverLabels = new String[videoSources.size()];
+        for (int i = 0; i < videoSources.size(); i++) {
+            serverLabels[i] = "Anime Server " + (i + 1);
         }
 
-        String[] serverLabels = new String[count];
-        for (int i = 0; i < count; i++) {
-            serverLabels[i] = "Server " + (i + 1);
-        }
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Select Anime Server");
+        builder.setItems(serverLabels, (dialog, which) -> {
+            currentSourceIndex = which;
+            loadVideoSource(currentSourceIndex);
+        });
 
-        new AlertDialog.Builder(this)
-                .setTitle(currentServerType.toUpperCase() + " Servers")
-                .setSingleChoiceItems(serverLabels, currentServerIndex, (dialog, which) -> {
-                    if (which != currentServerIndex) {
-                        switchToServer(currentServerType, which);
-                    }
-                    dialog.dismiss();
-                })
-                .show();
+        AlertDialog dialog = builder.create();
+        applyFocusHighlight(dialog);
+        dialog.show();
     }
 
     /**
@@ -1474,6 +1457,30 @@ public class PlayerActivity extends AppCompatActivity {
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
     }
 
+    private void applyFocusHighlight(AlertDialog dialog) {
+        dialog.setOnShowListener(d -> {
+            ListView listView = dialog.getListView();
+            if (listView != null) {
+                listView.setOnHierarchyChangeListener(new ViewGroup.OnHierarchyChangeListener() {
+                    @Override
+                    public void onChildViewAdded(View parent, View child) {
+                        child.setOnFocusChangeListener((v, hasFocus) -> {
+                            if (hasFocus) {
+                                v.setBackgroundColor(0xFF0080F);   // focused item → blue
+                            } else {
+                                v.setBackgroundColor(Color.TRANSPARENT); // reset
+                            }
+                        });
+                    }
+
+                    @Override
+                    public void onChildViewRemoved(View parent, View child) {
+                        // no-op
+                    }
+                });
+            }
+        });
+    }
 
     @Override
     protected void onPause() {
