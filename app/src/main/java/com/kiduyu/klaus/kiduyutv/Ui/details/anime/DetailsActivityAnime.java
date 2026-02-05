@@ -4,6 +4,7 @@ import android.content.Intent;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.KeyEvent;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
@@ -37,6 +38,7 @@ import com.kiduyu.klaus.kiduyutv.model.EpisodeModel;
 import com.kiduyu.klaus.kiduyutv.model.Season;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
@@ -122,7 +124,7 @@ public class DetailsActivityAnime extends AppCompatActivity {
         descriptionText = findViewById(R.id.descriptionText);
         studioText = findViewById(R.id.studioText);
         countryText = findViewById(R.id.countryText);
-        favoriteButton = findViewById(R.id.favoriteButton);
+        //favoriteButton = findViewById(R.id.favoriteButton);
 
         // Episodes section
         episodesTitle = findViewById(R.id.episodesTitle);
@@ -161,12 +163,12 @@ public class DetailsActivityAnime extends AppCompatActivity {
         }
 
         // Server type buttons
-        setupServerTypeButtons();
+        //setupServerTypeButtons();
 
         // Favorite button
-        favoriteButton.setOnClickListener(v -> {
-            Toast.makeText(this, "Added to favorites", Toast.LENGTH_SHORT).show();
-        });
+//        favoriteButton.setOnClickListener(v -> {
+//            Toast.makeText(this, "Added to favorites", Toast.LENGTH_SHORT).show();
+//        });
 
         // Focus listeners
         View.OnFocusChangeListener focusChangeListener = (v, hasFocus) -> {
@@ -177,12 +179,12 @@ public class DetailsActivityAnime extends AppCompatActivity {
             }
         };
 
-        favoriteButton.setOnFocusChangeListener(focusChangeListener);
+        //favoriteButton.setOnFocusChangeListener(focusChangeListener);
         subButton.setOnFocusChangeListener(focusChangeListener);
         dubButton.setOnFocusChangeListener(focusChangeListener);
         softsubButton.setOnFocusChangeListener(focusChangeListener);
     }
-
+    /**
     private void setupServerTypeButtons() {
         subButton.setOnClickListener(v -> {
             selectServerType("sub");
@@ -196,6 +198,7 @@ public class DetailsActivityAnime extends AppCompatActivity {
             selectServerType("softsub");
         });
     }
+
 
     private void selectServerType(String serverType) {
         selectedServerType = serverType;
@@ -213,7 +216,7 @@ public class DetailsActivityAnime extends AppCompatActivity {
 
         // Note: Server type selection is now set, episodes will use this when played
         Toast.makeText(this, "Selected " + serverType.toUpperCase(), Toast.LENGTH_SHORT).show();
-    }
+    } **/
 
     private void setupRecyclerViews() {
         // Season tabs - horizontal
@@ -306,6 +309,9 @@ public class DetailsActivityAnime extends AppCompatActivity {
         if (anime.getDuration() != null && !anime.getDuration().isEmpty()) {
             durationText.setText(anime.getDuration());
         }
+        if (anime.getAnimeDescription() != null && !anime.getAnimeDescription().isEmpty()) {
+            descriptionText.setText(anime.getAnimeDescription());
+        }
 
         // Studio
         if (anime.getStudio() != null && !anime.getStudio().isEmpty()) {
@@ -371,7 +377,7 @@ public class DetailsActivityAnime extends AppCompatActivity {
         }
 
         // Show server type selector
-        serverTypeLayout.setVisibility(View.VISIBLE);
+        //serverTypeLayout.setVisibility(View.VISIBLE);
 
         // Load first season
         if (!seasons.isEmpty()) {
@@ -422,8 +428,47 @@ public class DetailsActivityAnime extends AppCompatActivity {
 
                 runOnUiThread(() -> {
                     loadingOverlay.setVisibility(View.GONE);
-                    currentServers = servers;
-                    showServerSelectionDialog(episode, servers);
+
+                    if (servers == null || servers.isEmpty()) {
+                        Toast.makeText(DetailsActivityAnime.this,
+                                "No servers available",
+                                Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+
+                    // Find first available server from preferred type order
+                    AnimekaiApi.ServerInfo firstServer = null;
+                    String firstServerType = null;
+                    int firstServerIndex = 0;
+
+                    // Try selected type first, then fall back to others
+                    String[] typeOrder = {selectedServerType, "sub", "dub", "softsub"};
+
+                    for (String type : typeOrder) {
+                        if (servers.containsKey(type) && !servers.get(type).isEmpty()) {
+                            Map<String, AnimekaiApi.ServerInfo> typeServers = servers.get(type);
+                            // Get first server from this type
+                            Map.Entry<String, AnimekaiApi.ServerInfo> firstEntry =
+                                    typeServers.entrySet().iterator().next();
+                            firstServer = firstEntry.getValue();
+                            firstServerType = type;
+                            firstServerIndex = firstServer.index;
+                            break;
+                        }
+                    }
+
+                    if (firstServer == null) {
+                        Toast.makeText(DetailsActivityAnime.this,
+                                "No servers available",
+                                Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+
+                    Log.i(TAG, "Playing with first available server: " +
+                            firstServerType + " - Server " + (firstServerIndex + 1));
+
+                    // Play with first available server, pass all servers to player
+                    playEpisodeWithServers(episode, servers, firstServerType, firstServerIndex);
                 });
 
             } catch (Exception e) {
@@ -438,89 +483,41 @@ public class DetailsActivityAnime extends AppCompatActivity {
         });
     }
 
-    private void showServerSelectionDialog(EpisodeModel episode,
-                                           Map<String, Map<String, AnimekaiApi.ServerInfo>> servers) {
-
-        // Try to use selected server type first
-        if (servers.containsKey(selectedServerType) &&
-                !servers.get(selectedServerType).isEmpty()) {
-
-            Map<String, AnimekaiApi.ServerInfo> typeServers = servers.get(selectedServerType);
-
-            if (typeServers.size() == 1) {
-                // Only one server, play directly
-                AnimekaiApi.ServerInfo server = typeServers.values().iterator().next();
-                playEpisode(episode, server);
-            } else {
-                // Multiple servers, show selection
-                showServerList(episode, typeServers, selectedServerType.toUpperCase());
-            }
-
-        } else {
-            // Selected type not available, show all available servers
-            AlertDialog.Builder builder = new AlertDialog.Builder(this);
-            builder.setTitle("Select Server Type");
-
-            List<String> availableTypes = new ArrayList<>();
-            if (servers.containsKey("sub")) availableTypes.add("SUB");
-            if (servers.containsKey("dub")) availableTypes.add("DUB");
-            if (servers.containsKey("softsub")) availableTypes.add("SOFTSUB");
-
-            if (availableTypes.isEmpty()) {
-                Toast.makeText(this, "No servers available", Toast.LENGTH_SHORT).show();
-                return;
-            }
-
-            builder.setItems(availableTypes.toArray(new String[0]), (dialog, which) -> {
-                String type = availableTypes.get(which).toLowerCase();
-                Map<String, AnimekaiApi.ServerInfo> typeServers = servers.get(type);
-
-                if (typeServers.size() == 1) {
-                    AnimekaiApi.ServerInfo server = typeServers.values().iterator().next();
-                    playEpisode(episode, server);
-                } else {
-                    showServerList(episode, typeServers, type.toUpperCase());
-                }
-            });
-
-            builder.show();
-        }
-    }
-
-    private void showServerList(EpisodeModel episode,
-                                Map<String, AnimekaiApi.ServerInfo> servers,
-                                String serverTypeName) {
-
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle(serverTypeName + " Servers");
-
-        List<String> serverNames = new ArrayList<>();
-        List<AnimekaiApi.ServerInfo> serverList = new ArrayList<>();
-
-        for (Map.Entry<String, AnimekaiApi.ServerInfo> entry : servers.entrySet()) {
-            serverNames.add("Server " + (entry.getValue().index + 1));
-            serverList.add(entry.getValue());
-        }
-
-        builder.setItems(serverNames.toArray(new String[0]), (dialog, which) -> {
-            AnimekaiApi.ServerInfo selectedServer = serverList.get(which);
-            playEpisode(episode, selectedServer);
-        });
-
-        builder.show();
-    }
-
+    /**
+     * Play episode with all available servers - server/type switching handled in PlayerActivity
+     */
     @OptIn(markerClass = UnstableApi.class)
-    private void playEpisode(EpisodeModel episode, AnimekaiApi.ServerInfo server) {
+    private void playEpisodeWithServers(EpisodeModel episode,
+                                        Map<String, Map<String, AnimekaiApi.ServerInfo>> allServers,
+                                        String initialServerType,
+                                        int initialServerIndex) {
         loadingOverlay.setVisibility(View.VISIBLE);
         loadingText.setText("Loading video...");
-        Log.i(TAG, "Selected server: " + server.linkId);
 
+        // Get initial server
+        Map<String, AnimekaiApi.ServerInfo> typeServers = allServers.get(initialServerType);
+        AnimekaiApi.ServerInfo initialServer = null;
+
+        for (AnimekaiApi.ServerInfo server : typeServers.values()) {
+            if (server.index == initialServerIndex) {
+                initialServer = server;
+                break;
+            }
+        }
+
+        if (initialServer == null) {
+            // Fallback to first server
+            initialServer = typeServers.values().iterator().next();
+        }
+
+        AnimekaiApi.ServerInfo serverToPlay = initialServer;
+
+        Log.i(TAG, "Selected server: " + serverToPlay.linkId);
 
         executorService.execute(() -> {
             try {
                 // Resolve embed URL to get video sources
-                AnimekaiApi.MediaData mediaData = animekaiApi.resolveEmbedUrl(server.linkId);
+                AnimekaiApi.MediaData mediaData = animekaiApi.resolveEmbedUrl(serverToPlay.linkId);
 
                 runOnUiThread(() -> {
                     loadingOverlay.setVisibility(View.GONE);
@@ -531,7 +528,7 @@ public class DetailsActivityAnime extends AppCompatActivity {
 
                         Log.i(TAG, "Playing: " + videoUrl);
 
-                        // Launch player
+                        // Launch player with ALL server data
                         Intent intent = new Intent(DetailsActivityAnime.this, PlayerActivity.class);
                         intent.putExtra("video_url", videoUrl);
                         intent.putExtra("title", anime.getAnimeName());
@@ -539,6 +536,25 @@ public class DetailsActivityAnime extends AppCompatActivity {
                                 "E" + episode.getEpisodeNumber() +
                                 " - " + episode.getEpisodeName());
                         intent.putExtra("media_type", "anime");
+
+                        // Pass episode token for server switching
+                        intent.putExtra("episode_token", episode.getEpisodeToken());
+
+                        // Pass current server info
+                        intent.putExtra("current_server_type", initialServerType);
+                        intent.putExtra("current_server_index", initialServerIndex);
+                        intent.putExtra("description", anime.getAnimeDescription());
+
+                        // Serialize and pass all available servers
+                        intent.putExtra("available_server_types",
+                                new ArrayList<>(allServers.keySet()));
+
+                        // Pass server counts for each type
+                        HashMap<String, Integer> serverCounts = new HashMap<>();
+                        for (Map.Entry<String, Map<String, AnimekaiApi.ServerInfo>> entry : allServers.entrySet()) {
+                            serverCounts.put(entry.getKey(), entry.getValue().size());
+                        }
+                        intent.putExtra("server_counts", serverCounts);
 
                         // Add subtitles if available
                         if (mediaData.getTracks() != null && !mediaData.getTracks().isEmpty()) {

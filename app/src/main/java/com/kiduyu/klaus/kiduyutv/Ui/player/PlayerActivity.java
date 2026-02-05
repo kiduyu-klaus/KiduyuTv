@@ -20,6 +20,7 @@ import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
@@ -49,6 +50,8 @@ import androidx.media3.exoplayer.source.ProgressiveMediaSource;
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector;
 
 import com.kiduyu.klaus.kiduyutv.R;
+import com.kiduyu.klaus.kiduyutv.Api.AnimekaiApi;
+import com.kiduyu.klaus.kiduyutv.model.EpisodeModel;
 import com.kiduyu.klaus.kiduyutv.model.MediaItems;
 import com.kiduyu.klaus.kiduyutv.utils.PreferencesManager;
 
@@ -107,6 +110,14 @@ public class PlayerActivity extends AppCompatActivity {
     private float currentSpeed = 1.0f;
     private String mediaType; // "anime", "movie", "tv", etc.
 
+    // Anime server switching data
+    private String episodeToken;
+    private String currentServerType;
+    private int currentServerIndex;
+    private ArrayList<String> availableServerTypes;
+    private HashMap<String, Integer> serverCounts;
+    private AnimekaiApi animekaiApi;
+
     // Control visibility
     private Handler controlsHandler = new Handler(Looper.getMainLooper());
     private Runnable hideControlsRunnable = this::hideControls;
@@ -136,17 +147,58 @@ public class PlayerActivity extends AppCompatActivity {
 
         setContentView(R.layout.activity_player);
 
+        // Get media type from intent
+        mediaType = getIntent().getStringExtra("media_type");
+        Log.i(TAG, "Media type: " + mediaType);
+
+        // Check if this is anime playback
+        if ("anime".equals(mediaType)) {
+            // Handle anime playback - extract all extras from DetailsActivityAnime
+            handleAnimePlayback();
+            return;
+        }
+
+        // Continue with normal playback flow for non-anime content
         // Get media item from intent
         mediaItems = getIntent().getParcelableExtra("media_item");
         startPosition = getIntent().getLongExtra("start_position", 0);
-        mediaType = getIntent().getStringExtra("media_type");
-        Log.i(TAG, "Media type: " + mediaType);
 
         if (mediaItems == null) {
             Toast.makeText(this, "Error: No media to play", Toast.LENGTH_SHORT).show();
             finish();
             return;
         }
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+
+                // 1️⃣ If controls are visible, just hide them
+                if (controlsVisible) {
+                    hideControls();
+                    return;
+                }
+
+                // 2️⃣ Double back to exit
+                if (backPressedOnce) {
+                    backPressedOnce = false;
+                    saveWatchProgress();
+                    backPressHandler.removeCallbacks(backPressResetTask);
+
+                    // Disable callback BEFORE exiting
+                    setEnabled(false);
+                    finish();
+                    return;
+                }
+
+                // 3️⃣ First back press
+                backPressedOnce = true;
+                showToast("Press back again to exit");
+
+                // Reset after 5 seconds
+                backPressHandler.postDelayed(backPressResetTask, 5000);
+            }
+        });
+
 
         // Initialize preferences manager
         preferencesManager = PreferencesManager.getInstance(this);
@@ -176,6 +228,125 @@ public class PlayerActivity extends AppCompatActivity {
         loadVideoSource(currentSourceIndex);
 
 
+    }
+
+    /**
+     * Handle anime playback with extras passed from DetailsActivityAnime
+     */
+    private void handleAnimePlayback() {
+        Log.i(TAG, "Handling anime playback");
+
+        // Extract all intent extras from DetailsActivityAnime
+        String videoUrl = getIntent().getStringExtra("video_url");
+        String title = getIntent().getStringExtra("title");
+        String subtitle = getIntent().getStringExtra("subtitle");
+
+        ArrayList<String> subtitleUrls = getIntent().getStringArrayListExtra("subtitle_urls");
+        ArrayList<String> subtitleLabels = getIntent().getStringArrayListExtra("subtitle_labels");
+
+        // Server switching data
+        episodeToken = getIntent().getStringExtra("episode_token");
+        String description = getIntent().getStringExtra("description");
+        currentServerType = getIntent().getStringExtra("current_server_type");
+        currentServerIndex = getIntent().getIntExtra("current_server_index", 0);
+        availableServerTypes = getIntent().getStringArrayListExtra("available_server_types");
+        serverCounts = (HashMap<String, Integer>) getIntent().getSerializableExtra("server_counts");
+
+        // Skip info
+        int introStart = getIntent().getIntExtra("intro_start", -1);
+        int introEnd = getIntent().getIntExtra("intro_end", -1);
+        int outroStart = getIntent().getIntExtra("outro_start", -1);
+        int outroEnd = getIntent().getIntExtra("outro_end", -1);
+
+        // Validate required data
+        if (videoUrl == null || videoUrl.isEmpty()) {
+            Toast.makeText(this, "Error: No video URL provided", Toast.LENGTH_SHORT).show();
+            finish();
+            return;
+        }
+
+        Log.i(TAG, "Anime video URL: " + videoUrl);
+        Log.i(TAG, "Title: " + title);
+        Log.i(TAG, "Subtitle: " + subtitle);
+        Log.i(TAG, "Server Type: " + currentServerType + ", Server Index: " + currentServerIndex);
+
+        // Initialize AnimekaiApi for server switching
+        if (episodeToken != null && !episodeToken.isEmpty()) {
+            animekaiApi = new AnimekaiApi();
+            Log.i(TAG, "AnimekaiApi initialized for server switching");
+        }
+
+        // Create a MediaItems object for anime playback
+        mediaItems = new MediaItems();
+        mediaItems.setTitle(title != null ? title : "Anime");
+        mediaItems.setDescription(subtitle != null ? subtitle : "");
+
+        // Create video source
+        videoSources = new ArrayList<>();
+        MediaItems.VideoSource videoSource = new MediaItems.VideoSource();
+        videoSource.setUrl(videoUrl);
+        videoSource.setQuality("Default");
+        //videoSource.setType("anime");
+        videoSources.add(videoSource);
+        mediaItems.setVideoSources(videoSources);
+
+        // Create subtitles if available
+        subtitles = new ArrayList<>();
+        if (subtitleUrls != null && subtitleLabels != null &&
+                subtitleUrls.size() == subtitleLabels.size()) {
+
+            Log.i(TAG, "Found " + subtitleUrls.size() + " subtitles");
+
+            for (int i = 0; i < subtitleUrls.size(); i++) {
+                MediaItems.SubtitleItem subtitleItem = new MediaItems.SubtitleItem();
+                subtitleItem.setUrl(subtitleUrls.get(i));
+                subtitleItem.setLanguage(subtitleLabels.get(i));
+                subtitles.add(subtitleItem);
+                Log.i(TAG, "Subtitle " + i + ": " + subtitleLabels.get(i) + " - " + subtitleUrls.get(i));
+            }
+
+            mediaItems.setSubtitles(subtitles);
+        }
+
+        // Initialize preferences manager
+        preferencesManager = PreferencesManager.getInstance(this);
+
+        // Initialize UI
+        initializeViews();
+        setupClickListeners();
+
+        // Set anime-specific UI info
+        videoTitle.setText(title != null ? title : "Anime");
+        videoDescription.setText(description != null ? subtitle : "");
+        episodeInfo.setVisibility(View.VISIBLE);
+        episodeInfo.setText(subtitle != null ? subtitle : "");
+
+        // Initialize player
+        initializePlayer();
+
+        // Auto-select first subtitle if available (usually English)
+        if (subtitles != null && !subtitles.isEmpty()) {
+            currentSubtitleIndex = 0; // Select first subtitle by default
+            Log.i(TAG, "Auto-selected subtitle: " + subtitles.get(0).getLanguage());
+        }
+
+        // Update button labels for anime
+        updateAnimeServerButtons();
+
+        // Start playing
+        currentSourceIndex = 0;
+        loadVideoSource(currentSourceIndex);
+
+        // Handle skip info (intro/outro) if provided
+        if (introStart >= 0 && introEnd >= 0) {
+            Log.i(TAG, "Intro skip: " + introStart + " - " + introEnd);
+            // TODO: Implement skip intro button/functionality
+        }
+
+        if (outroStart >= 0 && outroEnd >= 0) {
+            Log.i(TAG, "Outro skip: " + outroStart + " - " + outroEnd);
+            // TODO: Implement skip outro button/functionality
+        }
     }
 
     private void initializeViews() {
@@ -242,7 +413,13 @@ public class PlayerActivity extends AppCompatActivity {
         btnSpeed.setOnClickListener(v -> showSpeedDialog());
 
         // Server/Source button
-        btnServer.setOnClickListener(v -> showServerDialog());
+        btnServer.setOnClickListener(v -> {
+            if ("anime".equals(mediaType) && episodeToken != null) {
+                showAnimeServerDialog();
+            } else {
+                showServerDialog();
+            }
+        });
 
         // Quality button
         btnQuality.setOnClickListener(v -> showQualityDialog());
@@ -255,15 +432,19 @@ public class PlayerActivity extends AppCompatActivity {
             Toast.makeText(this, "Settings clicked", Toast.LENGTH_SHORT).show();
         });
 
-        // Audio button
+        // Audio button - used for server type selection in anime
         btnAudio.setOnClickListener(v -> {
-            Toast.makeText(this, "Audio track selection coming soon", Toast.LENGTH_SHORT).show();
+            if ("anime".equals(mediaType) && availableServerTypes != null) {
+                showAnimeServerTypeDialog();
+            } else {
+                Toast.makeText(this, "Audio track selection coming soon", Toast.LENGTH_SHORT).show();
+            }
         });
 
         // Touch on video surface to toggle controls
         videoSurface.setOnClickListener(v -> toggleControls());
 
-        // Touch on background to toggle controls
+        // Background to toggle controls
         backgroundImage.setOnClickListener(v -> toggleControls());
     }
 
@@ -404,8 +585,8 @@ public class PlayerActivity extends AppCompatActivity {
                 // Use actual millisecond values since max is set to duration in ms
                 progressBar.setSecondaryProgress((int) bufferedPosition);
 
-                Log.i(TAG, "Current: " + currentPosition + "ms | Buffered: " + bufferedPosition +
-                        "ms | Max: " + duration + "ms | Buffer Duration: " + formatTime((int) bufferDuration));
+//                Log.i(TAG, "Current: " + currentPosition + "ms | Buffered: " + bufferedPosition +
+//                        "ms | Max: " + duration + "ms | Buffer Duration: " + formatTime((int) bufferDuration));
             }
         }
     }
@@ -856,6 +1037,255 @@ public class PlayerActivity extends AppCompatActivity {
                 .show();
     }
 
+    /**
+     * Update anime server button labels
+     */
+    private void updateAnimeServerButtons() {
+        if (currentServerType != null && serverCounts != null) {
+            // Update Audio button to show current server type
+            String typeLabel = currentServerType.toUpperCase();
+            btnAudio.setText(typeLabel);
+
+            // Update Server button to show current server index
+            Integer count = serverCounts.get(currentServerType);
+            if (count != null && count > 1) {
+                btnServer.setText("Server " + (currentServerIndex + 1));
+            } else {
+                btnServer.setText("Server 1");
+            }
+
+            Log.i(TAG, "Updated buttons: Type=" + typeLabel + ", Server=" + (currentServerIndex + 1));
+        }
+    }
+
+    /**
+     * Show dialog to switch between different server types (SUB/DUB/SOFTSUB)
+     */
+    private void showAnimeServerTypeDialog() {
+        if (availableServerTypes == null || availableServerTypes.isEmpty()) {
+            Toast.makeText(this, "No other server types available", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        List<String> typeLabels = new ArrayList<>();
+        for (String type : availableServerTypes) {
+            Integer count = serverCounts.get(type);
+            String label = type.toUpperCase();
+            if (count != null) {
+                label += " (" + count + " server" + (count > 1 ? "s" : "") + ")";
+            }
+            typeLabels.add(label);
+        }
+
+        // Find current selection index
+        int currentSelection = availableServerTypes.indexOf(currentServerType);
+
+        new AlertDialog.Builder(this)
+                .setTitle("Select Server Type")
+                .setSingleChoiceItems(typeLabels.toArray(new String[0]),
+                        currentSelection, (dialog, which) -> {
+                            String newServerType = availableServerTypes.get(which);
+                            if (!newServerType.equals(currentServerType)) {
+                                switchToServerType(newServerType);
+                                Log.i(TAG, "Switched to server type: " + newServerType);
+                            }
+                            dialog.dismiss();
+                        })
+                .show();
+    }
+
+    /**
+     * Show dialog to switch between different servers of the same type
+     */
+    private void showAnimeServerDialog() {
+        if (currentServerType == null || serverCounts == null) {
+            Toast.makeText(this, "Server information not available", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        Integer count = serverCounts.get(currentServerType);
+        if (count == null || count <= 1) {
+            Toast.makeText(this, "Only one server available for " +
+                    currentServerType.toUpperCase(), Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        String[] serverLabels = new String[count];
+        for (int i = 0; i < count; i++) {
+            serverLabels[i] = "Server " + (i + 1);
+        }
+
+        new AlertDialog.Builder(this)
+                .setTitle(currentServerType.toUpperCase() + " Servers")
+                .setSingleChoiceItems(serverLabels, currentServerIndex, (dialog, which) -> {
+                    if (which != currentServerIndex) {
+                        switchToServer(currentServerType, which);
+                    }
+                    dialog.dismiss();
+                })
+                .show();
+    }
+
+    /**
+     * Switch to a different server type (SUB/DUB/SOFTSUB)
+     */
+    private void switchToServerType(String newServerType) {
+        Log.i(TAG, "Switching from " + currentServerType + " to " + newServerType);
+
+        loadingIndicator.setVisibility(View.VISIBLE);
+        loadingStatusContainer.setVisibility(View.VISIBLE);
+        loadingStatusText.setText("Switching to " + newServerType.toUpperCase() + "...");
+
+        // Switch to first server of the new type
+        switchToServer(newServerType, 0);
+    }
+
+    /**
+     * Switch to a specific server
+     */
+    private void switchToServer(String serverType, int serverIndex) {
+        if (animekaiApi == null || episodeToken == null) {
+            Toast.makeText(this, "Cannot switch servers", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        Log.i(TAG, "Switching to " + serverType + " Server " + (serverIndex + 1));
+
+        long currentPosition = player != null ? player.getCurrentPosition() : 0;
+        boolean wasPlaying = player != null && player.isPlaying();
+
+        loadingIndicator.setVisibility(View.VISIBLE);
+        loadingStatusContainer.setVisibility(View.VISIBLE);
+        loadingStatusText.setText("Loading " + serverType.toUpperCase() +
+                " Server " + (serverIndex + 1) + "...");
+
+        new Thread(() -> {
+            try {
+                // Fetch servers again
+                Map<String, Map<String, AnimekaiApi.ServerInfo>> servers =
+                        animekaiApi.fetchEpisodeServers(episodeToken);
+
+
+
+                if (!servers.containsKey(serverType)) {
+                    runOnUiThread(() -> {
+                        loadingIndicator.setVisibility(View.GONE);
+                        loadingStatusContainer.setVisibility(View.GONE);
+                        Toast.makeText(this, serverType.toUpperCase() +
+                                " not available", Toast.LENGTH_SHORT).show();
+                    });
+                    return;
+                }
+
+                Map<String, AnimekaiApi.ServerInfo> typeServers = servers.get(serverType);
+                Log.i(TAG, "Found " + typeServers.size() + " servers of type " + serverType);
+
+                AnimekaiApi.ServerInfo targetServer = null;
+
+                // Find server by index
+                for (AnimekaiApi.ServerInfo server : typeServers.values()) {
+                    Log.i(TAG, "Found server linkId: " + server.linkId);
+                    Log.i(TAG, "Found server type: " + server.serverType);
+                    Log.i(TAG, "Found server index: " + server.index);
+                    Log.i(TAG, "server.index: " + server.index);
+                    Log.i(TAG, "serverIndex: " + serverIndex);
+
+
+
+                    if (server.index == serverIndex + 1){
+                        targetServer = server;
+                        break;
+                    }
+                }
+
+                if (targetServer == null) {
+                    runOnUiThread(() -> {
+                        loadingIndicator.setVisibility(View.GONE);
+                        loadingStatusContainer.setVisibility(View.GONE);
+                        Toast.makeText(this, "Server not found", Toast.LENGTH_SHORT).show();
+                    });
+                    return;
+                }
+
+                // Resolve new video URL
+                AnimekaiApi.MediaData mediaData = animekaiApi.resolveEmbedUrl(targetServer.linkId);
+
+                List<String> sources = mediaData.getSources();
+                if (sources == null || sources.isEmpty()) {
+                    runOnUiThread(() -> {
+                        loadingIndicator.setVisibility(View.GONE);
+                        loadingStatusContainer.setVisibility(View.GONE);
+                        Toast.makeText(this, "No video sources found", Toast.LENGTH_SHORT).show();
+                    });
+                    return;
+                }
+
+                String newVideoUrl = sources.get(0);
+
+                // Update subtitles if available
+                final ArrayList<MediaItems.SubtitleItem> newSubtitles = new ArrayList<>();
+                if (mediaData.getTracks() != null && !mediaData.getTracks().isEmpty()) {
+                    for (EpisodeModel.Track track : mediaData.getTracks()) {
+                        MediaItems.SubtitleItem subtitleItem = new MediaItems.SubtitleItem();
+                        subtitleItem.setUrl(track.getFile());
+                        subtitleItem.setLanguage(track.getLabel());
+                        newSubtitles.add(subtitleItem);
+                    }
+                }
+
+                runOnUiThread(() -> {
+                    // Update current server info
+                    currentServerType = serverType;
+                    currentServerIndex = serverIndex;
+
+                    // Update video source
+                    if (!videoSources.isEmpty()) {
+                        videoSources.get(0).setUrl(newVideoUrl);
+                    }
+
+                    // Update subtitles
+                    if (!newSubtitles.isEmpty()) {
+                        subtitles = newSubtitles;
+                        mediaItems.setSubtitles(subtitles);
+                        currentSubtitleIndex = 0; // Auto-select first subtitle
+                    }
+
+                    // Update button labels
+                    updateAnimeServerButtons();
+
+                    // Reload video
+                    loadVideoSource(0);
+
+                    // Restore position and playback state
+                    if (player != null) {
+                        player.seekTo(currentPosition);
+                        if (wasPlaying) {
+                            player.play();
+                        }
+                    }
+
+                    loadingIndicator.setVisibility(View.GONE);
+                    loadingStatusContainer.setVisibility(View.GONE);
+
+                    Toast.makeText(this, "Switched to " + serverType.toUpperCase() +
+                            " Server " + (serverIndex + 1), Toast.LENGTH_SHORT).show();
+
+                    Log.i(TAG, "Successfully switched to " + serverType +
+                            " Server " + (serverIndex + 1));
+                });
+
+            } catch (Exception e) {
+                Log.e(TAG, "Error switching server", e);
+                runOnUiThread(() -> {
+                    loadingIndicator.setVisibility(View.GONE);
+                    loadingStatusContainer.setVisibility(View.GONE);
+                    Toast.makeText(this, "Failed to switch server: " +
+                            e.getMessage(), Toast.LENGTH_LONG).show();
+                });
+            }
+        }).start();
+    }
+
     private void updateServerButton() {
         btnServer.setText("Server " + (currentSourceIndex + 1));
     }
@@ -948,28 +1378,13 @@ public class PlayerActivity extends AppCompatActivity {
             }
         }
 
-        if (keyCode == KeyEvent.KEYCODE_DPAD_DOWN) {
-            if (!controlsVisible) {
-                if (player != null) {
-                    long currentPosition = player.getCurrentPosition();
-                    long newPosition = Math.max(currentPosition - 10000, 0); // -10 seconds (10000ms)
-
-                    player.seekTo(newPosition);
-                    updateTimeDisplay();
-                    showToast("Backward -10s");
-
-                    // Show controls briefly if hidden
-                    if (!controlsVisible) {
-                        showControls();
-                    }
-                    resetHideControlsTimer();
-                }
-                return true;
-            }
+        if (keyCode == KeyEvent.KEYCODE_DPAD_DOWN && !controlsVisible) {
+            showControls();
+            return true;
         }
 
         // Back button - double press to exit
-        if (keyCode == KeyEvent.KEYCODE_BACK) {
+        /**if (keyCode == KeyEvent.KEYCODE_BACK) {
             if (controlsVisible) {
                 hideControls();
                 return true;
@@ -989,7 +1404,7 @@ public class PlayerActivity extends AppCompatActivity {
             // Reset flag after 5 seconds
             backPressHandler.postDelayed(backPressResetTask, 5000);
             return true;
-        }
+        }**/
 
         // Play/pause on center when controls visible and no button focused
         if (keyCode == KeyEvent.KEYCODE_DPAD_CENTER && controlsVisible) {
@@ -1045,6 +1460,12 @@ public class PlayerActivity extends AppCompatActivity {
             player = null;
         }
 
+        // Shutdown AnimekaiApi if used for server switching
+        if (animekaiApi != null) {
+            animekaiApi.shutdown();
+            animekaiApi = null;
+        }
+
         // Clear handlers
         controlsHandler.removeCallbacks(hideControlsRunnable);
         progressUpdateHandler.removeCallbacks(progressUpdateRunnable);
@@ -1053,9 +1474,5 @@ public class PlayerActivity extends AppCompatActivity {
         getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
     }
 
-    @Override
-    public void onBackPressed() {
-        saveWatchProgress();
-        super.onBackPressed();
-    }
+
 }

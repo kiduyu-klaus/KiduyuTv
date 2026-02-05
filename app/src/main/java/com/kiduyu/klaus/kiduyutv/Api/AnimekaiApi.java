@@ -225,6 +225,7 @@ public class AnimekaiApi {
      * @param animeurl The anime page URL
      * @param anime The AnimeModel to populate with metadata
      */
+    @RequiresApi(api = Build.VERSION_CODES.O)
     private void fetchAnimeMetadataFromUrl(String animeurl, AnimeModel anime) {
         Log.i(TAG, "Fetching additional metadata from: " + animeurl);
 
@@ -368,6 +369,18 @@ public class AnimekaiApi {
             if (!producers.isEmpty()) {
                 anime.setProducers(producers);
             }
+            // =======================
+            // Description
+            // =======================
+            Element descDiv = mainSection.selectFirst("div.desc.text-expand");
+            if (descDiv != null) {
+                String description = descDiv.text().trim();
+                Log.i(TAG, "Description: " + description);
+                if (!description.isEmpty()) {
+                    anime.setAnimeDescription(description);
+                }
+            }
+
 
             // =======================
             // External Links
@@ -391,6 +404,9 @@ public class AnimekaiApi {
             Log.e(TAG, "Error fetching anime metadata from URL: " + animeurl, e);
         }
     }
+
+
+
 
     /**
      * Parse date string to LocalDate
@@ -453,14 +469,13 @@ public class AnimekaiApi {
         // Step 1: Encrypt link ID
         String encryptedLinkId = encryptionService.encrypt(linkId);
 
-        // Step 2: Get embed URL
+        // Step 2: Get embed URL - using getFullJson to get complete response
         String embedUrl = KAI_AJAX + "/links/view?id=" + linkId + "&_=" + encryptedLinkId;
-        String embedJson = getJson(embedUrl);
-        Log.i(TAG, "Embed JSON: " + embedJson);
+        JSONObject embedResponse = getFullJson(embedUrl);
+        Log.i(TAG, "Embed response: " + embedResponse.toString());
 
 
         // Step 3: Extract encrypted result
-        JSONObject embedResponse = new JSONObject(embedJson);
         String encryptedResult = embedResponse.getString("result");
 
         // Step 4: Decrypt to get embed URL and skip info
@@ -511,7 +526,7 @@ public class AnimekaiApi {
 
         // Decrypt media
         String decryptedMedia = encryptionService.decryptMega(encryptedMedia, USER_AGENT);
-        Log.i(TAG, "Decrypted media data");
+        Log.i(TAG, "Decrypted media data"+decryptedMedia);
 
         // Parse media data
         return parseMediaData(decryptedMedia);
@@ -523,6 +538,7 @@ public class AnimekaiApi {
 
     /**
      * Get JSON from URL with proper headers
+     * Note: This extracts the "result" field from the response
      */
     private String getJson(String url) throws IOException, JSONException {
         Request request = new Request.Builder()
@@ -540,6 +556,28 @@ public class AnimekaiApi {
             String responseBody = response.body().string();
             JSONObject json = new JSONObject(responseBody);
             return json.getString("result");
+        }
+    }
+
+    /**
+     * Get full JSON response from URL with proper headers
+     * Returns the complete JSONObject without extracting any fields
+     */
+    private JSONObject getFullJson(String url) throws IOException, JSONException {
+        Request request = new Request.Builder()
+                .url(url)
+                .header("User-Agent", USER_AGENT)
+                .header("Referer", REFERER)
+                .header("Accept", "application/json")
+                .build();
+
+        try (Response response = httpClient.newCall(request).execute()) {
+            if (!response.isSuccessful()) {
+                throw new IOException("Request failed: " + response.code());
+            }
+
+            String responseBody = response.body().string();
+            return new JSONObject(responseBody);
         }
     }
 
@@ -602,7 +640,7 @@ public class AnimekaiApi {
                     info.index = Integer.parseInt(key);
 
                     serverInfoMap.put(key, info);
-                    Log.i(TAG, "Parsed server info: " +info);
+                    Log.i(TAG, "Parsed server info: " +info.linkId + " - " + info.serverType + " - " + info.index);
                 }
 
                 serversMap.put(serverType, serverInfoMap);
@@ -636,13 +674,28 @@ public class AnimekaiApi {
             org.json.JSONArray tracksArray = mediaJson.getJSONArray("tracks");
             for (int i = 0; i < tracksArray.length(); i++) {
                 JSONObject track = tracksArray.getJSONObject(i);
-                EpisodeModel.Track trackObj = new EpisodeModel.Track(
-                        track.getString("file"),
-                        track.getString("label"),
-                        track.getString("kind"),
-                        track.optBoolean("default", false)
-                );
-                tracks.add(trackObj);
+
+                // Get required fields
+                String file = track.getString("file");
+                String kind = track.getString("kind");
+
+                // Get optional fields - use optString for label since thumbnails don't have it
+                String label = track.optString("label", "");
+                boolean isDefault = track.optBoolean("default", false);
+
+                // Only add subtitle/caption tracks, skip thumbnails
+                if (!"thumbnails".equals(kind)) {
+                    EpisodeModel.Track trackObj = new EpisodeModel.Track(
+                            file,
+                            label,
+                            kind,
+                            isDefault
+                    );
+                    tracks.add(trackObj);
+                    Log.i(TAG, "Added track: " + kind + " - " + label);
+                } else {
+                    Log.i(TAG, "Skipping thumbnails track");
+                }
             }
             mediaData.setTracks(tracks);
         }

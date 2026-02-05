@@ -163,7 +163,7 @@
             <Button
                 android:id="@+id/btnSettings"
                 android:layout_width="wrap_content"
-                android:layout_height="25dp"
+                android:layout_height="27dp"
                 android:text="Settings"
                 android:textColor="@android:color/white"
                 android:background="@drawable/tv_control_selector"
@@ -177,7 +177,7 @@
             <Button
                 android:id="@+id/btnSpeed"
                 android:layout_width="wrap_content"
-                android:layout_height="35dp"
+                android:layout_height="27dp"
                 android:text="Speed 1.00x"
                 android:textColor="@android:color/white"
                 android:background="@drawable/tv_control_selector"
@@ -185,13 +185,13 @@
                 android:paddingEnd="16dp"
                 android:layout_marginEnd="12dp"
                 android:focusable="true"
-                android:textSize="8sp"
+                android:textSize="5sp"
                 android:textAllCaps="false" />
 
             <Button
                 android:id="@+id/btnServer"
                 android:layout_width="wrap_content"
-                android:layout_height="35dp"
+                android:layout_height="27dp"
                 android:text="Server 1"
                 android:textColor="@android:color/white"
                 android:background="@drawable/tv_control_selector"
@@ -199,13 +199,13 @@
                 android:paddingEnd="16dp"
                 android:layout_marginEnd="12dp"
                 android:focusable="true"
-                android:textSize="8sp"
+                android:textSize="5sp"
                 android:textAllCaps="false" />
 
             <Button
                 android:id="@+id/btnQuality"
                 android:layout_width="wrap_content"
-                android:layout_height="35dp"
+                android:layout_height="27dp"
                 android:text="Medium 720p"
                 android:textColor="@android:color/white"
                 android:background="@drawable/tv_control_selector"
@@ -213,13 +213,13 @@
                 android:paddingEnd="16dp"
                 android:layout_marginEnd="12dp"
                 android:focusable="true"
-                android:textSize="8sp"
+                android:textSize="5sp"
                 android:textAllCaps="false" />
 
             <Button
                 android:id="@+id/btnAudio"
                 android:layout_width="wrap_content"
-                android:layout_height="35dp"
+                android:layout_height="27dp"
                 android:text="Dub"
                 android:textColor="@android:color/white"
                 android:background="@drawable/tv_control_selector"
@@ -227,20 +227,20 @@
                 android:paddingEnd="16dp"
                 android:layout_marginEnd="12dp"
                 android:focusable="true"
-                android:textSize="8sp"
+                android:textSize="5sp"
                 android:textAllCaps="false" />
 
             <Button
                 android:id="@+id/btnSubtitles"
                 android:layout_width="wrap_content"
-                android:layout_height="35dp"
+                android:layout_height="27dp"
                 android:text="Original"
                 android:textColor="@android:color/white"
                 android:background="@drawable/tv_control_selector"
                 android:paddingStart="16dp"
                 android:paddingEnd="16dp"
                 android:focusable="true"
-                android:textSize="8sp"
+                android:textSize="5sp"
                 android:textAllCaps="false" />
         </LinearLayout>
 
