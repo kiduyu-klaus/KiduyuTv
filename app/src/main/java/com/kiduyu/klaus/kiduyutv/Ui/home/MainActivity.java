@@ -38,6 +38,7 @@ import com.kiduyu.klaus.kiduyutv.utils.PreferencesManager;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 // Don't forget to add the import at the top of MainActivity.java:
 import com.kiduyu.klaus.kiduyutv.Api.AnimekaiApi;
@@ -237,39 +238,77 @@ public class MainActivity extends AppCompatActivity {
 
         categories.clear();
 
-        // Fetch anime from AnimekaiApi
-        animekaiApi.fetchAnimeUpdatesAsync(new AnimekaiApi.AnimeCallback() {
+        // Setup adapter with initial empty structure
+        if (categoryAdapter == null) {
+            categoryAdapter = new CategoryAdapter(categories);
+            categoriesRecyclerView.setAdapter(categoryAdapter);
+            setupCategoryListeners();
+        } else {
+            categoryAdapter.notifyDataSetChanged();
+        }
+
+        // Fetch anime grouped by type from AnimekaiApi
+        animekaiApi.fetchAnimeUpdatesByTypeAsync(new AnimekaiApi.AnimeTypeGroupedCallback() {
             @Override
-            public void onSuccess(List<AnimeModel> animeList) {
-                // Run on UI thread since this callback comes from background thread
+            public void onSuccess(Map<String, List<AnimeModel>> groupedAnime) {
                 runOnUiThread(() -> {
-                    Log.i(TAG, "Successfully loaded " + animeList.size() + " anime entries");
+                    List<AnimeModel> subAnime = groupedAnime.get("sub");
+                    List<AnimeModel> dubAnime = groupedAnime.get("dub");
 
-                    if (!animeList.isEmpty()) {
-                        // Convert AnimeModel list to MediaItems list for the adapter
-                        List<MediaItems> animeMediaItems = convertAnimeToMediaItems(animeList);
+                    Log.i(TAG, "Loaded SUB anime: " + (subAnime != null ? subAnime.size() : 0));
+                    Log.i(TAG, "Loaded DUB anime: " + (dubAnime != null ? dubAnime.size() : 0));
 
-                        // Create category section
-                        CategorySection animeSection = new CategorySection("🎌 Latest Anime Updates", animeMediaItems);
-                        categories.add(animeSection);
+                    boolean hasContent = false;
 
-                        // Setup adapter if needed
-                        if (categoryAdapter == null) {
-                            categoryAdapter = new CategoryAdapter(categories);
-                            categoriesRecyclerView.setAdapter(categoryAdapter);
-                            setupCategoryListeners();
-                        } else {
-                            categoryAdapter.notifyDataSetChanged();
+                    // Create SUB category if available
+                    if (subAnime != null && !subAnime.isEmpty()) {
+                        List<MediaItems> subMediaItems = convertAnimeToMediaItems(subAnime);
+                        CategorySection subSection = new CategorySection("🎌 Latest Sub Updates", subMediaItems);
+                        categories.add(subSection);
+                        hasContent = true;
+                        Log.i(TAG, "Created SUB category with " + subMediaItems.size() + " items");
+                    }
+
+                    // Create DUB category if available and different from SUB
+                    if (dubAnime != null && !dubAnime.isEmpty()) {
+                        // Filter out anime that are already in SUB (BOTH type)
+                        List<AnimeModel> dubOnlyAnime = new ArrayList<>();
+                        for (AnimeModel anime : dubAnime) {
+                            if (anime.getAnimeType() == AnimeModel.AnimeType.DUB) {
+                                dubOnlyAnime.add(anime);
+                            }
                         }
 
-                        // Update hero content with first anime
-                        if (!animeMediaItems.isEmpty()) {
-                            currentSelectedItem = animeMediaItems.get(0);
-                            updateHeroContent(currentSelectedItem, 0);
+                        if (!dubAnime.isEmpty()) {
+                            List<MediaItems> dubMediaItems = convertAnimeToMediaItems(dubAnime);
+                            CategorySection dubSection = new CategorySection("🎌 Latest Dub Updates", dubMediaItems);
+                            categories.add(dubSection);
+                            hasContent = true;
+                            Log.i(TAG, "Created DUB category with " + dubMediaItems.size() + " items");
+                        }
+                    }
+
+                    if (hasContent) {
+                        categoryAdapter.notifyDataSetChanged();
+
+                        // Update hero content with first anime from SUB category (with full details)
+                        if (!categories.isEmpty() && !categories.get(0).getItems().isEmpty()) {
+                            MediaItems firstItem = categories.get(0).getItems().get(0);
+                            currentSelectedItem = firstItem;
+
+                            // Load full details for hero content using fetchAnimeDetailsAsync
+                            if (firstItem.getId() != null && firstItem.getMediaType().equalsIgnoreCase("anime")) {
+                                loadAnimeHeroDetails(firstItem.getId(), firstItem.getVideoUrl());
+                            } else {
+                                updateHeroContent(currentSelectedItem, 0);
+                            }
                         }
 
+                        int totalAnime = (subAnime != null ? subAnime.size() : 0) + (dubAnime != null ? dubAnime.size() : 0);
                         Toast.makeText(MainActivity.this,
-                                "Loaded " + animeList.size() + " anime",
+                                "Loaded " + totalAnime + " anime (" +
+                                        (subAnime != null ? subAnime.size() : 0) + " sub, " +
+                                        (dubAnime != null ? dubAnime.size() : 0) + " dub)",
                                 Toast.LENGTH_SHORT).show();
                     } else {
                         Toast.makeText(MainActivity.this,
@@ -284,7 +323,6 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             public void onError(String error) {
-                // Run on UI thread
                 runOnUiThread(() -> {
                     Log.e(TAG, "Failed to load anime: " + error);
                     Toast.makeText(MainActivity.this,
@@ -293,6 +331,72 @@ public class MainActivity extends AppCompatActivity {
 
                     isLoadingContent = false;
                     loadingOverlay.setVisibility(View.GONE);
+                });
+            }
+        });
+    }
+
+    /**
+     * Load full anime details for hero content display
+     */
+    private void loadAnimeHeroDetails(String dataTip, String animeUrl) {
+        if (dataTip == null || dataTip.isEmpty()) {
+            // Fallback to basic update if no dataTip
+            if (currentSelectedItem != null) {
+                updateHeroContent(currentSelectedItem, 0);
+            }
+            return;
+        }
+
+        animekaiApi.fetchAnimeDetailsAsync(dataTip, animeUrl, new AnimekaiApi.AnimeDetailsCallback() {
+            @Override
+            public void onSuccess(AnimeModel anime) {
+                runOnUiThread(() -> {
+                    Log.i(TAG, "Loaded full anime details for: " + anime.getAnimeName());
+
+                    // Update current selected item with full details
+                    if (currentSelectedItem != null) {
+                        currentSelectedItem.setTitle(anime.getAnimeName());
+                        currentSelectedItem.setDescription(anime.getAnimeDescription() != null ?
+                                anime.getAnimeDescription() : currentSelectedItem.getDescription());
+
+                        if (anime.getAnime_image_backgroud() != null) {
+                            currentSelectedItem.setBackgroundImageUrl(anime.getAnime_image_backgroud());
+                            currentSelectedItem.setPosterUrl(anime.getAnime_image_backgroud());
+                            currentSelectedItem.setCardImageUrl(anime.getAnime_image_backgroud());
+                        }
+
+                        // Update duration if available
+                        if (anime.getDuration() != null && !anime.getDuration().isEmpty()) {
+                            currentSelectedItem.setDuration(anime.getDuration());
+                        }
+
+                        // Update year if available
+                        if (anime.getDateAiredFrom() != null) {
+                            currentSelectedItem.setYear(anime.getDateAiredFrom().getYear());
+                        }
+
+                        // Update rating if available
+                        if (anime.getMalScore() > 0) {
+                            currentSelectedItem.setRating((float) anime.getMalScore());
+                        }
+                    }
+
+                    // Update hero with enriched content
+                    if (currentSelectedItem != null) {
+                        updateHeroContent(currentSelectedItem, 0);
+                    }
+                });
+            }
+
+            @Override
+            public void onError(String error) {
+                runOnUiThread(() -> {
+                    Log.e(TAG, "Failed to load anime details: " + error);
+                    // Fallback to basic update if details loading fails
+                    if (currentSelectedItem != null) {
+                        updateHeroContent(currentSelectedItem, 0);
+                    }
                 });
             }
         });

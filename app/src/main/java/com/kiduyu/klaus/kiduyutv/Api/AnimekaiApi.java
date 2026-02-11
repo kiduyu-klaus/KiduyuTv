@@ -134,6 +134,9 @@ public class AnimekaiApi {
                     Element title = inner.selectFirst("a.title");
                     String animeName = (title != null) ? title.text().trim() : null;
 
+                    // Check for sub/dub info in the info div
+                    AnimeModel.AnimeType animeType = parseAnimeType(inner);
+
                     if (animeName != null || animeLink != null) {
                         AnimeModel anime = new AnimeModel(
                                 animeName,
@@ -141,8 +144,9 @@ public class AnimekaiApi {
                                 animeLink,
                                 animeImageBackground
                         );
+                        anime.setAnimeType(animeType);
                         animeList.add(anime);
-                        Log.i(TAG, "Parsed anime: " + animeName + " (dataTip: " + dataTip + ")");
+                        Log.i(TAG, "Parsed anime: " + animeName + " (dataTip: " + dataTip + ", type: " + animeType + ")");
                     }
                 } catch (Exception e) {
                     Log.e(TAG, "Error parsing individual anime entry", e);
@@ -157,6 +161,113 @@ public class AnimekaiApi {
         }
 
         return animeList;
+    }
+
+    /**
+     * Parse anime type (SUB, DUB, or BOTH) from the HTML structure
+     * HTML structure:
+     * <div class="inner">
+     *   ...
+     *   <div class="info">
+     *     <span class="sub"><svg><use href="#sub"></use></svg>6</span>
+     *     <span class="dub"><svg><use href="#dub"></use></svg>6</span>
+     *     <span><b>13</b></span>
+     *     <span><b>TV</b></span>
+     *   </div>
+     * </div>
+     */
+    private AnimeModel.AnimeType parseAnimeType(Element innerDiv) {
+        try {
+            Element infoDiv = innerDiv.selectFirst("div.info");
+            if (infoDiv == null) {
+                Log.w(TAG, "No info div found, defaulting to SUB");
+                return AnimeModel.AnimeType.SUB;
+            }
+
+            // Check for sub span
+            Element subSpan = infoDiv.selectFirst("span.sub");
+            boolean hasSub = subSpan != null;
+
+            // Check for dub span
+            Element dubSpan = infoDiv.selectFirst("span.dub");
+            boolean hasDub = dubSpan != null;
+
+            if (hasSub && hasDub) {
+                Log.d(TAG, "Anime type: BOTH (has sub and dub)");
+                return AnimeModel.AnimeType.BOTH;
+            } else if (hasDub) {
+                Log.d(TAG, "Anime type: DUB only");
+                return AnimeModel.AnimeType.DUB;
+            } else if (hasSub) {
+                Log.d(TAG, "Anime type: SUB only");
+                return AnimeModel.AnimeType.SUB;
+            } else {
+                Log.w(TAG, "No sub or dub found in info div, defaulting to SUB");
+                return AnimeModel.AnimeType.SUB;
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error parsing anime type", e);
+            return AnimeModel.AnimeType.SUB;
+        }
+    }
+
+    /**
+     * Fetch anime updates grouped by type (SUB and DUB)
+     * Returns a map with "sub" and "dub" keys containing respective anime lists
+     */
+    public Map<String, List<AnimeModel>> fetchAnimeUpdatesByType() throws IOException {
+        List<AnimeModel> allAnime = fetchAnimeUpdates();
+        Map<String, List<AnimeModel>> groupedAnime = new HashMap<>();
+
+        List<AnimeModel> subList = new ArrayList<>();
+        List<AnimeModel> dubList = new ArrayList<>();
+
+        for (AnimeModel anime : allAnime) {
+            switch (anime.getAnimeType()) {
+                case BOTH:
+                    // Add to both lists
+                    subList.add(anime);
+                    dubList.add(anime);
+                    break;
+                case DUB:
+                    dubList.add(anime);
+                    break;
+                case SUB:
+                default:
+                    subList.add(anime);
+                    break;
+            }
+        }
+
+        groupedAnime.put("sub", subList);
+        groupedAnime.put("dub", dubList);
+
+        Log.i(TAG, "Grouped anime - SUB: " + subList.size() + ", DUB: " + dubList.size());
+
+        return groupedAnime;
+    }
+
+    /**
+     * Fetch anime updates grouped by type asynchronously
+     */
+    public void fetchAnimeUpdatesByTypeAsync(final AnimeTypeGroupedCallback callback) {
+        executorService.execute(() -> {
+            try {
+                Map<String, List<AnimeModel>> groupedAnime = fetchAnimeUpdatesByType();
+                mainHandler.post(() -> callback.onSuccess(groupedAnime));
+            } catch (Exception e) {
+                Log.e(TAG, "Error fetching grouped anime updates", e);
+                mainHandler.post(() -> callback.onError(e.getMessage()));
+            }
+        });
+    }
+
+    /**
+     * Callback interface for grouped anime results
+     */
+    public interface AnimeTypeGroupedCallback {
+        void onSuccess(Map<String, List<AnimeModel>> groupedAnime);
+        void onError(String error);
     }
 
     /* ========================================

@@ -72,10 +72,26 @@ public class AnimeModel implements Parcelable {
     private Map<String, String> links;
 
     /* =======================
+       Anime Type (Sub/Dub)
+       ======================= */
+
+    /**
+     * Enum representing the type of anime based on available audio
+     */
+    public enum AnimeType {
+        SUB,      // Subtitled only
+        DUB,      // Dubbed only
+        BOTH      // Both sub and dub available
+    }
+
+    private AnimeType animeType;
+
+    /* =======================
        Constructors
        ======================= */
 
     public AnimeModel() {
+        this.animeType = AnimeType.SUB; // Default to SUB
     }
 
     public AnimeModel(
@@ -88,6 +104,7 @@ public class AnimeModel implements Parcelable {
         this.data_tip = data_tip;
         this.anime_link = anime_link;
         this.anime_image_backgroud = anime_image_backgroud;
+        this.animeType = AnimeType.SUB; // Default to SUB
     }
 
     /* =======================
@@ -137,6 +154,10 @@ public class AnimeModel implements Parcelable {
             String value = in.readString();
             links.put(key, value);
         }
+
+        // Read anime type
+        String typeString = in.readString();
+        animeType = (typeString != null) ? AnimeType.valueOf(typeString) : AnimeType.SUB;
     }
 
     public static final Creator<AnimeModel> CREATOR = new Creator<AnimeModel>() {
@@ -230,6 +251,9 @@ public class AnimeModel implements Parcelable {
                 dest.writeString(entry.getValue());
             }
         }
+
+        // Write anime type
+        dest.writeString(animeType != null ? animeType.name() : AnimeType.SUB.name());
     }
 
     /* =======================
@@ -370,5 +394,31 @@ public class AnimeModel implements Parcelable {
 
     public void setLinks(Map<String, String> links) {
         this.links = links;
+    }
+
+    /* =======================
+       Anime Type Getters & Setters
+       ======================= */
+
+    public AnimeType getAnimeType() {
+        return animeType != null ? animeType : AnimeType.SUB;
+    }
+
+    public void setAnimeType(AnimeType animeType) {
+        this.animeType = animeType;
+    }
+
+    /**
+     * Check if this anime has subtitles available
+     */
+    public boolean hasSubtitles() {
+        return animeType == AnimeType.SUB || animeType == AnimeType.BOTH;
+    }
+
+    /**
+     * Check if this anime has dubbed audio available
+     */
+    public boolean hasDub() {
+        return animeType == AnimeType.DUB || animeType == AnimeType.BOTH;
     }
 }
