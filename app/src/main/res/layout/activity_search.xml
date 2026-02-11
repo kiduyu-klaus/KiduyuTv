@@ -31,7 +31,10 @@
             android:imeOptions="actionSearch"
             android:inputType="text"
             android:maxLines="1"
-            android:ellipsize="end" />
+            android:ellipsize="end"
+            android:focusable="true"
+            android:focusableInTouchMode="true"
+            android:contentDescription="Search movies and TV shows" />
 
         <!-- Clear Button -->
         <ImageButton
@@ -44,6 +47,8 @@
             android:src="@drawable/ic_close"
             android:tint="@color/text_secondary"
             android:visibility="gone"
+            android:focusable="true"
+            android:focusableInTouchMode="true"
             android:contentDescription="Clear search" />
 
         <!-- Voice Search Button -->
@@ -56,6 +61,8 @@
             android:background="@drawable/voice_search_button_background"
             android:src="@drawable/ic_mic"
             android:tint="@color/white"
+            android:focusable="true"
+            android:focusableInTouchMode="true"
             android:contentDescription="Voice search" />
 
     </LinearLayout>
@@ -80,7 +87,10 @@
             android:text="All"
             android:textColor="@color/white"
             android:textSize="14sp"
-            android:paddingHorizontal="16dp" />
+            android:paddingHorizontal="16dp"
+            android:focusable="true"
+            android:focusableInTouchMode="true"
+            android:contentDescription="Filter: All results" />
 
         <Button
             android:id="@+id/filterMoviesButton"
@@ -91,7 +101,10 @@
             android:text="Movies"
             android:textColor="@color/white"
             android:textSize="14sp"
-            android:paddingHorizontal="16dp" />
+            android:paddingHorizontal="16dp"
+            android:focusable="true"
+            android:focusableInTouchMode="true"
+            android:contentDescription="Filter: Movies only" />
 
         <Button
             android:id="@+id/filterTVButton"
@@ -101,7 +114,10 @@
             android:text="TV Shows"
             android:textColor="@color/white"
             android:textSize="14sp"
-            android:paddingHorizontal="16dp" />
+            android:paddingHorizontal="16dp"
+            android:focusable="true"
+            android:focusableInTouchMode="true"
+            android:contentDescription="Filter: TV Shows only" />
 
     </LinearLayout>
 
@@ -125,6 +141,8 @@
                 android:padding="16dp"
                 android:clipToPadding="false"
                 android:visibility="gone"
+                android:focusable="true"
+                android:focusableInTouchMode="true"
                 app:layoutManager="androidx.recyclerview.widget.GridLayoutManager"
                 app:spanCount="4" />
 

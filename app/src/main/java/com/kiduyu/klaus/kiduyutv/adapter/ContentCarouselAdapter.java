@@ -69,6 +69,10 @@ public class ContentCarouselAdapter extends RecyclerView.Adapter<ContentCarousel
             focusOverlay = itemView.findViewById(R.id.focusOverlay);
 
 
+            // Enable focusable attributes
+            itemView.setFocusable(true);
+            itemView.setFocusableInTouchMode(true);
+
             itemView.setOnFocusChangeListener((v, hasFocus) -> {
                 if (onItemClickListener != null && getAdapterPosition() != RecyclerView.NO_POSITION) {
                     onItemClickListener.onFocusChanged(contentList.get(getAdapterPosition()), getAdapterPosition(), hasFocus);
@@ -84,6 +88,13 @@ public class ContentCarouselAdapter extends RecyclerView.Adapter<ContentCarousel
         }
 
         public void bind(MediaItems mediaItems, int position) {
+            // Set content description for accessibility
+            String description = mediaItems.getTitle();
+            if (mediaItems.getYear() > 0) {
+                description += " (" + mediaItems.getYear() + ")";
+            }
+            itemView.setContentDescription(description);
+
             Glide.with(itemView.getContext())
                     .load(mediaItems.getPosterUrl())
                     .centerCrop()

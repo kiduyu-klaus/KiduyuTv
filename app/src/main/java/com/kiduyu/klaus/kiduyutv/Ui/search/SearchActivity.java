@@ -115,12 +115,15 @@ public class SearchActivity extends AppCompatActivity {
     }
 
     private void setupListeners() {
+        // Focus change listener for all interactive elements
         View.OnFocusChangeListener focusChangeListener = (v, hasFocus) -> {
             if (hasFocus) {
                 v.animate().scaleX(1.05f).scaleY(1.05f).setDuration(200).start();
                 if (!(v instanceof EditText)) {
                     v.setBackgroundResource(R.drawable.generic_focus_selector);
                 }
+                // Bring into view when focused
+                v.requestFocus();
             } else {
                 v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(200).start();
                 if (!(v instanceof EditText)) {
@@ -129,12 +132,16 @@ public class SearchActivity extends AppCompatActivity {
             }
         };
 
+        // Apply focus listener to all interactive elements
         searchEditText.setOnFocusChangeListener(focusChangeListener);
         voiceSearchButton.setOnFocusChangeListener(focusChangeListener);
         clearSearchButton.setOnFocusChangeListener(focusChangeListener);
         filterAllButton.setOnFocusChangeListener(focusChangeListener);
         filterMoviesButton.setOnFocusChangeListener(focusChangeListener);
         filterTVButton.setOnFocusChangeListener(focusChangeListener);
+
+        // Set initial focus to search input
+        searchEditText.requestFocus();
 
         // Search text watcher with debounce
         searchEditText.addTextChangedListener(new TextWatcher() {
@@ -267,6 +274,10 @@ public class SearchActivity extends AppCompatActivity {
             chip.setBackgroundResource(R.drawable.chip_background);
             chip.setTextColor(getResources().getColor(android.R.color.white));
             chip.setPadding(32, 16, 32, 16);
+            // Enable focus for D-pad navigation
+            chip.setFocusable(true);
+            chip.setFocusableInTouchMode(true);
+            chip.setContentDescription("Search for: " + trending);
 
             chip.setOnClickListener(v -> {
                 searchEditText.setText(trending);

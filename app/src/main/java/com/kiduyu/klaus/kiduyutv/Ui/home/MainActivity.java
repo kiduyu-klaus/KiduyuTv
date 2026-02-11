@@ -150,10 +150,6 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void setupNavigationFocus() {
-        //homeIcon.requestFocus();
-        //homeIcon.setSelected(true);
-
-
         View.OnFocusChangeListener navFocusListener = (v, hasFocus) -> {
             if (hasFocus) {
                 v.setSelected(true);
@@ -164,6 +160,7 @@ public class MainActivity extends AppCompatActivity {
             }
         };
 
+        // Setup navigation icons with focus listeners
         searchIcon.setOnFocusChangeListener(navFocusListener);
         searchIcon.setSelected(false);
         homeIcon.setOnFocusChangeListener(navFocusListener);
@@ -172,6 +169,9 @@ public class MainActivity extends AppCompatActivity {
         animeIcon.setOnFocusChangeListener(navFocusListener);
         myListIcon.setOnFocusChangeListener(navFocusListener);
         settingsIcon.setOnFocusChangeListener(navFocusListener);
+
+        // Set initial focus to first navigation item
+        searchIcon.requestFocus();
     }
 
     private void setupClickListeners() {
@@ -307,8 +307,8 @@ public class MainActivity extends AppCompatActivity {
                         int totalAnime = (subAnime != null ? subAnime.size() : 0) + (dubAnime != null ? dubAnime.size() : 0);
                         Toast.makeText(MainActivity.this,
                                 "Loaded " + totalAnime + " anime (" +
-                                        (subAnime != null ? subAnime.size() : 0) + " sub, " +
-                                        (dubAnime != null ? dubAnime.size() : 0) + " dub)",
+                                (subAnime != null ? subAnime.size() : 0) + " sub, " +
+                                (dubAnime != null ? dubAnime.size() : 0) + " dub)",
                                 Toast.LENGTH_SHORT).show();
                     } else {
                         Toast.makeText(MainActivity.this,

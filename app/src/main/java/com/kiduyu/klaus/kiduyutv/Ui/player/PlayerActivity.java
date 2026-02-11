@@ -101,6 +101,11 @@ public class PlayerActivity extends AppCompatActivity {
     private LinearLayout loadingStatusContainer;
     private TextView loadingStatusText;
     private TextView hardsubBadge;
+    private TextView tag1;
+    private TextView tag2;
+    private TextView tag3;
+    private TextView tag4;
+    private TextView tag5;
 
     private Handler handler = new Handler();
     private Handler hideControlsHandler = new Handler();
@@ -200,6 +205,9 @@ public class PlayerActivity extends AppCompatActivity {
 
         // Start playing
         loadVideoSource(currentSourceIndex);
+
+        // Populate genre tags for media content
+        populateGenreTags();
 
 
     }
@@ -331,6 +339,9 @@ public class PlayerActivity extends AppCompatActivity {
             Log.w(TAG, "No background image URL provided");
         }
 
+        // Populate genre tags for anime content
+        populateAnimeGenreTags(animeDescription);
+
         // Initialize player
         initializePlayer();
 
@@ -385,6 +396,14 @@ public class PlayerActivity extends AppCompatActivity {
         loadingStatusText = findViewById(R.id.loadingStatusText);
         hardsubBadge = findViewById(R.id.hardsubBadge);
         subtitleView = findViewById(R.id.subtitleView);
+
+        // Initialize genre tags
+        tag1 = findViewById(R.id.tag1);
+        tag2 = findViewById(R.id.tag2);
+        tag3 = findViewById(R.id.tag3);
+        tag4 = findViewById(R.id.tag4);
+        tag5 = findViewById(R.id.tag5);
+
         totalTime.setText(formatTime(0));
         currentTime.setText(formatTime(0));
     }
@@ -478,8 +497,8 @@ public class PlayerActivity extends AppCompatActivity {
         // Update speed button
         btnSpeed.setText(String.format(Locale.US, "Speed %.2fx", currentSpeed));
 
-        // Hide hardsub badge initially (show if needed based on source)
-        hardsubBadge.setVisibility(View.GONE);
+        // Set hardsub badge based on media type for non-anime content
+        updateHardsubBadgeForMediaType();
     }
 
     private void initializePlayer() {
@@ -650,13 +669,19 @@ public class PlayerActivity extends AppCompatActivity {
         if (currentSubtitleIndex >= 0 && currentSubtitleIndex < subtitles.size()) {
             MediaItems.SubtitleItem subtitle = subtitles.get(currentSubtitleIndex);
 
-            Log.i(TAG, "Adding subtitle to MediaItem: " + subtitle.getLanguage() + " - " + subtitle.getUrl());
+            // Detect MIME type from subtitle URL file extension
+            String mimeType = detectSubtitleMimeType(subtitle.getUrl());
+            // Get actual language code from subtitle metadata
+            String languageCode = getLanguageCodeFromSubtitle(subtitle);
 
-            // Build subtitle configuration with proper headers
+            Log.i(TAG, "Adding subtitle to MediaItem: " + subtitle.getLanguage() + " - " + subtitle.getUrl());
+            Log.i(TAG, "Detected MIME type: " + mimeType + ", Language code: " + languageCode);
+
+            // Build subtitle configuration with detected/actual values
             MediaItem.SubtitleConfiguration.Builder subtitleBuilder =
                     new MediaItem.SubtitleConfiguration.Builder(android.net.Uri.parse(subtitle.getUrl()))
-                            .setMimeType(MimeTypes.TEXT_VTT)
-                            .setLanguage("en") // Use generic "en" for English
+                            .setMimeType(mimeType)
+                            .setLanguage(languageCode)
                             .setLabel(subtitle.getLanguage())
                             .setSelectionFlags(C.SELECTION_FLAG_DEFAULT | C.SELECTION_FLAG_AUTOSELECT)
                             .setRoleFlags(C.ROLE_FLAG_SUBTITLE);
@@ -667,6 +692,8 @@ public class PlayerActivity extends AppCompatActivity {
             MediaItem.SubtitleConfiguration subtitleConfig = subtitleBuilder.build();
 
             mediaItemBuilder.setSubtitleConfigurations(java.util.Collections.singletonList(subtitleConfig));
+
+            Log.i(TAG, "Subtitle configuration successfully added with URL: " + subtitle.getUrl());
         } else {
             Log.i(TAG, "No subtitle selected (index: " + currentSubtitleIndex + ", subtitles size: " +
                     (subtitles != null ? subtitles.size() : "null") + ")");
@@ -746,6 +773,118 @@ public class PlayerActivity extends AppCompatActivity {
         return new DefaultDataSource.Factory(this, httpDataSourceFactory);
     }
 
+    /**
+     * Detect MIME type from subtitle file URL based on extension
+     */
+    private String detectSubtitleMimeType(String subtitleUrl) {
+        if (subtitleUrl == null) {
+            return MimeTypes.TEXT_VTT;
+        }
+
+        String lowerUrl = subtitleUrl.toLowerCase(Locale.US);
+
+        if (lowerUrl.endsWith(".srt")) {
+            Log.i(TAG, "Detected subtitle format: SRT");
+            return MimeTypes.APPLICATION_SUBRIP;
+        } else if (lowerUrl.endsWith(".ssa") || lowerUrl.endsWith(".ass")) {
+            Log.i(TAG, "Detected subtitle format: SSA/ASS");
+            return MimeTypes.TEXT_SSA;
+        } else if (lowerUrl.endsWith(".ttml") || lowerUrl.endsWith(".xml")) {
+            Log.i(TAG, "Detected subtitle format: TTML");
+            return MimeTypes.APPLICATION_TTML;
+        } else if (lowerUrl.endsWith(".vtt")) {
+            Log.i(TAG, "Detected subtitle format: WebVTT");
+            return MimeTypes.TEXT_VTT;
+        } else {
+            // Default to WebVTT and log a warning
+            Log.w(TAG, "Unknown subtitle format, defaulting to WebVTT. URL: " + subtitleUrl);
+            return MimeTypes.TEXT_VTT;
+        }
+    }
+
+    /**
+     * Get language code from subtitle metadata, with fallback to 'und' (undetermined)
+     */
+    private String getLanguageCodeFromSubtitle(MediaItems.SubtitleItem subtitle) {
+        if (subtitle == null) {
+            return "und";
+        }
+
+        // Try to get language code from 'lang' field first (usually 2-letter ISO code)
+        String lang = subtitle.getLang();
+        if (lang != null && !lang.isEmpty()) {
+            // Normalize language code to 2-letter ISO 639-1 if possible
+            if (lang.length() > 2) {
+                lang = lang.substring(0, 2);
+            }
+            Log.i(TAG, "Using language code from subtitle metadata: " + lang);
+            return lang;
+        }
+
+        // Fallback to language label and try to extract code
+        String language = subtitle.getLanguage();
+        if (language != null && !language.isEmpty()) {
+            String extractedCode = extractLanguageCode(language);
+            if (extractedCode != null) {
+                Log.i(TAG, "Extracted language code from label: " + extractedCode);
+                return extractedCode;
+            }
+        }
+
+        Log.w(TAG, "No language code found in subtitle metadata, using 'und'");
+        return "und"; // Undetermined language
+    }
+
+    /**
+     * Extract language code from common language label formats
+     */
+    private String extractLanguageCode(String languageLabel) {
+        if (languageLabel == null) {
+            return null;
+        }
+
+        String lower = languageLabel.toLowerCase(Locale.US);
+
+        if (lower.contains("english") || lower.equals("en") || lower.contains("eng")) {
+            return "en";
+        } else if (lower.contains("spanish") || lower.equals("es") || lower.contains("español")) {
+            return "es";
+        } else if (lower.contains("french") || lower.equals("fr") || lower.contains("français")) {
+            return "fr";
+        } else if (lower.contains("german") || lower.equals("de") || lower.contains("deutsch")) {
+            return "de";
+        } else if (lower.contains("portuguese") || lower.equals("pt")) {
+            return "pt";
+        } else if (lower.contains("japanese") || lower.equals("ja") || lower.contains("jp")) {
+            return "ja";
+        } else if (lower.contains("korean") || lower.equals("ko")) {
+            return "ko";
+        } else if (lower.contains("chinese") || lower.equals("zh")) {
+            return "zh";
+        } else if (lower.contains("arabic") || lower.equals("ar")) {
+            return "ar";
+        } else if (lower.contains("russian") || lower.equals("ru")) {
+            return "ru";
+        } else if (lower.contains("italian") || lower.equals("it")) {
+            return "it";
+        } else if (lower.contains("dutch") || lower.equals("nl")) {
+            return "nl";
+        } else if (lower.contains("polish") || lower.equals("pl")) {
+            return "pl";
+        } else if (lower.contains("turkish") || lower.equals("tr")) {
+            return "tr";
+        } else if (lower.contains("indonesian") || lower.equals("id")) {
+            return "id";
+        } else if (lower.contains("thai") || lower.equals("th")) {
+            return "th";
+        } else if (lower.contains("vietnamese") || lower.equals("vi")) {
+            return "vi";
+        }
+
+        // Return null if no match found
+        return null;
+    }
+
     private void autoSelectEnglishSubtitle() {
         if (subtitles == null || subtitles.isEmpty()) {
             btnSubtitles.setText("No Subtitles");
@@ -805,12 +944,32 @@ public class PlayerActivity extends AppCompatActivity {
             return;
         }
 
-        Log.i(TAG, "Selecting subtitle track: " + subtitle.getLanguage());
+        // Get the actual language code from subtitle metadata
+        String subtitleLanguage = getLanguageCodeFromSubtitle(subtitle);
+        Log.i(TAG, "Selecting subtitle track: " + subtitle.getLanguage() + " (language code: " + subtitleLanguage + ")");
 
-        // Build track selection parameters to enable text tracks
+        // Check available tracks first
+        Tracks tracks = player.getCurrentTracks();
+        boolean hasTextTracks = false;
+        for (Tracks.Group trackGroup : tracks.getGroups()) {
+            if (trackGroup.getType() == C.TRACK_TYPE_TEXT) {
+                hasTextTracks = true;
+                Log.i(TAG, "Found text track group with " + trackGroup.length + " tracks");
+                for (int i = 0; i < trackGroup.length; i++) {
+                    Log.i(TAG, "  Track " + i + ": supported=" + trackGroup.isTrackSupported(i) +
+                            ", selected=" + trackGroup.isTrackSelected(i));
+                }
+            }
+        }
+
+        if (!hasTextTracks) {
+            Log.w(TAG, "No text tracks found in media - subtitles may be embedded externally");
+        }
+
+        // Build track selection parameters to enable text tracks using actual subtitle language
         TrackSelectionParameters.Builder builder = player.getTrackSelectionParameters()
                 .buildUpon()
-                .setPreferredTextLanguage("en")
+                .setPreferredTextLanguage(subtitleLanguage)
                 .setPreferredTextRoleFlags(C.ROLE_FLAG_SUBTITLE | C.ROLE_FLAG_CAPTION)
                 .setSelectUndeterminedTextLanguage(true)
                 .setIgnoredTextSelectionFlags(0); // Don't ignore any text tracks
@@ -1016,12 +1175,12 @@ public class PlayerActivity extends AppCompatActivity {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle("Playback Speed");
         builder.setItems(speedLabels, (dialog, which) -> {
-                    currentSpeed = speeds[which];
-                    if (player != null) {
-                        player.setPlaybackSpeed(currentSpeed);
-                    }
-                    btnSpeed.setText(String.format(Locale.US, "Speed %.2fx", currentSpeed));
-                });
+            currentSpeed = speeds[which];
+            if (player != null) {
+                player.setPlaybackSpeed(currentSpeed);
+            }
+            btnSpeed.setText(String.format(Locale.US, "Speed %.2fx", currentSpeed));
+        });
 
         AlertDialog dialog = builder.create();
         applyFocusHighlight(dialog);
@@ -1116,8 +1275,182 @@ public class PlayerActivity extends AppCompatActivity {
                 btnServer.setText("Server 1");
             }
 
+            // Update hardsub badge to show server type for anime content
+            hardsubBadge.setText(typeLabel);
+            hardsubBadge.setVisibility(View.VISIBLE);
+
             Log.i(TAG, "Updated buttons: Type=" + typeLabel + ", Server=" + (currentServerIndex + 1));
         }
+    }
+
+    /**
+     * Update hardsub badge based on media type for non-anime content
+     */
+    private void updateHardsubBadgeForMediaType() {
+        if ("anime".equals(mediaType)) {
+            // For anime, badge will be updated via updateAnimeServerButtons() based on server type
+            hardsubBadge.setVisibility(View.GONE);
+        } else {
+            // For non-anime (movies, TV shows), set badge based on media type
+            if (mediaItems != null) {
+                String title = mediaItems.getTitle();
+                if (title != null) {
+                    // Simple heuristic to determine if it's a movie or TV show
+                    if (title.toLowerCase().contains("season") ||
+                            title.toLowerCase().contains("episode") ||
+                            title.toLowerCase().matches(".*\\bs\\d+.*") ||         // S1, S02
+                            title.toLowerCase().matches(".*\\bs\\d+e\\d+.*")) {
+                        // Likely a TV show
+                        hardsubBadge.setText("TV SHOW");
+                        hardsubBadge.setVisibility(View.VISIBLE);
+                    } else {
+                        // Default to MOVIE
+                        hardsubBadge.setText("MOVIE");
+                        hardsubBadge.setVisibility(View.VISIBLE);
+                    }
+
+                } else {
+                    hardsubBadge.setText("MOVIE");
+                    hardsubBadge.setVisibility(View.VISIBLE);
+                }
+            } else {
+                hardsubBadge.setVisibility(View.GONE);
+            }
+        }
+    }
+
+    /**
+     * Populate genre tags from MediaItems genres list
+     */
+    private void populateGenreTags() {
+        if (mediaItems == null) {
+            hideAllGenreTags();
+            return;
+        }
+
+        List<String> genres = mediaItems.getGenres();
+        if (genres == null || genres.isEmpty()) {
+            hideAllGenreTags();
+            return;
+        }
+
+        Log.i(TAG, "Populating " + genres.size() + " genre tags");
+
+        // Create array of tag TextViews
+        TextView[] tags = {tag1, tag2, tag3, tag4, tag5};
+
+        // Hide all tags first
+        for (TextView tag : tags) {
+            tag.setVisibility(View.GONE);
+        }
+
+        // Populate tags with genre names (up to 5 genres)
+        int tagIndex = 0;
+        for (String genre : genres) {
+            if (tagIndex >= tags.length) {
+                break; // Only show first 5 genres
+            }
+
+            if (genre != null && !genre.isEmpty()) {
+                tags[tagIndex].setText(genre);
+                tags[tagIndex].setVisibility(View.VISIBLE);
+                Log.i(TAG, "Set tag" + (tagIndex + 1) + " to: " + genre);
+                tagIndex++;
+            }
+        }
+
+        // Hide remaining unused tags
+        for (int i = tagIndex; i < tags.length; i++) {
+            tags[i].setVisibility(View.GONE);
+        }
+    }
+
+    /**
+     * Populate genre tags for anime content using description string
+     * Anime API doesn't provide genres in a structured list, so we extract from description
+     */
+    private void populateAnimeGenreTags(String animeDescription) {
+        // Common anime genres to look for in descriptions
+        List<String> commonGenres = new ArrayList<>();
+        commonGenres.add("Action");
+        commonGenres.add("Adventure");
+        commonGenres.add("Comedy");
+        commonGenres.add("Drama");
+        commonGenres.add("Ecchi");
+        commonGenres.add("Fantasy");
+        commonGenres.add("Horror");
+        commonGenres.add("Mahou Shoujo");
+        commonGenres.add("Mecha");
+        commonGenres.add("Music");
+        commonGenres.add("Mystery");
+        commonGenres.add("Psychological");
+        commonGenres.add("Romance");
+        commonGenres.add("Sci-Fi");
+        commonGenres.add("Slice of Life");
+        commonGenres.add("Sports");
+        commonGenres.add("Supernatural");
+        commonGenres.add("Thriller");
+
+        // Create array of tag TextViews
+        TextView[] tags = {tag1, tag2, tag3, tag4, tag5};
+
+        // Hide all tags first
+        for (TextView tag : tags) {
+            tag.setVisibility(View.GONE);
+        }
+
+        // Try to find genres in description
+        List<String> foundGenres = new ArrayList<>();
+
+        if (animeDescription != null) {
+            String lowerDesc = animeDescription.toLowerCase(Locale.US);
+
+            for (String genre : commonGenres) {
+                if (foundGenres.size() >= 5) {
+                    break; // Only need 5 genres
+                }
+
+                if (lowerDesc.contains(genre.toLowerCase())) {
+                    foundGenres.add(genre);
+                    Log.i(TAG, "Found genre in description: " + genre);
+                }
+            }
+        }
+
+        // If no genres found in description, set default anime genres
+        if (foundGenres.isEmpty()) {
+            foundGenres.add("Anime");
+            foundGenres.add("Animation");
+            Log.i(TAG, "No genres found in description, using defaults");
+        }
+
+        // Populate tags
+        int tagIndex = 0;
+        for (String genre : foundGenres) {
+            if (tagIndex >= tags.length) {
+                break;
+            }
+            tags[tagIndex].setText(genre);
+            tags[tagIndex].setVisibility(View.VISIBLE);
+            Log.i(TAG, "Set anime tag" + (tagIndex + 1) + " to: " + genre);
+            tagIndex++;
+        }
+
+        // Hide remaining unused tags
+        for (int i = tagIndex; i < tags.length; i++) {
+            tags[i].setVisibility(View.GONE);
+        }
+    }
+
+    /**
+     * Hide all genre tag TextViews
+     */
+    private void hideAllGenreTags() {
+        tag1.setVisibility(View.GONE);
+        tag2.setVisibility(View.GONE);
+        tag3.setVisibility(View.GONE);
+        tag4.setVisibility(View.GONE);
+        tag5.setVisibility(View.GONE);
     }
 
     /**
@@ -1177,6 +1510,10 @@ public class PlayerActivity extends AppCompatActivity {
     private void switchToServerType(String newServerType) {
         Log.i(TAG, "Switching from " + currentServerType + " to " + newServerType);
 
+        // Update hardsub badge immediately to show new server type
+        hardsubBadge.setText(newServerType.toUpperCase());
+        hardsubBadge.setVisibility(View.VISIBLE);
+
         loadingIndicator.setVisibility(View.VISIBLE);
         loadingStatusContainer.setVisibility(View.VISIBLE);
         loadingStatusText.setText("Switching to " + newServerType.toUpperCase() + "...");
@@ -1225,7 +1562,7 @@ public class PlayerActivity extends AppCompatActivity {
 
                 // Find server by index
                 for (AnimekaiApi.ServerInfo server : typeServers.values()) {
-                    if (server.index == serverIndex+1) {
+                    if (server.index == serverIndex + 1) {
                         targetServer = server;
                         break;
                     }
@@ -1282,6 +1619,10 @@ public class PlayerActivity extends AppCompatActivity {
                         mediaItems.setSubtitles(subtitles);
                         currentSubtitleIndex = 0; // Auto-select first subtitle
                     }
+
+                    // Update hardsub badge with new server type
+                    hardsubBadge.setText(serverType.toUpperCase());
+                    hardsubBadge.setVisibility(View.VISIBLE);
 
                     // Update button labels
                     updateAnimeServerButtons();
@@ -1412,7 +1753,6 @@ public class PlayerActivity extends AppCompatActivity {
         }
 
 
-
         // Back button - double press to exit
         if (keyCode == KeyEvent.KEYCODE_BACK) {
             if (controlsVisible) {
@@ -1461,21 +1801,58 @@ public class PlayerActivity extends AppCompatActivity {
         dialog.setOnShowListener(d -> {
             ListView listView = dialog.getListView();
             if (listView != null) {
+                // Make list items focusable for D-pad navigation
+                listView.setItemsCanFocus(true);
+
+                // Apply focus change listener to list items
                 listView.setOnHierarchyChangeListener(new ViewGroup.OnHierarchyChangeListener() {
                     @Override
                     public void onChildViewAdded(View parent, View child) {
+                        // Make each child focusable and set focus listener
+                        child.setFocusable(true);
+                        child.setFocusableInTouchMode(true);
                         child.setOnFocusChangeListener((v, hasFocus) -> {
                             if (hasFocus) {
-                                v.setBackgroundColor(0xFF0080F);   // focused item → blue
+                                // Apply blue background when focused
+                                v.setBackgroundResource(R.drawable.dialog_item_focus_selector);
+                                // Scroll to make focused item visible
+                                if (v.getParent() instanceof ListView) {
+                                    ListView listView1 = (ListView) v.getParent();
+                                    int position = listView1.getPositionForView(v);
+                                    if (position != ListView.INVALID_POSITION) {
+                                        listView1.setSelection(position);
+                                    }
+                                }
                             } else {
-                                v.setBackgroundColor(Color.TRANSPARENT); // reset
+                                // Reset to transparent when not focused
+                                v.setBackgroundResource(R.drawable.dialog_item_focus_selector);
+                            }
+                        });
+
+                        // Set click listener to dismiss dialog when item is clicked
+                        child.setOnClickListener(v -> {
+                            int position = listView.getPositionForView(v);
+                            if (position != ListView.INVALID_POSITION) {
+                                dialog.dismiss();
+                                // Trigger the item selection by calling onClick on the dialog
+                                d.dismiss();
                             }
                         });
                     }
 
                     @Override
                     public void onChildViewRemoved(View parent, View child) {
-                        // no-op
+                        // No-op
+                    }
+                });
+
+                // Request focus on first item for immediate D-pad navigation
+                listView.post(() -> {
+                    if (listView.getChildCount() > 0) {
+                        View firstChild = listView.getChildAt(0);
+                        if (firstChild != null) {
+                            firstChild.requestFocus();
+                        }
                     }
                 });
             }

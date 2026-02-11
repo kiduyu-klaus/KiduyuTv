@@ -63,7 +63,7 @@ public class CategoryAdapter extends RecyclerView.Adapter<CategoryAdapter.Catego
             categoryTitle = itemView.findViewById(R.id.categoryTitle);
             itemsRecyclerView = itemView.findViewById(R.id.itemsRecyclerView);
 
-            // Setup horizontal RecyclerView
+            // Setup horizontal RecyclerView with focus handling for nested navigation
             LinearLayoutManager layoutManager = new LinearLayoutManager(
                     itemView.getContext(),
                     LinearLayoutManager.HORIZONTAL,
@@ -71,6 +71,29 @@ public class CategoryAdapter extends RecyclerView.Adapter<CategoryAdapter.Catego
             );
             itemsRecyclerView.setLayoutManager(layoutManager);
             itemsRecyclerView.setHasFixedSize(true);
+
+            // Important: Disable focusability on the RecyclerView itself
+            // so focus goes directly to child items
+            itemsRecyclerView.setFocusable(false);
+            itemsRecyclerView.setClickable(false);
+
+            // Add focus listener to handle vertical navigation between categories
+            itemView.setOnFocusChangeListener((v, hasFocus) -> {
+                if (hasFocus) {
+                    // Animate category title when focused
+                    categoryTitle.animate()
+                            .scaleX(1.05f)
+                            .scaleY(1.05f)
+                            .setDuration(200)
+                            .start();
+                } else {
+                    categoryTitle.animate()
+                            .scaleX(1.0f)
+                            .scaleY(1.0f)
+                            .setDuration(200)
+                            .start();
+                }
+            });
         }
 
         public void bind(CategorySection category, int categoryPosition) {

@@ -4,7 +4,9 @@
     android:layout_height="wrap_content"
     android:orientation="vertical"
     android:paddingTop="8dp"
-    android:paddingBottom="8dp">
+    android:paddingBottom="8dp"
+    android:focusable="true"
+    android:descendantFocusability="afterDescendants">
 
     <!-- Category Title -->
     <TextView
@@ -26,6 +28,8 @@
         android:layout_height="wrap_content"
         android:clipToPadding="false"
         android:paddingStart="16dp"
-        android:paddingEnd="16dp" />
+        android:paddingEnd="16dp"
+        android:focusable="false"
+        android:clickable="false" />
 
 </LinearLayout>
