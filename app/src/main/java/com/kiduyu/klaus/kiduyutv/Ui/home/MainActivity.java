@@ -4,6 +4,7 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -69,6 +70,7 @@ public class MainActivity extends AppCompatActivity {
     private TextView qualityBadge;
     private TextView synopsisText;
     private Button playButton;
+    LinearLayout sidebar;
     private Button moreInfoButton;
     private RecyclerView categoriesRecyclerView;
     private RelativeLayout loadingOverlay;
@@ -147,14 +149,59 @@ public class MainActivity extends AppCompatActivity {
         // Loading
         loadingOverlay = findViewById(R.id.loadingOverlay);
         loadingProgressBar = findViewById(R.id.loadingProgressBar);
+        sidebar = findViewById(R.id.navigationSidebar);
+
+        sidebar.setOnFocusChangeListener((v, hasFocus) -> {
+            if (hasFocus) {
+                // Enlarge sidebar
+                ViewGroup.LayoutParams params = sidebar.getLayoutParams();
+                params.width = (int) getResources().getDimension(R.dimen.sidebar_expanded_width);
+                sidebar.setLayoutParams(params);
+
+                // Show labels
+                showSidebarLabels(true);
+            } else {
+                // Shrink sidebar
+                ViewGroup.LayoutParams params = sidebar.getLayoutParams();
+                params.width = (int) getResources().getDimension(R.dimen.sidebar_collapsed_width);
+                sidebar.setLayoutParams(params);
+
+                // Hide labels
+                showSidebarLabels(false);
+            }
+        });
+    }
+
+    private void showSidebarLabels(boolean show) {
+        int visibility = show ? View.VISIBLE : View.GONE;
+
+        findViewById(R.id.searchLabel).setVisibility(visibility);
+        findViewById(R.id.homeLabel).setVisibility(visibility);
+        findViewById(R.id.moviesLabel).setVisibility(visibility);
+        findViewById(R.id.tvLabel).setVisibility(visibility);
+        findViewById(R.id.apiLabel).setVisibility(visibility);
+        findViewById(R.id.myListLabel).setVisibility(visibility);
+        findViewById(R.id.settingsLabel).setVisibility(visibility);
     }
 
     private void setupNavigationFocus() {
         View.OnFocusChangeListener navFocusListener = (v, hasFocus) -> {
             if (hasFocus) {
+                ViewGroup.LayoutParams params = sidebar.getLayoutParams();
+                params.width = (int) getResources().getDimension(R.dimen.sidebar_expanded_width);
+                sidebar.setLayoutParams(params);
                 v.setSelected(true);
                 v.animate().scaleX(1.1f).scaleY(1.1f).setDuration(200).start();
+                // Show labels
+                showSidebarLabels(true);
             } else {
+                // Shrink sidebar
+                ViewGroup.LayoutParams params = sidebar.getLayoutParams();
+                params.width = (int) getResources().getDimension(R.dimen.sidebar_collapsed_width);
+                sidebar.setLayoutParams(params);
+
+                // Hide labels
+                showSidebarLabels(false);
                 v.setSelected(false);
                 v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(200).start();
             }
@@ -171,7 +218,7 @@ public class MainActivity extends AppCompatActivity {
         settingsIcon.setOnFocusChangeListener(navFocusListener);
 
         // Set initial focus to first navigation item
-        searchIcon.requestFocus();
+        //searchIcon.requestFocus();
     }
 
     private void setupClickListeners() {
@@ -517,9 +564,11 @@ public class MainActivity extends AppCompatActivity {
 
                 // Notify adapter that items were inserted at position 0
                 categoryAdapter.notifyItemInserted(0);
+                //categoryAdapter.getItemId(0).
 
                 // Scroll to top to show the new category
                 categoriesRecyclerView.scrollToPosition(0);
+                categoriesRecyclerView.requestFocus();
 
                 // Set focus on the first item in Continue Watching after a short delay
                 // This ensures the RecyclerView has time to layout
