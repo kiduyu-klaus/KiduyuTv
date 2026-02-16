@@ -160,16 +160,7 @@ public class PlayerActivity extends AppCompatActivity {
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
 
         setContentView(R.layout.activity_player);
-
-
-
-        // Check if this is anime playback
-        if ("anime".equals(mediaType)) {
-            // Handle anime playback - extract all extras from DetailsActivityAnime
-            handleAnimePlayback();
-            return;
-        }
-
+        
         // Continue with normal playback flow for non-anime content
         // Get media item from intent
         mediaItems = getIntent().getParcelableExtra("media_item");
@@ -179,6 +170,14 @@ public class PlayerActivity extends AppCompatActivity {
         }
         // Get media type from intent
         Log.i(TAG, "Media type: " + mediaType);
+
+        // Check if this is anime playback
+        if ("anime".equals(mediaType)) {
+            // Handle anime playback - extract all extras from DetailsActivityAnime
+            handleAnimePlayback();
+            return;
+        }
+
         startPosition = getIntent().getLongExtra("start_position", 0);
 
         if (mediaItems == null) {
