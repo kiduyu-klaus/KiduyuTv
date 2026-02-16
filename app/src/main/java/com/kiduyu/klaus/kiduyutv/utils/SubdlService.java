@@ -122,6 +122,86 @@ public class SubdlService {
         }).start();
     }
 
+
+    public void fetchTvSubtitles(
+            int tmdbId,
+            int seasonNumber,
+            int episodeNumber,
+            String language,
+            Callback cb
+    ) {
+
+        String url = BASE_URL +
+                "?api_key=" + API_KEY +
+                "&tmdb_id=" + tmdbId +
+                "&type=tv" +
+                "&season_number=" + seasonNumber +
+                "&episode_number=" + episodeNumber +
+                "&languages=" + language +
+                "&releases=1";
+
+        Request request = new Request.Builder()
+                .url(url)
+                .header("Accept", "application/json")
+                .build();
+
+        new Thread(() -> {
+            try (Response response = client.newCall(request).execute()) {
+
+                if (!response.isSuccessful()) {
+                    cb.onError("HTTP " + response.code());
+                    return;
+                }
+
+                String jsonText = response.body().string();
+                JSONObject root = new JSONObject(jsonText);
+
+                if (!root.optBoolean("status")) {
+                    cb.onError("API returned false status");
+                    return;
+                }
+
+                JSONArray arr = root.optJSONArray("subtitles");
+                if (arr == null || arr.length() == 0) {
+                    cb.onSuccess(new ArrayList<>());
+                    return;
+                }
+
+                List<Subtitle> out = new ArrayList<>();
+
+                for (int i = 0; i < arr.length(); i++) {
+
+                    JSONObject o = arr.getJSONObject(i);
+
+                    // Skip hearing impaired if you want normal subtitles
+                    if (o.optBoolean("hi", false))
+                        continue;
+
+                    String path = o.optString("url");
+                    if (path == null || path.isEmpty())
+                        continue;
+
+                    String zipUrl = "https://dl.subdl.com" + path;
+
+                    Uri srtUri = downloadAndExtractSrt(zipUrl);
+
+                    if (srtUri != null) {
+                        Subtitle s = new Subtitle();
+                        s.language = o.optString("language");
+                        s.release = o.optString("release_name");
+                        s.srtUri = srtUri;
+                        out.add(s);
+                    }
+                }
+
+                cb.onSuccess(out);
+
+            } catch (Exception e) {
+                cb.onError(e.getMessage());
+            }
+        }).start();
+    }
+
     private Uri downloadAndExtractSrt(String zipUrl) {
         try {
             Request zipReq = new Request.Builder().url(zipUrl).build();
@@ -141,34 +221,60 @@ public class SubdlService {
                 fos.flush();
             }
 
-            // unzip
-            ZipFile zip = new ZipFile(zipFile);
-            zip.extractAll(context.getCacheDir().getAbsolutePath());
+            // Create a temporary directory for extraction with a short name
+            File extractDir = new File(context.getCacheDir(), "sub_extract_" + System.currentTimeMillis());
+            extractDir.mkdirs();
 
-            // find .srt
-            for (File f : context.getCacheDir().listFiles()) {
-                Log.i(TAG, "Found file: " + f.getName());
-                if (f.getName().endsWith(".srt")) {
-                    Log.i(TAG, "Found .srt file: " + f.getAbsolutePath());
-                    Log.i(TAG, "FileProvider.getUriForFile: " + FileProvider.getUriForFile(
-                            context,
-                            context.getPackageName() + ".provider",
-                            f
-                    ));
-                    return FileProvider.getUriForFile(
-                            context,
-                            context.getPackageName() + ".provider",
-                            f
-                    );
+            // unzip with custom extraction handling
+            try (java.util.zip.ZipInputStream zis = new java.util.zip.ZipInputStream(
+                    new java.io.FileInputStream(zipFile))) {
+
+                java.util.zip.ZipEntry entry;
+                while ((entry = zis.getNextEntry()) != null) {
+                    if (entry.isDirectory()) continue;
+
+                    String entryName = entry.getName();
+
+                    // Check if it's an SRT file
+                    if (entryName.toLowerCase().endsWith(".srt")) {
+                        // Generate a safe short filename
+                        String safeFileName = "subtitle_" + System.currentTimeMillis() + "_" +
+                                (entryName.hashCode() & 0x7FFFFFFF) + ".srt";
+
+                        File outputFile = new File(extractDir, safeFileName);
+
+                        // Extract the file
+                        try (FileOutputStream fos = new FileOutputStream(outputFile)) {
+                            byte[] buffer = new byte[4096];
+                            int len;
+                            while ((len = zis.read(buffer)) > 0) {
+                                fos.write(buffer, 0, len);
+                            }
+                        }
+
+                        Log.i(TAG, "Extracted SRT file: " + outputFile.getAbsolutePath());
+
+                        // Return URI for the extracted file
+                        return FileProvider.getUriForFile(
+                                context,
+                                context.getPackageName() + ".provider",
+                                outputFile
+                        );
+                    }
                 }
             }
 
+            // Clean up the zip file
+            zipFile.delete();
+
         } catch (Exception e) {
-            Log.e("SUBDL_PROVIDER", "FileProvider error", e);
+            Log.e("SUBDL_PROVIDER", "Error downloading/extracting subtitle", e);
             return null;
         }
 
         return null;
     }
+
+
 }
 

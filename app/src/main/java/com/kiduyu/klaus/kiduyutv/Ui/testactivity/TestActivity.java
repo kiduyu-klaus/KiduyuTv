@@ -36,16 +36,14 @@ public class TestActivity extends AppCompatActivity {
         textView.setText("Fetching subtitles...");
 
         SubdlService svc = new SubdlService(this);
-
-        svc.fetchSubtitles(
-                803796,
-                "movie",
+        svc.fetchTvSubtitles(
+                224372,   // TMDB id
+                1,      // season
+                1,      // episode
                 "EN",
                 new SubdlService.Callback() {
-
                     @Override
                     public void onSuccess(List<Subtitle> subtitles) {
-
                         runOnUiThread(() -> {
                             progressBar.setVisibility(View.GONE);
 
@@ -64,14 +62,52 @@ public class TestActivity extends AppCompatActivity {
 
                     @Override
                     public void onError(String error) {
+                        Log.e("SUBS", error);
                         runOnUiThread(() -> {
-                            progressBar.setVisibility(View.GONE);
+                           progressBar.setVisibility(View.GONE);
                             textView.setText("Error: " + error);
                             Log.e("SUBS", error);
-                        });
+                       });
                     }
                 }
         );
+
+
+//        svc.fetchSubtitles(
+//                803796,
+//                "movie",
+//                "EN",
+//                new SubdlService.Callback() {
+//
+//                    @Override
+//                    public void onSuccess(List<Subtitle> subtitles) {
+//
+//                        runOnUiThread(() -> {
+//                            progressBar.setVisibility(View.GONE);
+//
+//                            if (subtitles.isEmpty()) {
+//                                textView.setText("No subtitles found");
+//                                return;
+//                            }
+//
+//                            Subtitle s = subtitles.get(0);
+//                            Log.i("SRT", s.language + " -> " + s.srtUri);
+//                            textView.setText(
+//                                    s.language + " -> " + s.srtUri
+//                            );
+//                        });
+//                    }
+//
+//                    @Override
+//                    public void onError(String error) {
+//                        runOnUiThread(() -> {
+//                            progressBar.setVisibility(View.GONE);
+//                            textView.setText("Error: " + error);
+//                            Log.e("SUBS", error);
+//                        });
+//                    }
+//                }
+//        );
     }
 
     @Override
