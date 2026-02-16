@@ -56,11 +56,15 @@ import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.source.ProgressiveMediaSource;
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector;
 
+import com.kiduyu.klaus.kiduyutv.Api.FetchStreams;
+import com.kiduyu.klaus.kiduyutv.Api.TmdbRepository;
 import com.kiduyu.klaus.kiduyutv.R;
 import com.kiduyu.klaus.kiduyutv.Api.AnimekaiApi;
 import com.kiduyu.klaus.kiduyutv.model.EpisodeModel;
 import com.kiduyu.klaus.kiduyutv.model.MediaItems;
 import com.kiduyu.klaus.kiduyutv.utils.PreferencesManager;
+import com.kiduyu.klaus.kiduyutv.utils.SubdlService;
+import com.kiduyu.klaus.kiduyutv.utils.Subtitle;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -123,6 +127,7 @@ public class PlayerActivity extends AppCompatActivity {
     private int currentSubtitleIndex = -1; // -1 means no subtitle selected
     private float currentSpeed = 1.0f;
     private String mediaType; // "anime", "movie", "tv", etc.
+    private boolean nextEpisodeTriggered = false;
 
     // Anime server switching data
     private String episodeToken;
@@ -206,9 +211,6 @@ public class PlayerActivity extends AppCompatActivity {
 
         // Initialize player
         initializePlayer();
-
-        // Auto-select English subtitle
-        autoSelectEnglishSubtitle();
 
         // Start playing
         loadVideoSource(currentSourceIndex);
@@ -623,6 +625,10 @@ public class PlayerActivity extends AppCompatActivity {
                         updateLoadingUi(false);
                         btnPlayPause.setImageResource(android.R.drawable.ic_media_play);
                         showControls();
+                        // Check for auto-play next episode
+                        if ("TV".equals(mediaType)) {
+                            playNextEpisode();
+                        }
                         break;
                 }
             }
@@ -659,8 +665,8 @@ public class PlayerActivity extends AppCompatActivity {
                 // Use actual millisecond values since max is set to duration in ms
                 progressBar.setSecondaryProgress((int) bufferedPosition);
 
-                Log.i(TAG, "Current: " + currentPosition + "ms | Buffered: " + bufferedPosition +
-                        "ms | Max: " + duration + "ms | Buffer Duration: " + formatTime((int) bufferDuration));
+//                Log.i(TAG, "Current: " + currentPosition + "ms | Buffered: " + bufferedPosition +
+//                        "ms | Max: " + duration + "ms | Buffer Duration: " + formatTime((int) bufferDuration));
             }
         }
     }
@@ -1101,6 +1107,15 @@ public class PlayerActivity extends AppCompatActivity {
             // Update progress in milliseconds (matching the max value)
             if (duration > 0) {
                 progressBar.setProgress(currentPos);
+
+                // Check if 3 minutes (180,000 ms) are remaining
+                if ("TV".equals(mediaType) && !nextEpisodeTriggered) {
+                    long remainingTime = duration - currentPos;
+                    if (remainingTime <= 180000 && remainingTime > 0) {
+                        nextEpisodeTriggered = true;
+                        playNextEpisode();
+                    }
+                }
             }
 
             // Update buffered progress display
@@ -1401,7 +1416,7 @@ public class PlayerActivity extends AppCompatActivity {
 
     private void showSubtitleDialog() {
         if (subtitles == null || subtitles.isEmpty()) {
-            Toast.makeText(this, "No subtitles available", Toast.LENGTH_SHORT).show();
+            fetchExternalSubtitles();
             return;
         }
 
@@ -1419,8 +1434,70 @@ public class PlayerActivity extends AppCompatActivity {
         });
 
         AlertDialog dialog = builder.create();
-        applyFocusHighlight(dialog); // ✅ apply focus listeners
+        applyFocusHighlight(dialog);
         dialog.show();
+    }
+
+    private void fetchExternalSubtitles() {
+        if (mediaItems == null || mediaItems.getTmdbId() == null) {
+            Toast.makeText(this, "Cannot fetch subtitles: No TMDB ID", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        showLoadingServer();
+        loadingStatusText.setText("FETCHING SUBTITLES...");
+
+        SubdlService subdlService = new SubdlService(this);
+        SubdlService.Callback callback = new SubdlService.Callback() {
+            @Override
+            public void onSuccess(List<Subtitle> externalSubtitles) {
+                runOnUiThread(() -> {
+                    hideLoading();
+                    if (externalSubtitles.isEmpty()) {
+                        Toast.makeText(PlayerActivity.this, "No external subtitles found", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+
+                    // Convert Subdl subtitles to MediaItems.SubtitleItem
+                    subtitles = new ArrayList<>();
+                    for (Subtitle sub : externalSubtitles) {
+                        MediaItems.SubtitleItem item = new MediaItems.SubtitleItem();
+                        item.setLanguage(sub.language + " (" + sub.release + ")");
+                        item.setUrl(sub.srtUri.toString());
+                        item.setLang(sub.language);
+                        subtitles.add(item);
+                    }
+
+                    // Show dialog again with new subtitles
+                    showSubtitleDialog();
+                });
+            }
+
+            @Override
+            public void onError(String error) {
+                runOnUiThread(() -> {
+                    hideLoading();
+                    Log.e(TAG, "Subdl error: " + error);
+                    Toast.makeText(PlayerActivity.this, "Error fetching subtitles: " + error, Toast.LENGTH_SHORT).show();
+                });
+            }
+        };
+
+        try {
+            int tmdbId = Integer.parseInt(mediaItems.getTmdbId());
+            if ("TV".equals(mediaType)) {
+                int season = Integer.parseInt(mediaItems.getSeason());
+                int episode = Integer.parseInt(mediaItems.getEpisode());
+                subdlService.fetchTvSubtitles(tmdbId, season, episode, "EN", callback);
+            } else {
+                subdlService.fetchSubtitles(tmdbId, "movie", "EN", callback);
+            }
+        } catch (NumberFormatException e) {
+            runOnUiThread(() -> {
+                hideLoading();
+                Toast.makeText(PlayerActivity.this, "Invalid TMDB ID or metadata", Toast.LENGTH_SHORT).show();
+            });
+        }
     }
 
     /**
@@ -1928,6 +2005,43 @@ public class PlayerActivity extends AppCompatActivity {
             }
         }
 
+        // Seek forward 10 seconds on Media Fast Forward
+        if (keyCode == KeyEvent.KEYCODE_MEDIA_FAST_FORWARD) {
+            if (player != null) {
+                long currentPosition = player.getCurrentPosition();
+                long duration = player.getDuration();
+                long newPosition = Math.min(currentPosition + 10000, duration);
+
+                player.seekTo(newPosition);
+                updateTimeDisplay();
+                showToast("Forward +10s");
+
+                if (!controlsVisible) {
+                    showControls();
+                }
+                resetHideControlsTimer();
+            }
+            return true;
+        }
+
+        // Seek backward 10 seconds on Media Rewind
+        if (keyCode == KeyEvent.KEYCODE_MEDIA_REWIND) {
+            if (player != null) {
+                long currentPosition = player.getCurrentPosition();
+                long newPosition = Math.max(currentPosition - 10000, 0);
+
+                player.seekTo(newPosition);
+                updateTimeDisplay();
+                showToast("Backward -10s");
+
+                if (!controlsVisible) {
+                    showControls();
+                }
+                resetHideControlsTimer();
+            }
+            return true;
+        }
+
 
         // Back button - double press to exit
         if (keyCode == KeyEvent.KEYCODE_BACK) {
@@ -2051,6 +2165,97 @@ public class PlayerActivity extends AppCompatActivity {
 
         // Clear screen flags
         getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+    }
+
+    private void playNextEpisode() {
+        if (mediaItems == null || mediaItems.getTmdbId() == null) {
+            nextEpisodeTriggered = false;
+            return;
+        }
+
+        String currentSeasonStr = mediaItems.getSeason();
+        String currentEpisodeStr = mediaItems.getEpisode();
+
+        if (currentSeasonStr == null || currentEpisodeStr == null) return;
+
+        try {
+            int currentSeason = Integer.parseInt(currentSeasonStr);
+            int currentEpisode = Integer.parseInt(currentEpisodeStr);
+
+            showLoadingServer();
+            loadingStatusText.setText("CHECKING NEXT EPISODE...");
+
+            TmdbRepository tmdbRepository = new TmdbRepository();
+            tmdbRepository.getSeasonEpisodes(mediaItems.getTmdbId(), currentSeason, new TmdbRepository.EpisodesCallback() {
+                @Override
+                public void onSuccess(List<com.kiduyu.klaus.kiduyutv.model.Episode> episodes) {
+                    int totalEpisodes = episodes.size();
+                    if (totalEpisodes > currentEpisode) {
+                        int nextEpisodeNumber = currentEpisode + 1;
+                        fetchNextEpisodeStreams(mediaItems.getTmdbId(), String.valueOf(currentSeason), String.valueOf(nextEpisodeNumber));
+                    } else {
+                        runOnUiThread(() -> {
+                            hideLoading();
+                            Toast.makeText(PlayerActivity.this, "No more episodes in this season", Toast.LENGTH_SHORT).show();
+                        });
+                    }
+                }
+
+                @Override
+                public void onError(String error) {
+                    runOnUiThread(() -> {
+                        nextEpisodeTriggered = false; // Reset flag to allow retry
+                        hideLoading();
+                        Log.e(TAG, "Error checking next episode: " + error);
+                    });
+                }
+            });
+
+        } catch (NumberFormatException e) {
+            Log.e(TAG, "Error parsing season/episode: " + e.getMessage());
+        }
+    }
+
+    private void fetchNextEpisodeStreams(String tmdbId, String season, String episodeNumber) {
+        runOnUiThread(() -> loadingStatusText.setText("FETCHING NEXT EPISODE..."));
+
+        FetchStreams fetchStreams = new FetchStreams(this);
+        fetchStreams.fetchHexaTV(tmdbId, season, episodeNumber, new FetchStreams.StreamCallback() {
+            @Override
+            public void onSuccess(MediaItems nextMedia) {
+                if (nextMedia.getVideoSources() != null && !nextMedia.getVideoSources().isEmpty()) {
+                    // Update current media items with next episode info
+                    mediaItems.setVideoSources(nextMedia.getVideoSources());
+                    mediaItems.setSubtitles(nextMedia.getSubtitles());
+                    mediaItems.setSeason(season);
+                    mediaItems.setEpisode(episodeNumber);
+
+                    // Update UI info
+                    runOnUiThread(() -> {
+                        nextEpisodeTriggered = false; // Reset flag for the next episode
+                        populateMediaInfo();
+                        currentSourceIndex = 0;
+                        loadVideoSource(currentSourceIndex);
+                        Toast.makeText(PlayerActivity.this, "Playing Episode " + episodeNumber, Toast.LENGTH_SHORT).show();
+                    });
+                } else {
+                    runOnUiThread(() -> {
+                        hideLoading();
+                        Toast.makeText(PlayerActivity.this, "No streams found for next episode", Toast.LENGTH_SHORT).show();
+                    });
+                }
+            }
+
+            @Override
+            public void onError(String error) {
+                runOnUiThread(() -> {
+                    nextEpisodeTriggered = false; // Reset flag to allow retry if needed
+                    hideLoading();
+                    Log.e(TAG, "Error fetching next episode streams: " + error);
+                    Toast.makeText(PlayerActivity.this, "Failed to load next episode", Toast.LENGTH_SHORT).show();
+                });
+            }
+        });
     }
 
     @Override
