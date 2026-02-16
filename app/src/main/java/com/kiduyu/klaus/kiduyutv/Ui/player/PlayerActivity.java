@@ -413,7 +413,7 @@ public class PlayerActivity extends AppCompatActivity {
 
         totalTime.setText(formatTime(0));
         currentTime.setText(formatTime(0));
-        if (mediaType.equals("TV") || mediaType.equals("MOVIE")){
+        if (mediaType.equals("TV") || mediaType.equals("MOVIE")) {
             btnAudio.setVisibility(View.GONE);
         }
     }
@@ -528,7 +528,9 @@ public class PlayerActivity extends AppCompatActivity {
         trackSelector = new DefaultTrackSelector(this);
         trackSelector.setParameters(
                 trackSelector.buildUponParameters()
-                        .setMaxVideoSizeSd()
+                        .clearVideoSizeConstraints()
+                        .setMaxVideoBitrate(Integer.MAX_VALUE)
+                        .setForceHighestSupportedBitrate(true)
                         .setAllowVideoMixedMimeTypeAdaptiveness(true)
                         .setAllowAudioMixedMimeTypeAdaptiveness(true)
                         .setPreferredTextLanguage("en")  // Enable subtitle track
@@ -1338,11 +1340,11 @@ public class PlayerActivity extends AppCompatActivity {
     }
 
 
-
     private void showCurrentTrackInfo() {
         String info = getCurrentTrackInfo();
         Toast.makeText(this, info, Toast.LENGTH_SHORT).show();
     }
+
     private String getCurrentTrackInfo() {
         if (player == null) {
             return "No player";
@@ -1995,8 +1997,10 @@ public class PlayerActivity extends AppCompatActivity {
                         });
                         // REMOVE the manual setOnClickListener here!
                     }
+
                     @Override
-                    public void onChildViewRemoved(View parent, View child) {}
+                    public void onChildViewRemoved(View parent, View child) {
+                    }
                 });
             }
         });

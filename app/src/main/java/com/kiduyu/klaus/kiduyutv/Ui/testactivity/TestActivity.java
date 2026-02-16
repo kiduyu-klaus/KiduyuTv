@@ -198,125 +198,7 @@ public class TestActivity extends AppCompatActivity {
 
 
 
-        webView = findViewById(R.id.webview);
 
-
-
-        WebSettings webSettings = webView.getSettings();
-        webSettings.setJavaScriptEnabled(true);
-        webSettings.setDomStorageEnabled(true);
-        webSettings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
-        webSettings.setMediaPlaybackRequiresUserGesture(false);
-        webSettings.setBuiltInZoomControls(false);
-        webSettings.setDisplayZoomControls(false);
-
-        // Disable some ad-related features
-        webSettings.setSaveFormData(false);
-        webSettings.setAllowFileAccess(false);
-
-        // Add JavaScript interface for controlling iframe controls
-        webView.addJavascriptInterface(new VideoPlayerJSInterface(), "AndroidInterface");
-
-        // Set WebChromeClient to handle console messages and better iframe communication
-        webView.setWebChromeClient(new WebChromeClient() {
-            @Override
-            public void onConsoleMessage(String message, int lineNumber, String sourceId) {
-                Log.i("WebView", "Console: " + message + " (From line " + lineNumber + " of " + sourceId + ")");
-            }
-        });
-
-        // Set WebViewClient to inject our control script when page loads
-        webView.setWebViewClient(new WebViewClient() {
-            @Override
-            public void onPageFinished(WebView view, String url) {
-                super.onPageFinished(view, url);
-
-                // Inject the control script after page loads
-                injectControlScript();
-            }
-        });
-
-        // Set the OnKeyListener for remote control interactions
-        webView.setOnKeyListener(new View.OnKeyListener() {
-            @Override
-            public boolean onKey(View v, int keyCode, KeyEvent event) {
-                if (event.getAction() == KeyEvent.ACTION_UP) {
-                    switch (keyCode) {
-                        case KeyEvent.KEYCODE_DPAD_UP:
-                            // Custom logic for Remote Up button
-                            Log.i("WebView", "D-Pad UP pressed!");
-                            Toast.makeText(v.getContext(), "D-Pad UP!", Toast.LENGTH_SHORT).show();
-                            return true;
-                        case KeyEvent.KEYCODE_DPAD_CENTER:
-                        case KeyEvent.KEYCODE_ENTER:
-                            // Show iframe controls when center/enter is pressed
-                            Log.i("WebView", "D-Pad center/Enter pressed - showing controls!");
-                            Toast.makeText(v.getContext(), "Showing controls!", Toast.LENGTH_SHORT).show();
-
-                            // Use JavaScript interface for robust control
-                            webView.evaluateJavascript(
-                                    "javascript:(function() { " +
-                                            "    console.log('Android: Show controls triggered'); " +
-                                            "    " +
-                                            "    // Method 1: Try to find and show the control container by exact classes" +
-                                            "    var possibleSelectors = [ " +
-                                            "        '.absolute.bottom-0.left-0.w-full.h-\\[100px\\].md\\:h-32', " +
-                                            "        '[class*=\"bottom-0\"][class*=\"w-full\"]', " +
-                                            "        '.bg-gradient-to-t', " +
-                                            "        '[class*=\"control-bar\"]', " +
-                                            "        '.videasy-controls' " +
-                                            "    ]; " +
-                                            "    " +
-                                            "    possibleSelectors.forEach(function(selector) { " +
-                                            "        try { " +
-                                            "            var el = document.querySelector(selector); " +
-                                            "            if (el) { " +
-                                            "                el.style.opacity = '1'; " +
-                                            "                el.style.visibility = 'visible'; " +
-                                            "                el.style.display = 'flex'; " +
-                                            "                console.log('Android: Applied styles to', selector); " +
-                                            "            } " +
-                                            "        } catch(e) { console.log('Android: Error with selector', selector, e); } " +
-                                            "    }); " +
-                                            "    " +
-                                            "    // Method 2: Click on video to show controls" +
-                                            "    var videoEl = document.querySelector('video'); " +
-                                            "    if (videoEl) { " +
-                                            "        videoEl.click(); " +
-                                            "        console.log('Android: Clicked video element'); " +
-                                            "    } " +
-                                            "    " +
-                                            "    // Method 3: Dispatch spacebar key event" +
-                                            "    var keyEvt = new KeyboardEvent('keydown', {key: ' ', code: 'Space', keyCode: 32, bubbles: true}); " +
-                                            "    document.dispatchEvent(keyEvt); " +
-                                            "    " +
-                                            "    // Method 4: Trigger mouseenter on player area" +
-                                            "    var playerArea = document.querySelector('.relative.h-full.w-full.overflow-hidden, .relative.overflow-hidden'); " +
-                                            "    if (playerArea) { " +
-                                            "        var mouseEvt = new MouseEvent('mouseenter', {bubbles: true, cancelable: true, view: window}); " +
-                                            "        playerArea.dispatchEvent(mouseEvt); " +
-                                            "        console.log('Android: Dispatched mouseenter'); " +
-                                            "    } " +
-                                            "    " +
-                                            "    // Method 5: Try to access internal React state (advanced)" +
-                                            "    // Some players expose their API globally" +
-                                            "    if (typeof window.player !== 'undefined' && typeof window.player.showControls === 'function') { " +
-                                            "        window.player.showControls(); " +
-                                            "        console.log('Android: Called player.showControls()'); " +
-                                            "    } " +
-                                            "    " +
-                                            "    console.log('Android: Show controls complete'); " +
-                                            "})();", null);
-                            return true;
-                    }
-                }
-                // For other keys or actions, return false to allow default WebView behavior
-                return false;
-            }
-        });
-
-
-        webView.loadUrl("https://player.videasy.net/movie/299534");
     }
 
     /**
@@ -428,69 +310,7 @@ public class TestActivity extends AppCompatActivity {
     @Override
     public void onBackPressed() {
         // Hide controls when back is pressed
-        webView.evaluateJavascript(
-                "javascript:(function() { " +
-                        "    console.log('Android: Hide controls triggered (back press)'); " +
-                        "    " +
-                        "    // Method 1: Find and hide control container by multiple selectors" +
-                        "    var possibleSelectors = [ " +
-                        "        '.absolute.bottom-0.left-0.w-full.h-\\[100px\\].md\\:h-32', " +
-                        "        '[class*=\"bottom-0\"][class*=\"w-full\"]', " +
-                        "        '.bg-gradient-to-t', " +
-                        "        '[class*=\"control-bar\"]', " +
-                        "        '.videasy-controls' " +
-                        "    ]; " +
-                        "    " +
-                        "    possibleSelectors.forEach(function(selector) { " +
-                        "        try { " +
-                        "            var el = document.querySelector(selector); " +
-                        "            if (el) { " +
-                        "                el.style.opacity = '0'; " +
-                        "                el.style.visibility = 'hidden'; " +
-                        "                el.style.display = 'none'; " +
-                        "                console.log('Android: Hidden element', selector); " +
-                        "            } " +
-                        "        } catch(e) { console.log('Android: Error with selector', selector, e); } " +
-                        "    }); " +
-                        "    " +
-                        "    // Method 2: Click on video to hide controls (toggle behavior)" +
-                        "    var videoEl = document.querySelector('video'); " +
-                        "    if (videoEl) { " +
-                        "        videoEl.click(); " +
-                        "        console.log('Android: Clicked video to hide controls'); " +
-                        "    } " +
-                        "    " +
-                        "    // Method 3: Dispatch spacebar key event (toggle)" +
-                        "    var keyEvt = new KeyboardEvent('keydown', {key: ' ', code: 'Space', keyCode: 32, bubbles: true}); " +
-                        "    document.dispatchEvent(keyEvt); " +
-                        "    " +
-                        "    // Method 4: Trigger mouseleave on player area" +
-                        "    var playerArea = document.querySelector('.relative.h-full.w-full.overflow-hidden, .relative.overflow-hidden'); " +
-                        "    if (playerArea) { " +
-                        "        var mouseEvt = new MouseEvent('mouseleave', {bubbles: true, cancelable: true, view: window}); " +
-                        "        playerArea.dispatchEvent(mouseEvt); " +
-                        "        console.log('Android: Dispatched mouseleave'); " +
-                        "    } " +
-                        "    " +
-                        "    // Method 5: Try to access internal React state (advanced)" +
-                        "    if (typeof window.player !== 'undefined' && typeof window.player.hideControls === 'function') { " +
-                        "        window.player.hideControls(); " +
-                        "        console.log('Android: Called player.hideControls()'); " +
-                        "    } " +
-                        "    " +
-                        "    console.log('Android: Hide controls complete'); " +
-                        "})();", null);
-
-        Log.i("WebView", "Back pressed - hiding controls");
-        Toast.makeText(this, "Hiding controls", Toast.LENGTH_SHORT).show();
-
-        // Small delay to allow hide animation, then exit
-        webView.postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                TestActivity.super.onBackPressed();
-            }
-        }, 200);
+       super.onBackPressed();
     }
 
 
@@ -537,9 +357,7 @@ public class TestActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
-        if (webView != null) {
-            webView.destroy();
-        }
+
         super.onDestroy();
     }
 }
