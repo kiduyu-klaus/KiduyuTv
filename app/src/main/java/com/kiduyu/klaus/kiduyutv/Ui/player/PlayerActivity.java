@@ -160,7 +160,7 @@ public class PlayerActivity extends AppCompatActivity {
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
 
         setContentView(R.layout.activity_player);
-        
+
         // Continue with normal playback flow for non-anime content
         // Get media item from intent
         mediaItems = getIntent().getParcelableExtra("media_item");
@@ -1453,26 +1453,7 @@ public class PlayerActivity extends AppCompatActivity {
         } else {
             // For non-anime (movies, TV shows), set badge based on media type
             if (mediaItems != null) {
-                String title = mediaItems.getTitle();
-                if (title != null) {
-                    // Simple heuristic to determine if it's a movie or TV show
-                    if (title.toLowerCase().contains("season") ||
-                            title.toLowerCase().contains("episode") ||
-                            title.toLowerCase().matches(".*\\bs\\d+.*") ||         // S1, S02
-                            title.toLowerCase().matches(".*\\bs\\d+e\\d+.*")) {
-                        // Likely a TV show
-                        hardsubBadge.setText("TV SHOW");
-                        hardsubBadge.setVisibility(View.VISIBLE);
-                    } else {
-                        // Default to MOVIE
-                        hardsubBadge.setText("MOVIE");
-                        hardsubBadge.setVisibility(View.VISIBLE);
-                    }
-
-                } else {
-                    hardsubBadge.setText("MOVIE");
-                    hardsubBadge.setVisibility(View.VISIBLE);
-                }
+                hardsubBadge.setText(mediaType);
             } else {
                 hardsubBadge.setVisibility(View.GONE);
             }
