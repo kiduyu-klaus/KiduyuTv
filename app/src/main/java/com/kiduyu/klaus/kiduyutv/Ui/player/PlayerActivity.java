@@ -413,6 +413,9 @@ public class PlayerActivity extends AppCompatActivity {
 
         totalTime.setText(formatTime(0));
         currentTime.setText(formatTime(0));
+        if (mediaType.equals("TV") || mediaType.equals("MOVIE")){
+            btnAudio.setVisibility(View.GONE);
+        }
     }
 
     private void setupClickListeners() {

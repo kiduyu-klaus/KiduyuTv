@@ -423,6 +423,9 @@ public class DetailsActivityTv extends AppCompatActivity {
             showEmptyCast();
             return;
         }
+        if(tvShow.getId()!=null && tvShow.getId().isEmpty()) {
+            tvShow.setTmdbId(tvShow.getId());
+        };
 
         castLoadingProgress.setVisibility(View.VISIBLE);
         castRecyclerView.setVisibility(View.GONE);
