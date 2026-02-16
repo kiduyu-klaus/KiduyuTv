@@ -12,7 +12,7 @@
                 android:bottom="12dp" />
         </shape>
     </item>
-    
+
     <!-- Focused and pressed state -->
     <item android:state_focused="true" android:state_pressed="true">
         <shape android:shape="rectangle">
@@ -25,7 +25,7 @@
                 android:bottom="12dp" />
         </shape>
     </item>
-    
+
     <!-- Default state - transparent -->
     <item>
         <shape android:shape="rectangle">

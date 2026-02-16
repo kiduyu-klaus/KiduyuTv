@@ -32,10 +32,13 @@ import androidx.appcompat.app.AppCompatActivity;
 import com.bumptech.glide.Glide;
 
 import androidx.media3.common.C;
+import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
+import androidx.media3.common.TrackGroup;
+import androidx.media3.common.TrackSelectionOverride;
 import androidx.media3.common.TrackSelectionParameters;
 import androidx.media3.common.Tracks;
 import androidx.media3.common.text.CueGroup;
@@ -60,6 +63,7 @@ import com.kiduyu.klaus.kiduyutv.model.MediaItems;
 import com.kiduyu.klaus.kiduyutv.utils.PreferencesManager;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -516,6 +520,14 @@ public class PlayerActivity extends AppCompatActivity {
                 .setPrioritizeTimeOverSizeThresholds(true)
                 .build();
         trackSelector = new DefaultTrackSelector(this);
+        trackSelector.setParameters(
+                trackSelector.buildUponParameters()
+                        .setMaxVideoSizeSd()
+                        .setAllowVideoMixedMimeTypeAdaptiveness(true)
+                        .setAllowAudioMixedMimeTypeAdaptiveness(true)
+                        .setPreferredTextLanguage("en")  // Enable subtitle track
+                        .setSelectUndeterminedTextLanguage(true)  // Show subtitles even if language is undefined
+        );
 
         // Enable legacy text rendering for subtitle support
         player = new ExoPlayer.Builder(this)
@@ -587,6 +599,9 @@ public class PlayerActivity extends AppCompatActivity {
 
                         // Show controls so user can see seekbar and time
                         showControls();
+
+                        showCurrentTrackInfo();
+                        updateQualityButton();
 
                         // Auto-start playback after a short delay for visual feedback
                         handler.postDelayed(() -> {
@@ -731,6 +746,7 @@ public class PlayerActivity extends AppCompatActivity {
         }
 
         player.setPlayWhenReady(true);
+        showCurrentTrackInfo();
 
         // Update UI
         updateServerButton();
@@ -1014,6 +1030,7 @@ public class PlayerActivity extends AppCompatActivity {
             player.pause();
         } else {
             player.play();
+            showCurrentTrackInfo();
         }
         showControls();
     }
@@ -1042,7 +1059,7 @@ public class PlayerActivity extends AppCompatActivity {
     private void resetHideControlsTimer() {
         hideControlsHandler.removeCallbacks(hideControlsTask);
         if (player.isPlaying()) {
-            hideControlsHandler.postDelayed(hideControlsTask, 3000);
+            hideControlsHandler.postDelayed(hideControlsTask, 6000);
         }
     }
 
@@ -1212,26 +1229,165 @@ public class PlayerActivity extends AppCompatActivity {
     }
 
     private void showQualityDialog() {
-        if (videoSources == null || videoSources.isEmpty()) {
-            Toast.makeText(this, "No qualities available", Toast.LENGTH_SHORT).show();
+        if (player == null) {
+            showToast("No player");
             return;
         }
 
-        String[] qualityLabels = new String[videoSources.size()];
-        for (int i = 0; i < videoSources.size(); i++) {
-            qualityLabels[i] = videoSources.get(i).getQuality();
+        Tracks tracks = player.getCurrentTracks();
+        if (tracks == null || tracks.isEmpty()) {
+            showToast("No tracks");
+            return;
         }
+
+        // List to store quality options
+        List<String> qualityList = new ArrayList<>();
+        List<TrackSelectionOverride> overrideList = new ArrayList<>();
+
+        // Add "Auto" option
+        //overrideList.add(null); // null indicates auto selection
+
+        // Iterate through track groups to find video tracks
+        for (Tracks.Group trackGroup : tracks.getGroups()) {
+            int trackType = trackGroup.getType();
+
+            if (trackType == C.TRACK_TYPE_VIDEO) {
+                TrackGroup mediaTrackGroup = trackGroup.getMediaTrackGroup();
+
+                for (int i = 0; i < trackGroup.length; i++) {
+                    Format format = trackGroup.getTrackFormat(i);
+                    int width = format.width;
+                    int height = format.height;
+                    int bitrate = format.bitrate;
+
+                    StringBuilder qualityLabel = new StringBuilder();
+
+                    // Build quality label
+                    if (width > 0 && height > 0) {
+                        qualityLabel.append(height).append("p");
+
+                        if (bitrate > 0) {
+                            // Convert bitrate to Mbps
+                            float bitrateMbps = bitrate / 1_000_000f;
+                            qualityLabel.append(" (").append(String.format("%.2f", bitrateMbps)).append(" Mbps)");
+                        }
+                    } else {
+                        qualityLabel.append("Unknown Quality");
+                    }
+
+                    qualityList.add(qualityLabel.toString());
+
+                    // Create override for this specific track
+                    TrackSelectionOverride override = new TrackSelectionOverride(
+                            mediaTrackGroup,
+                            Collections.singletonList(i)
+                    );
+                    overrideList.add(override);
+                }
+            }
+        }
+
+        if (qualityList.size() <= 1) {
+            showToast("No quality options available");
+            return;
+        }
+
+        // Convert list to array for AlertDialog
+        String[] qualityLabels = qualityList.toArray(new String[0]);
 
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle("Select Quality");
         builder.setItems(qualityLabels, (dialog, which) -> {
-            currentSourceIndex = which;
-            loadVideoSource(currentSourceIndex);
+            TrackSelectionOverride selectedOverride = overrideList.get(which);
+            switchToTrack(selectedOverride);
         });
 
         AlertDialog dialog = builder.create();
         applyFocusHighlight(dialog);
         dialog.show();
+    }
+
+    // Helper method to switch tracks
+    private void switchToTrack(TrackSelectionOverride override) {
+        if (player == null) return;
+
+        TrackSelectionParameters.Builder parametersBuilder = player.getTrackSelectionParameters()
+                .buildUpon()
+                .clearOverrides();
+
+        if (override != null) {
+            // Specific quality selected
+            parametersBuilder.addOverride(override);
+            showToast("Quality changed to " + override.mediaTrackGroup.getFormat(override.trackIndices.get(0)).height + "p");
+            Log.i(TAG, "Quality changed to " + override.mediaTrackGroup.getFormat(override.trackIndices.get(0)).height + "p");
+
+            btnQuality.setText(override.mediaTrackGroup.getFormat(override.trackIndices.get(0)).height + "p");
+        } else {
+            // Auto quality selected
+            showToast("Auto quality selected");
+        }
+
+        player.setTrackSelectionParameters(parametersBuilder.build());
+    }
+
+
+
+    private void showCurrentTrackInfo() {
+        String info = getCurrentTrackInfo();
+        Toast.makeText(this, info, Toast.LENGTH_SHORT).show();
+    }
+    private String getCurrentTrackInfo() {
+        if (player == null) {
+            return "No player";
+        }
+
+        Tracks tracks = player.getCurrentTracks();
+        if (tracks == null || tracks.isEmpty()) {
+            return "No tracks";
+        }
+
+        StringBuilder info = new StringBuilder();
+        info.append("Current Tracks:\n");
+
+        for (Tracks.Group trackGroup : tracks.getGroups()) {
+            int trackType = trackGroup.getType();
+
+            for (int i = 0; i < trackGroup.length; i++) {
+                if (trackGroup.isTrackSelected(i)) {
+                    // Access format directly
+                    int width = trackGroup.getTrackFormat(i).width;
+                    int height = trackGroup.getTrackFormat(i).height;
+                    int bitrate = trackGroup.getTrackFormat(i).bitrate;
+                    int sampleRate = trackGroup.getTrackFormat(i).sampleRate;
+                    String language = trackGroup.getTrackFormat(i).language;
+
+                    if (trackType == C.TRACK_TYPE_VIDEO) {
+                        info.append("Video: ");
+                        if (width > 0 && height > 0) {
+                            info.append(width).append("x").append(height);
+                        } else {
+                            info.append("Auto");
+                        }
+                        if (bitrate > 0) {
+                            info.append(" (").append(bitrate / 1000).append(" kbps)");
+                        }
+                        info.append("\n");
+                    } else if (trackType == C.TRACK_TYPE_AUDIO) {
+                        info.append("Audio: ").append(sampleRate > 0 ? sampleRate + " Hz" : "Unknown");
+                        if (bitrate > 0) {
+                            info.append(" (").append(bitrate / 1000).append(" kbps)");
+                        }
+                        info.append("\n");
+                    } else if (trackType == C.TRACK_TYPE_TEXT) {
+                        info.append("Subtitle: ").append(language != null ? language : "Unknown");
+                        info.append("\n");
+                    }
+                }
+            }
+        }
+        Log.i(TAG, "Current Tracks: " + info.toString());
+
+        return info.toString();
     }
 
     private void showSubtitleDialog() {
@@ -1635,6 +1791,8 @@ public class PlayerActivity extends AppCompatActivity {
                         player.seekTo(currentPosition);
                         if (wasPlaying) {
                             player.play();
+
+                            showCurrentTrackInfo();
                         }
                     }
 
@@ -1665,10 +1823,38 @@ public class PlayerActivity extends AppCompatActivity {
     }
 
     private void updateQualityButton() {
-        if (currentSourceIndex >= 0 && currentSourceIndex < videoSources.size()) {
-            String quality = videoSources.get(currentSourceIndex).getQuality();
-            btnQuality.setText(quality != null ? quality : "Auto");
+        if (player == null) {
+            btnQuality.setText("Auto");
+            return;
         }
+
+        Tracks tracks = player.getCurrentTracks();
+        if (tracks == null || tracks.isEmpty()) {
+            btnQuality.setText("Auto");
+            return;
+        }
+
+        // Find currently selected video track
+        for (Tracks.Group trackGroup : tracks.getGroups()) {
+            if (trackGroup.getType() == C.TRACK_TYPE_VIDEO) {
+                for (int i = 0; i < trackGroup.length; i++) {
+                    if (trackGroup.isTrackSelected(i)) {
+                        Format format = trackGroup.getTrackFormat(i);
+                        int height = format.height;
+
+                        if (height > 0) {
+                            btnQuality.setText(height + "p");
+                        } else {
+                            btnQuality.setText("Auto");
+                        }
+                        return;
+                    }
+                }
+            }
+        }
+
+        // No track selected or found
+        btnQuality.setText("Auto");
     }
 
     private void saveWatchProgress() {
@@ -1801,63 +1987,33 @@ public class PlayerActivity extends AppCompatActivity {
         dialog.setOnShowListener(d -> {
             ListView listView = dialog.getListView();
             if (listView != null) {
-                // Make list items focusable for D-pad navigation
+                // Set the selector directly on the ListView
+                listView.setSelector(R.drawable.dialog_item_focus_selector);
+                listView.setDrawSelectorOnTop(false);
                 listView.setItemsCanFocus(true);
 
-                // Apply focus change listener to list items
                 listView.setOnHierarchyChangeListener(new ViewGroup.OnHierarchyChangeListener() {
                     @Override
                     public void onChildViewAdded(View parent, View child) {
-                        // Make each child focusable and set focus listener
                         child.setFocusable(true);
-                        child.setFocusableInTouchMode(true);
                         child.setOnFocusChangeListener((v, hasFocus) -> {
                             if (hasFocus) {
-                                // Apply blue background when focused
-                                v.setBackgroundResource(R.drawable.dialog_item_focus_selector);
-                                // Scroll to make focused item visible
-                                if (v.getParent() instanceof ListView) {
-                                    ListView listView1 = (ListView) v.getParent();
-                                    int position = listView1.getPositionForView(v);
-                                    if (position != ListView.INVALID_POSITION) {
-                                        listView1.setSelection(position);
-                                    }
+                                // Sync ListView selection with focus for D-pad
+                                int position = listView.getPositionForView(v);
+                                if (position != ListView.INVALID_POSITION) {
+                                    listView.setSelection(position);
                                 }
-                            } else {
-                                // Reset to transparent when not focused
-                                v.setBackgroundResource(R.drawable.dialog_item_focus_selector);
                             }
                         });
-
-                        // Set click listener to dismiss dialog when item is clicked
-                        child.setOnClickListener(v -> {
-                            int position = listView.getPositionForView(v);
-                            if (position != ListView.INVALID_POSITION) {
-                                dialog.dismiss();
-                                // Trigger the item selection by calling onClick on the dialog
-                                d.dismiss();
-                            }
-                        });
+                        // REMOVE the manual setOnClickListener here!
                     }
-
                     @Override
-                    public void onChildViewRemoved(View parent, View child) {
-                        // No-op
-                    }
-                });
-
-                // Request focus on first item for immediate D-pad navigation
-                listView.post(() -> {
-                    if (listView.getChildCount() > 0) {
-                        View firstChild = listView.getChildAt(0);
-                        if (firstChild != null) {
-                            firstChild.requestFocus();
-                        }
-                    }
+                    public void onChildViewRemoved(View parent, View child) {}
                 });
             }
         });
     }
+
 
     @Override
     protected void onPause() {

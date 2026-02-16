@@ -427,6 +427,7 @@ public class FetchStreams {
             throw new IOException("Failed to decrypt");
         }
         DecryptResponse.Result result = decResponse.body().result;
+        Log.i(TAG, "DecryptResponse.Result: " + result.toString());
         String jsonStr = new com.google.gson.Gson().toJson(result);
 
         Log.i(TAG, "fetchHexaMovie JSON: " + jsonStr);
