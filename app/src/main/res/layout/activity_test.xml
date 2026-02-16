@@ -1,155 +1,23 @@
-<?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout
+<RelativeLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:id="@+id/rootLayout"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:background="#101010">
+    android:layout_height="match_parent">
 
-    <!-- Top Navigation -->
-    <LinearLayout
-        android:id="@+id/topNav"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:padding="16dp"
-        android:gravity="center_vertical"
-        app:layout_constraintTop_toTopOf="parent">
-
-        <TextView
-            android:id="@+id/navMovies"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Movies"
-            android:textColor="#FFFFFF"
-            android:textSize="16sp"
-            android:layout_marginEnd="24dp"/>
-
-        <TextView
-            android:id="@+id/navTVShows"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="TVShows"
-            android:textColor="#FFFFFF"
-            android:textSize="16sp"
-            android:layout_marginEnd="24dp"/>
-
-        <TextView
-            android:id="@+id/navMyList"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="My List"
-            android:textColor="#FFFFFF"
-            android:textSize="16sp"
-            android:layout_marginEnd="24dp"/>
-
-        <!-- Spacer -->
-        <View
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"/>
-
-        <!-- Search Icon -->
-        <ImageView
-            android:id="@+id/iconSearch"
-            android:layout_width="24dp"
-            android:layout_height="24dp"
-            android:src="@drawable/ic_search"
-            android:tint="#FFFFFF"
-            android:contentDescription="Search"
-            android:layout_marginEnd="16dp"/>
-
-        <!-- Settings Icon -->
-        <ImageView
-            android:id="@+id/iconSettings"
-            android:layout_width="24dp"
-            android:layout_height="24dp"
-            android:src="@drawable/ic_settings"
-            android:tint="#FFFFFF"
-            android:contentDescription="Settings"/>
-    </LinearLayout>
-
-    <!-- Featured Show Section -->
-    <LinearLayout
-        android:id="@+id/featuredShow"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="16dp"
-        app:layout_constraintTop_toBottomOf="@id/topNav">
-
-        <TextView
-            android:id="@+id/showTitle"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Fallout"
-            android:textColor="#FFFFFF"
-            android:textSize="24sp"
-            android:textStyle="bold"/>
-
-        <TextView
-            android:id="@+id/showRating"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="⭐ 8.1 (2024)"
-            android:textColor="#CCCCCC"
-            android:textSize="14sp"
-            android:layout_marginTop="4dp"/>
-
-        <TextView
-            android:id="@+id/showDescription"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="The story of haves and have-nots in a world in which there's almost nothing left to have. 200 years after the apocalypse..."
-            android:textColor="#DDDDDD"
-            android:textSize="14sp"
-            android:layout_marginTop="8dp"/>
-
-        <LinearLayout
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginTop="12dp">
-
-            <Button
-                android:id="@+id/btnPlayNow"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Play Now"
-                android:backgroundTint="#FF4444"
-                android:textColor="#FFFFFF"/>
-
-            <Button
-                android:id="@+id/btnInfo"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Info"
-                android:layout_marginStart="16dp"
-                android:backgroundTint="#444444"
-                android:textColor="#FFFFFF"/>
-        </LinearLayout>
-    </LinearLayout>
-
-    <!-- Trending Shows Section -->
     <TextView
         android:id="@+id/trendingTitle"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="TV Shows Trending Today"
-        android:textColor="#FFFFFF"
-        android:visibility="gone"
-        android:textSize="18sp"
-        android:textStyle="bold"
-        android:padding="16dp"
-        app:layout_constraintTop_toBottomOf="@id/featuredShow"/>
+        android:gravity="center"
+        android:text="Loading..."
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="32dp"/>
 
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/trendingRecycler"
-        android:layout_width="match_parent"
+    <ProgressBar
+        android:id="@+id/progressBar"
+        style="?android:attr/progressBarStyleLarge"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:paddingStart="16dp"
-        android:paddingEnd="16dp"
-        app:layout_constraintTop_toBottomOf="@id/trendingTitle"
-        android:orientation="horizontal"/>
-</androidx.constraintlayout.widget.ConstraintLayout>
+        android:layout_centerInParent="true"
+        android:visibility="visible"/>
+
+</RelativeLayout>

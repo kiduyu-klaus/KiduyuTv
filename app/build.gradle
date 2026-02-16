@@ -98,6 +98,9 @@ dependencies {
     testImplementation libs.mockito.inline
     testImplementation libs.robolectric
 
+    // unzip support
+    implementation 'net.lingala.zip4j:zip4j:2.11.5'
+
 /**
     androidTestImplementation libs.ext.junit
     androidTestImplementation libs.espresso.core

@@ -20,22 +20,34 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.KiduyuTv">
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.provider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
         <activity
             android:name=".Ui.details.anime.DetailsActivityAnime"
             android:exported="false" />
         <activity
             android:name=".Ui.testactivity.TestActivity"
-            android:exported="false">
-
-        </activity>
-        <activity
-            android:name=".Ui.splash.SplashActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+
+        </activity>
+        <activity
+            android:name=".Ui.splash.SplashActivity"
+            android:exported="false">
+
 
         </activity>
         <activity
