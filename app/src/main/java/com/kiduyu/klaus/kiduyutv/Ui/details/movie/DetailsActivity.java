@@ -22,6 +22,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.bumptech.glide.Glide;
 import com.kiduyu.klaus.kiduyutv.Api.CastRepository;
 import com.kiduyu.klaus.kiduyutv.Api.FetchStreams;
+import com.kiduyu.klaus.kiduyutv.Api.TmdbApi;
 import com.kiduyu.klaus.kiduyutv.Api.TmdbRepository;
 import com.kiduyu.klaus.kiduyutv.R;
 import com.kiduyu.klaus.kiduyutv.Ui.details.actor.ActorDetailsActivity;
@@ -476,6 +477,7 @@ public class DetailsActivity extends AppCompatActivity {
         }
 
         Intent intent = new Intent(this, PlayerActivity.class);
+        mediaItems.setMediaType(String.valueOf(TmdbApi.ContentType.MOVIE));
         intent.putExtra("media_item", mediaItems);
 
                 // Pass start position if continuing watch history

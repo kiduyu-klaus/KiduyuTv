@@ -230,6 +230,7 @@ public class FetchStreams {
             static class Source {
                 String url;
                 String quality;
+                String server;  // ← Added this line
             }
 
             static class Subtitle {
@@ -427,7 +428,7 @@ public class FetchStreams {
             throw new IOException("Failed to decrypt");
         }
         DecryptResponse.Result result = decResponse.body().result;
-        Log.i(TAG, "DecryptResponse.Result: " + result.toString());
+        Log.i(TAG, "DecryptResponse.Result: " + result.sources.toArray());
         String jsonStr = new com.google.gson.Gson().toJson(result);
 
         Log.i(TAG, "fetchHexaMovie JSON: " + jsonStr);

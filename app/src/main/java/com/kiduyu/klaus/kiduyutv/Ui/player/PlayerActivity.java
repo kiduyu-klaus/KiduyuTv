@@ -161,9 +161,7 @@ public class PlayerActivity extends AppCompatActivity {
 
         setContentView(R.layout.activity_player);
 
-        // Get media type from intent
-        mediaType = getIntent().getStringExtra("media_type");
-        Log.i(TAG, "Media type: " + mediaType);
+
 
         // Check if this is anime playback
         if ("anime".equals(mediaType)) {
@@ -175,6 +173,12 @@ public class PlayerActivity extends AppCompatActivity {
         // Continue with normal playback flow for non-anime content
         // Get media item from intent
         mediaItems = getIntent().getParcelableExtra("media_item");
+        mediaType = getIntent().getStringExtra("media_type");
+        if (mediaType == null) {
+            mediaType = mediaItems.getMediaType();
+        }
+        // Get media type from intent
+        Log.i(TAG, "Media type: " + mediaType);
         startPosition = getIntent().getLongExtra("start_position", 0);
 
         if (mediaItems == null) {
@@ -496,7 +500,7 @@ public class PlayerActivity extends AppCompatActivity {
         }
 
         // Update server button with current source
-        updateServerButton();
+        //updateServerButton();
 
         // Update speed button
         btnSpeed.setText(String.format(Locale.US, "Speed %.2fx", currentSpeed));
@@ -1213,7 +1217,8 @@ public class PlayerActivity extends AppCompatActivity {
 
         String[] serverLabels = new String[videoSources.size()];
         for (int i = 0; i < videoSources.size(); i++) {
-            serverLabels[i] = "Server " + (i + 1);
+            serverLabels[i] = videoSources.get(i).getQuality();
+            Log.i(TAG, "Server label: " + videoSources.get(i).getQuality());
         }
 
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
@@ -1426,7 +1431,7 @@ public class PlayerActivity extends AppCompatActivity {
             // Update Server button to show current server index
             Integer count = serverCounts.get(currentServerType);
             if (count != null && count > 1) {
-                btnServer.setText("Server " + (currentServerIndex + 1));
+                btnServer.setText(videoSources.get(currentSourceIndex).getQuality());
             } else {
                 btnServer.setText("Server 1");
             }
@@ -1819,7 +1824,7 @@ public class PlayerActivity extends AppCompatActivity {
     }
 
     private void updateServerButton() {
-        btnServer.setText("Server " + (currentSourceIndex + 1));
+        btnServer.setText(videoSources.get(currentSourceIndex).getQuality());
     }
 
     private void updateQualityButton() {

@@ -19,6 +19,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
+import androidx.media3.common.util.UnstableApi;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -26,6 +27,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.bumptech.glide.Glide;
 import com.kiduyu.klaus.kiduyutv.Api.CastRepository;
 import com.kiduyu.klaus.kiduyutv.Api.FetchStreams;
+import com.kiduyu.klaus.kiduyutv.Api.TmdbApi;
 import com.kiduyu.klaus.kiduyutv.Api.TmdbRepository;
 import com.kiduyu.klaus.kiduyutv.R;
 //import com.kiduyu.klaus.kiduyutv.Ui.details.actor.ActorDetailsActivity;
@@ -301,6 +303,7 @@ public class DetailsActivityTv extends AppCompatActivity {
                 checkAndProceed();
             }
 
+            @UnstableApi
             private void checkAndProceed() {
                 completedFetches[0]++;
 
@@ -331,6 +334,7 @@ public class DetailsActivityTv extends AppCompatActivity {
                         // Set all sources and subtitles to the media item
                         episodeMedia.setVideoSources(uniqueSources);
                         episodeMedia.setSubtitles(uniqueSubtitles);
+                        episodeMedia.setMediaType(String.valueOf(TmdbApi.ContentType.TV));
 
                         Log.i(TAG, "Total unique sources: " + uniqueSources.size());
                         Log.i(TAG, "Total unique subtitles: " + uniqueSubtitles.size());
