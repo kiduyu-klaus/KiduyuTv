@@ -3,6 +3,7 @@ package com.kiduyu.klaus.kiduyutv.Ui.home;
 import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
@@ -15,6 +16,7 @@ import android.widget.Toast;
 import android.view.WindowManager;
 
 import androidx.activity.EdgeToEdge;
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
@@ -85,6 +87,12 @@ public class MainActivity extends AppCompatActivity {
     //private MediaRepositoryVideasy apiRepository;
     private MediaItems currentSelectedItem;
 
+    // DPAD Navigation tracking
+    private int currentCategoryIndex = 0;
+    private int currentItemIndex = 0;
+    private boolean isInitialFocusSet = false;
+    private View lastFocusedView = null;
+
     // Loading state
     private boolean isLoadingContent = false;
     private int loadedCategories = 0;
@@ -108,6 +116,9 @@ public class MainActivity extends AppCompatActivity {
         setupClickListeners();
         setupNavigationFocus();
         loadContent();
+
+        // Set up DPAD navigation handling
+        setupDPADNavigation();
 
     }
 
@@ -134,6 +145,10 @@ public class MainActivity extends AppCompatActivity {
 
         // Navigation
         navigationSidebar = findViewById(R.id.navigationSidebar);
+
+        // Prevent sidebar from taking focus automatically on startup
+        navigationSidebar.setFocusable(false);
+        navigationSidebar.setFocusableInTouchMode(false);
 
         // Categories RecyclerView
         categoriesRecyclerView = findViewById(R.id.categoriesRecyclerView);
@@ -351,15 +366,14 @@ public class MainActivity extends AppCompatActivity {
                 categoriesRecyclerView.scrollToPosition(0);
                 categoriesRecyclerView.requestFocus();
 
-                // Set focus on the first item in Continue Watching after a short delay
-                // This ensures the RecyclerView has time to layout
-                categoriesRecyclerView.postDelayed(() -> {
-                    setFocusOnFirstContinueWatchingItem();
-                }, 100);
-
                 Log.i(TAG, "Continue Watching category loaded with " + continueWatchingItems.size() + " items");
+
+                // Set focus on Continue Watching section since it exists
+                setInitialFocusToContent();
             } else {
                 Log.i(TAG, "No active watch history found");
+                // Set focus to first category when no continue watching
+                setInitialFocusToContent();
             }
         } catch (Exception e) {
             Log.e(TAG, "Error loading continue watching: " + e.getMessage());
@@ -460,6 +474,277 @@ public class MainActivity extends AppCompatActivity {
         } catch (Exception e) {
             Log.e(TAG, "Error setting focus on first item: " + e.getMessage());
         }
+    }
+
+    /**
+     * Set initial focus to content area (not sidebar) for Android TV
+     * Prioritizes Continue Watching section if available, otherwise first category
+     */
+    private void setInitialFocusToContent() {
+        if (isInitialFocusSet || categories.isEmpty()) {
+            return;
+        }
+
+        isInitialFocusSet = true;
+        currentCategoryIndex = 0;
+        currentItemIndex = 0;
+
+        // Give the RecyclerView time to layout
+        categoriesRecyclerView.postDelayed(() -> {
+            requestFocusOnCategoryItem(0, 0);
+        }, 200);
+    }
+
+    /**
+     * Request focus on a specific category and item position
+     * @param categoryIndex The category position
+     * @param itemIndex The item position within that category
+     */
+    private void requestFocusOnCategoryItem(int categoryIndex, int itemIndex) {
+        if (categoryIndex < 0 || categoryIndex >= categories.size()) {
+            return;
+        }
+
+        CategorySection category = categories.get(categoryIndex);
+        if (category.getItems().isEmpty()) {
+            return;
+        }
+
+        // Clamp item index to valid range
+        itemIndex = Math.max(0, Math.min(itemIndex, category.getItems().size() - 1));
+
+        currentCategoryIndex = categoryIndex;
+        currentItemIndex = itemIndex;
+
+        // Scroll the category into view
+        categoriesRecyclerView.scrollToPosition(categoryIndex);
+
+        // Find the ViewHolder for this category
+        RecyclerView.ViewHolder categoryViewHolder = categoriesRecyclerView.findViewHolderForAdapterPosition(categoryIndex);
+
+        if (categoryViewHolder instanceof CategoryAdapter.CategoryViewHolder) {
+            CategoryAdapter.CategoryViewHolder holder = (CategoryAdapter.CategoryViewHolder) categoryViewHolder;
+            RecyclerView itemsRecyclerView = holder.itemsRecyclerView;
+
+            if (itemsRecyclerView != null) {
+                // Scroll to the item in the horizontal list
+                LinearLayoutManager layoutManager = (LinearLayoutManager) itemsRecyclerView.getLayoutManager();
+                if (layoutManager != null) {
+                    layoutManager.scrollToPositionWithOffset(itemIndex, 16);
+                }
+
+                // Request focus on the specific item
+                int finalItemIndex = itemIndex;
+                itemsRecyclerView.postDelayed(() -> {
+                    RecyclerView.ViewHolder itemViewHolder = itemsRecyclerView.findViewHolderForAdapterPosition(finalItemIndex);
+                    if (itemViewHolder != null && itemViewHolder.itemView != null) {
+                        // Clear focus from sidebar first
+                        if (navigationSidebar != null) {
+                            navigationSidebar.clearFocus();
+                        }
+
+                        itemViewHolder.itemView.requestFocus();
+                        lastFocusedView = itemViewHolder.itemView;
+                        Log.i(TAG, "Focus set on category " + categoryIndex + ", item " + finalItemIndex);
+                    }
+                }, 100);
+            }
+        }
+    }
+
+    /**
+     * Set up DPAD navigation handling for Android TV
+     * Handles UP, DOWN, LEFT, RIGHT navigation between categories and items
+     */
+    private void setupDPADNavigation() {
+        // Handle key events for DPAD navigation
+        categoriesRecyclerView.setOnKeyListener((v, keyCode, event) -> {
+            if (event.getAction() != KeyEvent.ACTION_DOWN) {
+                return false;
+            }
+
+            // Clear focus from sidebar when navigating content
+            if (navigationSidebar != null && navigationSidebar.hasFocus()) {
+                navigationSidebar.clearFocus();
+            }
+
+            switch (keyCode) {
+                case KeyEvent.KEYCODE_DPAD_RIGHT:
+                    return handleDPADRight();
+
+                case KeyEvent.KEYCODE_DPAD_LEFT:
+                    return handleDPADLeft();
+
+                case KeyEvent.KEYCODE_DPAD_DOWN:
+                    return handleDPADDown();
+
+                case KeyEvent.KEYCODE_DPAD_UP:
+                    return handleDPADUp();
+
+                case KeyEvent.KEYCODE_ENTER:
+                case KeyEvent.KEYCODE_DPAD_CENTER:
+                    return handleDPADCenter();
+
+                default:
+                    return false;
+            }
+        });
+    }
+
+    /**
+     * Handle DPAD RIGHT key - move to next item in current category
+     */
+    private boolean handleDPADRight() {
+        if (categories.isEmpty()) return false;
+
+        CategorySection currentCategory = categories.get(currentCategoryIndex);
+        int maxItems = currentCategory.getItems().size();
+
+        if (currentItemIndex < maxItems - 1) {
+            // Move to next item in same category
+            currentItemIndex++;
+            focusCurrentItem();
+            Log.i(TAG, "DPAD RIGHT: category=" + currentCategoryIndex + ", item=" + currentItemIndex);
+            return true;
+        } else {
+            // At end of current category, try to move to next category
+            if (currentCategoryIndex < categories.size() - 1) {
+                currentCategoryIndex++;
+                currentItemIndex = 0;
+                focusCurrentItem();
+                Log.i(TAG, "DPAD RIGHT (wrap to next category): category=" + currentCategoryIndex + ", item=" + currentItemIndex);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Handle DPAD LEFT key - move to previous item in current category
+     */
+    private boolean handleDPADLeft() {
+        if (categories.isEmpty()) return false;
+
+        if (currentItemIndex > 0) {
+            // Move to previous item in same category
+            currentItemIndex--;
+            focusCurrentItem();
+            Log.i(TAG, "DPAD LEFT: category=" + currentCategoryIndex + ", item=" + currentItemIndex);
+            return true;
+        } else {
+            // At beginning of current category, try to move to previous category
+            if (currentCategoryIndex > 0) {
+                currentCategoryIndex--;
+                // Go to last item of previous category
+                currentItemIndex = Math.max(0, categories.get(currentCategoryIndex).getItems().size() - 1);
+                focusCurrentItem();
+                Log.i(TAG, "DPAD LEFT (wrap to prev category): category=" + currentCategoryIndex + ", item=" + currentItemIndex);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Handle DPAD DOWN key - move to next category
+     */
+    private boolean handleDPADDown() {
+        if (categories.isEmpty()) return false;
+
+        if (currentCategoryIndex < categories.size() - 1) {
+            currentCategoryIndex++;
+            // Keep same item index if available, otherwise use last available
+            CategorySection newCategory = categories.get(currentCategoryIndex);
+            if (currentItemIndex >= newCategory.getItems().size()) {
+                currentItemIndex = Math.max(0, newCategory.getItems().size() - 1);
+            }
+            focusCurrentItem();
+            Log.i(TAG, "DPAD DOWN: category=" + currentCategoryIndex + ", item=" + currentItemIndex);
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Handle DPAD UP key - move to previous category
+     */
+    private boolean handleDPADUp() {
+        if (categories.isEmpty()) return false;
+
+        if (currentCategoryIndex > 0) {
+            currentCategoryIndex--;
+            // Keep same item index if available, otherwise use last available
+            CategorySection newCategory = categories.get(currentCategoryIndex);
+            if (currentItemIndex >= newCategory.getItems().size()) {
+                currentItemIndex = Math.max(0, newCategory.getItems().size() - 1);
+            }
+            focusCurrentItem();
+            Log.i(TAG, "DPAD UP: category=" + currentCategoryIndex + ", item=" + currentItemIndex);
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Handle DPAD CENTER/ENTER key - launch the selected content
+     */
+    private boolean handleDPADCenter() {
+        if (categories.isEmpty() || currentCategoryIndex >= categories.size()) {
+            return false;
+        }
+
+        CategorySection category = categories.get(currentCategoryIndex);
+        if (currentItemIndex >= category.getItems().size()) {
+            return false;
+        }
+
+        MediaItems selectedItem = category.getItems().get(currentItemIndex);
+        if (selectedItem != null) {
+            currentSelectedItem = selectedItem;
+
+            // Launch details activity based on media type
+            if ("movie".equalsIgnoreCase(selectedItem.getMediaType()) ||
+                    "Movie".equalsIgnoreCase(selectedItem.getMediaType())) {
+                launchDetails(selectedItem);
+            } else {
+                launchTvDetails(selectedItem);
+            }
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Focus on the current category/item position
+     */
+    private void focusCurrentItem() {
+        requestFocusOnCategoryItem(currentCategoryIndex, currentItemIndex);
+    }
+
+    /**
+     * Get current category index (for external access)
+     */
+    public int getCurrentCategoryIndex() {
+        return currentCategoryIndex;
+    }
+
+    /**
+     * Get current item index within category (for external access)
+     */
+    public int getCurrentItemIndex() {
+        return currentItemIndex;
+    }
+
+    /**
+     * Check if Continue Watching section exists
+     */
+    private boolean hasContinueWatching() {
+        for (CategorySection category : categories) {
+            if ("Continue Watching".equals(category.getCategoryName())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void loadFeaturedMovies() {
