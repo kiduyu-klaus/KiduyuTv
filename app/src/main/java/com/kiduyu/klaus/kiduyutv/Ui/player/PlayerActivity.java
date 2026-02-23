@@ -59,7 +59,7 @@ import androidx.media3.exoplayer.trackselection.DefaultTrackSelector;
 import com.kiduyu.klaus.kiduyutv.Api.FetchStreams;
 import com.kiduyu.klaus.kiduyutv.Api.TmdbRepository;
 import com.kiduyu.klaus.kiduyutv.R;
-import com.kiduyu.klaus.kiduyutv.Api.AnimekaiApi;
+
 import com.kiduyu.klaus.kiduyutv.model.EpisodeModel;
 import com.kiduyu.klaus.kiduyutv.model.MediaItems;
 import com.kiduyu.klaus.kiduyutv.utils.PreferencesManager;
@@ -126,16 +126,10 @@ public class PlayerActivity extends AppCompatActivity {
     private int currentSourceIndex = 0;
     private int currentSubtitleIndex = -1; // -1 means no subtitle selected
     private float currentSpeed = 1.0f;
-    private String mediaType; // "anime", "movie", "tv", etc.
+    private String mediaType; // "movie", "tv", etc.
     private boolean nextEpisodeTriggered = false;
 
-    // Anime server switching data
-    private String episodeToken;
-    private String currentServerType;
-    private int currentServerIndex;
-    private ArrayList<String> availableServerTypes;
-    private HashMap<String, Integer> serverCounts;
-    private AnimekaiApi animekaiApi;
+
 
     // Control visibility
     private Handler controlsHandler = new Handler(Looper.getMainLooper());
@@ -166,7 +160,7 @@ public class PlayerActivity extends AppCompatActivity {
 
         setContentView(R.layout.activity_player);
 
-        // Continue with normal playback flow for non-anime content
+        // Continue with normal playback flow
         // Get media item from intent
         mediaItems = getIntent().getParcelableExtra("media_item");
         mediaType = getIntent().getStringExtra("media_type");
@@ -176,12 +170,7 @@ public class PlayerActivity extends AppCompatActivity {
         // Get media type from intent
         Log.i(TAG, "Media type: " + mediaType);
 
-        // Check if this is anime playback
-        if ("anime".equals(mediaType)) {
-            // Handle anime playback - extract all extras from DetailsActivityAnime
-            handleAnimePlayback();
-            return;
-        }
+
 
         startPosition = getIntent().getLongExtra("start_position", 0);
 
@@ -221,164 +210,7 @@ public class PlayerActivity extends AppCompatActivity {
 
     }
 
-    /**
-     * Handle anime playback with extras passed from DetailsActivityAnime
-     */
 
-    private void handleAnimePlayback() {
-        Log.i(TAG, "Handling anime playback");
-
-        // Extract all intent extras from DetailsActivityAnime
-        String videoUrl = getIntent().getStringExtra("video_url");
-        String animeName = getIntent().getStringExtra("anime_name");
-        String episodeName = getIntent().getStringExtra("episode_name");
-        String animeDescription = getIntent().getStringExtra("anime_description");
-        Log.i(TAG, "Episode name: " + episodeName);
-        Log.i(TAG, "Anime description: " + animeDescription);
-        Log.i(TAG, "Anime name: " + animeName);
-
-        String backgroundImageUrl = getIntent().getStringExtra("background_image_url");
-        Log.i(TAG, "Background image URL: " + backgroundImageUrl);
-        String title = getIntent().getStringExtra("title");
-        String subtitle = getIntent().getStringExtra("subtitle");
-
-        ArrayList<String> subtitleUrls = getIntent().getStringArrayListExtra("subtitle_urls");
-        ArrayList<String> subtitleLabels = getIntent().getStringArrayListExtra("subtitle_labels");
-
-        // Server switching data
-        episodeToken = getIntent().getStringExtra("episode_token");
-        currentServerType = getIntent().getStringExtra("current_server_type");
-        currentServerIndex = getIntent().getIntExtra("current_server_index", 0);
-        availableServerTypes = getIntent().getStringArrayListExtra("available_server_types");
-        serverCounts = (HashMap<String, Integer>) getIntent().getSerializableExtra("server_counts");
-
-        // Skip info
-        int introStart = getIntent().getIntExtra("intro_start", -1);
-        int introEnd = getIntent().getIntExtra("intro_end", -1);
-        int outroStart = getIntent().getIntExtra("outro_start", -1);
-        int outroEnd = getIntent().getIntExtra("outro_end", -1);
-
-        // Validate required data
-        if (videoUrl == null || videoUrl.isEmpty()) {
-            Toast.makeText(this, "Error: No video URL provided", Toast.LENGTH_SHORT).show();
-            finish();
-            return;
-        }
-
-        Log.i(TAG, "Anime video URL: " + videoUrl);
-        Log.i(TAG, "Anime Name: " + animeName);
-        Log.i(TAG, "Episode Name: " + episodeName);
-        Log.i(TAG, "Server Type: " + currentServerType + ", Server Index: " + currentServerIndex);
-
-        // Initialize AnimekaiApi for server switching
-        if (episodeToken != null && !episodeToken.isEmpty()) {
-            animekaiApi = new AnimekaiApi();
-            Log.i(TAG, "AnimekaiApi initialized for server switching");
-        }
-
-        // Create a MediaItems object for anime playback
-        mediaItems = new MediaItems();
-        mediaItems.setTitle(animeName != null ? animeName : "Anime");
-        mediaItems.setDescription(animeDescription != null ? animeDescription : "");
-
-        // Create video source
-        videoSources = new ArrayList<>();
-        MediaItems.VideoSource videoSource = new MediaItems.VideoSource();
-        videoSource.setUrl(videoUrl);
-        videoSource.setQuality("Default");
-        //videoSource.setType("anime");
-        videoSources.add(videoSource);
-        mediaItems.setVideoSources(videoSources);
-
-        // Create subtitles if available
-        subtitles = new ArrayList<>();
-        if (subtitleUrls != null && subtitleLabels != null &&
-                subtitleUrls.size() == subtitleLabels.size()) {
-
-            Log.i(TAG, "Found " + subtitleUrls.size() + " subtitles");
-
-            for (int i = 0; i < subtitleUrls.size(); i++) {
-                MediaItems.SubtitleItem subtitleItem = new MediaItems.SubtitleItem();
-                subtitleItem.setUrl(subtitleUrls.get(i));
-                subtitleItem.setLanguage(subtitleLabels.get(i));
-                subtitles.add(subtitleItem);
-                Log.i(TAG, "Subtitle " + i + ": " + subtitleLabels.get(i) + " - " + subtitleUrls.get(i));
-            }
-
-            mediaItems.setSubtitles(subtitles);
-        }
-
-        // Initialize preferences manager
-        preferencesManager = PreferencesManager.getInstance(this);
-
-        // Initialize UI
-        initializeViews();
-        setupClickListeners();
-
-        // Set anime-specific UI info
-        // videoTitle should show current episode name
-        if (episodeName != null && !episodeName.isEmpty()) {
-            videoTitle.setText(episodeName);
-            Log.i(TAG, "Set videoTitle to episode name: " + episodeName);
-        } else {
-            videoTitle.setText(animeName != null ? animeName : "Anime");
-            Log.i(TAG, "Set videoTitle to anime name: " + animeName);
-        }
-
-        // videoDescription should show anime description
-        if (animeDescription != null && !animeDescription.isEmpty()) {
-            videoDescription.setText(animeDescription);
-            Log.i(TAG, "Set videoDescription to: " + animeDescription);
-        } else {
-            videoDescription.setText("");
-        }
-
-        // episodeInfo shows the formatted subtitle (S1E1 - Episode Name)
-        //episodeInfo.setVisibility(View.VISIBLE);
-        //episodeInfo.setText(subtitle != null ? subtitle : "");
-
-        // Load background image
-        if (backgroundImageUrl != null && !backgroundImageUrl.isEmpty()) {
-            Log.i(TAG, "Loading background image: " + backgroundImageUrl);
-            Glide.with(this)
-                    .load(backgroundImageUrl)
-                    .centerCrop()
-                    .into(backgroundImage);
-        } else {
-            Log.w(TAG, "No background image URL provided");
-        }
-
-        // Populate genre tags for anime content
-        populateAnimeGenreTags(animeDescription);
-
-        // Initialize player
-        initializePlayer();
-
-        // Auto-select first subtitle if available (usually English) - BEFORE loading video
-        if (subtitles != null && !subtitles.isEmpty()) {
-            currentSubtitleIndex = 0; // Select first subtitle by default
-            btnSubtitles.setText(subtitles.get(0).getLanguage());
-            Log.i(TAG, "Auto-selected subtitle: " + subtitles.get(0).getLanguage());
-        }
-
-        // Update button labels for anime
-        updateAnimeServerButtons();
-
-        // Start playing - now subtitle will be included
-        currentSourceIndex = 0;
-        loadVideoSource(currentSourceIndex);
-
-        // Handle skip info (intro/outro) if provided
-        if (introStart >= 0 && introEnd >= 0) {
-            Log.i(TAG, "Intro skip: " + introStart + " - " + introEnd);
-            // TODO: Implement skip intro button/functionality
-        }
-
-        if (outroStart >= 0 && outroEnd >= 0) {
-            Log.i(TAG, "Outro skip: " + outroStart + " - " + outroEnd);
-            // TODO: Implement skip outro button/functionality
-        }
-    }
 
     private void initializeViews() {
         videoSurface = findViewById(R.id.videoSurface);
@@ -456,11 +288,7 @@ public class PlayerActivity extends AppCompatActivity {
 
         // Server/Source button
         btnServer.setOnClickListener(v -> {
-            if ("anime".equals(mediaType) && episodeToken != null) {
-                showAnimeServerDialog();
-            } else {
-                showServerDialog();
-            }
+            showServerDialog();
         });
 
         // Quality button
@@ -474,13 +302,9 @@ public class PlayerActivity extends AppCompatActivity {
             Toast.makeText(this, "Settings clicked", Toast.LENGTH_SHORT).show();
         });
 
-        // Audio button - used for server type selection in anime
+        // Audio button
         btnAudio.setOnClickListener(v -> {
-            if ("anime".equals(mediaType) && availableServerTypes != null) {
-                showAnimeServerTypeDialog();
-            } else {
-                Toast.makeText(this, "Audio track selection coming soon", Toast.LENGTH_SHORT).show();
-            }
+            Toast.makeText(this, "Audio track selection coming soon", Toast.LENGTH_SHORT).show();
         });
 
         // Touch on video surface to toggle controls
@@ -509,7 +333,7 @@ public class PlayerActivity extends AppCompatActivity {
         // Update speed button
         btnSpeed.setText(String.format(Locale.US, "Speed %.2fx", currentSpeed));
 
-        // Set hardsub badge based on media type for non-anime content
+        // Set hardsub badge based on media type
         updateHardsubBadgeForMediaType();
     }
 
@@ -1501,48 +1325,6 @@ public class PlayerActivity extends AppCompatActivity {
     }
 
     /**
-     * Update anime server button labels
-     */
-    private void updateAnimeServerButtons() {
-        if (currentServerType != null && serverCounts != null) {
-            // Update Audio button to show current server type
-            String typeLabel = currentServerType.toUpperCase();
-            btnAudio.setText(typeLabel);
-
-            // Update Server button to show current server index
-            Integer count = serverCounts.get(currentServerType);
-            if (count != null && count > 1) {
-                btnServer.setText(videoSources.get(currentSourceIndex).getQuality());
-            } else {
-                btnServer.setText("Server 1");
-            }
-
-            // Update hardsub badge to show server type for anime content
-            hardsubBadge.setText(typeLabel);
-            hardsubBadge.setVisibility(View.VISIBLE);
-
-            Log.i(TAG, "Updated buttons: Type=" + typeLabel + ", Server=" + (currentServerIndex + 1));
-        }
-    }
-
-    /**
-     * Update hardsub badge based on media type for non-anime content
-     */
-    private void updateHardsubBadgeForMediaType() {
-        if ("anime".equals(mediaType)) {
-            // For anime, badge will be updated via updateAnimeServerButtons() based on server type
-            hardsubBadge.setVisibility(View.GONE);
-        } else {
-            // For non-anime (movies, TV shows), set badge based on media type
-            if (mediaItems != null) {
-                hardsubBadge.setText(mediaType);
-            } else {
-                hardsubBadge.setVisibility(View.GONE);
-            }
-        }
-    }
-
-    /**
      * Populate genre tags from MediaItems genres list
      */
     private void populateGenreTags() {
@@ -1588,398 +1370,6 @@ public class PlayerActivity extends AppCompatActivity {
         }
     }
 
-    /**
-     * Populate genre tags for anime content using description string
-     * Anime API doesn't provide genres in a structured list, so we extract from description
-     */
-    private void populateAnimeGenreTags(String animeDescription) {
-        // Common anime genres to look for in descriptions
-        List<String> commonGenres = new ArrayList<>();
-        commonGenres.add("Action");
-        commonGenres.add("Adventure");
-        commonGenres.add("Comedy");
-        commonGenres.add("Drama");
-        commonGenres.add("Ecchi");
-        commonGenres.add("Fantasy");
-        commonGenres.add("Horror");
-        commonGenres.add("Mahou Shoujo");
-        commonGenres.add("Mecha");
-        commonGenres.add("Music");
-        commonGenres.add("Mystery");
-        commonGenres.add("Psychological");
-        commonGenres.add("Romance");
-        commonGenres.add("Sci-Fi");
-        commonGenres.add("Slice of Life");
-        commonGenres.add("Sports");
-        commonGenres.add("Supernatural");
-        commonGenres.add("Thriller");
-
-        // Create array of tag TextViews
-        TextView[] tags = {tag1, tag2, tag3, tag4, tag5};
-
-        // Hide all tags first
-        for (TextView tag : tags) {
-            tag.setVisibility(View.GONE);
-        }
-
-        // Try to find genres in description
-        List<String> foundGenres = new ArrayList<>();
-
-        if (animeDescription != null) {
-            String lowerDesc = animeDescription.toLowerCase(Locale.US);
-
-            for (String genre : commonGenres) {
-                if (foundGenres.size() >= 5) {
-                    break; // Only need 5 genres
-                }
-
-                if (lowerDesc.contains(genre.toLowerCase())) {
-                    foundGenres.add(genre);
-                    Log.i(TAG, "Found genre in description: " + genre);
-                }
-            }
-        }
-
-        // If no genres found in description, set default anime genres
-        if (foundGenres.isEmpty()) {
-            foundGenres.add("Anime");
-            foundGenres.add("Animation");
-            Log.i(TAG, "No genres found in description, using defaults");
-        }
-
-        // Populate tags
-        int tagIndex = 0;
-        for (String genre : foundGenres) {
-            if (tagIndex >= tags.length) {
-                break;
-            }
-            tags[tagIndex].setText(genre);
-            tags[tagIndex].setVisibility(View.VISIBLE);
-            Log.i(TAG, "Set anime tag" + (tagIndex + 1) + " to: " + genre);
-            tagIndex++;
-        }
-
-        // Hide remaining unused tags
-        for (int i = tagIndex; i < tags.length; i++) {
-            tags[i].setVisibility(View.GONE);
-        }
-    }
-
-    /**
-     * Hide all genre tag TextViews
-     */
-    private void hideAllGenreTags() {
-        tag1.setVisibility(View.GONE);
-        tag2.setVisibility(View.GONE);
-        tag3.setVisibility(View.GONE);
-        tag4.setVisibility(View.GONE);
-        tag5.setVisibility(View.GONE);
-    }
-
-    /**
-     * Show dialog to switch between different server types (SUB/DUB/SOFTSUB)
-     */
-    private void showAnimeServerTypeDialog() {
-        if (availableServerTypes == null || availableServerTypes.isEmpty()) {
-            Toast.makeText(this, "No server types available", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        String[] typeLabels = availableServerTypes.toArray(new String[0]);
-
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("Select Server Type");
-        builder.setItems(typeLabels, (dialog, which) -> {
-            currentServerType = availableServerTypes.get(which);
-            btnAudio.setText(currentServerType);
-            // TODO: reload video with new server type
-            switchToServerType(currentServerType);
-        });
-
-        AlertDialog dialog = builder.create();
-        applyFocusHighlight(dialog);
-        dialog.show();
-    }
-
-    /**
-     * Show dialog to switch between different servers of the same type
-     */
-    private void showAnimeServerDialog() {
-        if (videoSources == null || videoSources.isEmpty()) {
-            Toast.makeText(this, "No anime servers available", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        String[] serverLabels = new String[videoSources.size()];
-        for (int i = 0; i < videoSources.size(); i++) {
-            serverLabels[i] = "Anime Server " + (i + 1);
-        }
-
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("Select Anime Server");
-        builder.setItems(serverLabels, (dialog, which) -> {
-            currentSourceIndex = which;
-            loadVideoSource(currentSourceIndex);
-        });
-
-        AlertDialog dialog = builder.create();
-        applyFocusHighlight(dialog);
-        dialog.show();
-    }
-
-    /**
-     * Switch to a different server type (SUB/DUB/SOFTSUB)
-     */
-    private void switchToServerType(String newServerType) {
-        Log.i(TAG, "Switching from " + currentServerType + " to " + newServerType);
-
-        // Update hardsub badge immediately to show new server type
-        hardsubBadge.setText(newServerType.toUpperCase());
-        hardsubBadge.setVisibility(View.VISIBLE);
-
-        loadingIndicator.setVisibility(View.VISIBLE);
-        loadingStatusContainer.setVisibility(View.VISIBLE);
-        loadingStatusText.setText("Switching to " + newServerType.toUpperCase() + "...");
-
-        // Switch to first server of the new type
-        switchToServer(newServerType, 0);
-    }
-
-    /**
-     * Switch to a specific server
-     */
-    private void switchToServer(String serverType, int serverIndex) {
-        if (animekaiApi == null || episodeToken == null) {
-            Toast.makeText(this, "Cannot switch servers", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        Log.i(TAG, "Switching to " + serverType + " Server " + (serverIndex + 1));
-
-        long currentPosition = player != null ? player.getCurrentPosition() : 0;
-        boolean wasPlaying = player != null && player.isPlaying();
-
-        loadingIndicator.setVisibility(View.VISIBLE);
-        loadingStatusContainer.setVisibility(View.VISIBLE);
-        loadingStatusText.setText("Loading " + serverType.toUpperCase() +
-                " Server " + (serverIndex + 1) + "...");
-
-        new Thread(() -> {
-            try {
-                // Fetch servers again
-                Map<String, Map<String, AnimekaiApi.ServerInfo>> servers =
-                        animekaiApi.fetchEpisodeServers(episodeToken);
-
-                if (!servers.containsKey(serverType)) {
-                    runOnUiThread(() -> {
-                        loadingIndicator.setVisibility(View.GONE);
-                        loadingStatusContainer.setVisibility(View.GONE);
-                        Toast.makeText(this, serverType.toUpperCase() +
-                                " not available", Toast.LENGTH_SHORT).show();
-                    });
-                    return;
-                }
-
-                Map<String, AnimekaiApi.ServerInfo> typeServers = servers.get(serverType);
-                AnimekaiApi.ServerInfo targetServer = null;
-
-                // Find server by index
-                for (AnimekaiApi.ServerInfo server : typeServers.values()) {
-                    if (server.index == serverIndex + 1) {
-                        targetServer = server;
-                        break;
-                    }
-                }
-
-                if (targetServer == null) {
-                    runOnUiThread(() -> {
-                        loadingIndicator.setVisibility(View.GONE);
-                        loadingStatusContainer.setVisibility(View.GONE);
-                        Toast.makeText(this, "Server not found", Toast.LENGTH_SHORT).show();
-                    });
-                    return;
-                }
-
-                // Resolve new video URL
-                AnimekaiApi.MediaData mediaData = animekaiApi.resolveEmbedUrl(targetServer.linkId);
-
-                List<String> sources = mediaData.getSources();
-                if (sources == null || sources.isEmpty()) {
-                    runOnUiThread(() -> {
-                        loadingIndicator.setVisibility(View.GONE);
-                        loadingStatusContainer.setVisibility(View.GONE);
-                        Toast.makeText(this, "No video sources found", Toast.LENGTH_SHORT).show();
-                    });
-                    return;
-                }
-
-                String newVideoUrl = sources.get(0);
-
-                // Update subtitles if available
-                final ArrayList<MediaItems.SubtitleItem> newSubtitles = new ArrayList<>();
-                if (mediaData.getTracks() != null && !mediaData.getTracks().isEmpty()) {
-                    for (EpisodeModel.Track track : mediaData.getTracks()) {
-                        MediaItems.SubtitleItem subtitleItem = new MediaItems.SubtitleItem();
-                        subtitleItem.setUrl(track.getFile());
-                        subtitleItem.setLanguage(track.getLabel());
-                        newSubtitles.add(subtitleItem);
-                    }
-                }
-
-                runOnUiThread(() -> {
-                    // Update current server info
-                    currentServerType = serverType;
-                    currentServerIndex = serverIndex;
-
-                    // Update video source
-                    if (!videoSources.isEmpty()) {
-                        videoSources.get(0).setUrl(newVideoUrl);
-                    }
-
-                    // Update subtitles
-                    if (!newSubtitles.isEmpty()) {
-                        subtitles = newSubtitles;
-                        mediaItems.setSubtitles(subtitles);
-                        currentSubtitleIndex = 0; // Auto-select first subtitle
-                    }
-
-                    // Update hardsub badge with new server type
-                    hardsubBadge.setText(serverType.toUpperCase());
-                    hardsubBadge.setVisibility(View.VISIBLE);
-
-                    // Update button labels
-                    updateAnimeServerButtons();
-
-                    // Reload video
-                    loadVideoSource(0);
-
-                    // Restore position and playback state
-                    if (player != null) {
-                        player.seekTo(currentPosition);
-                        if (wasPlaying) {
-                            player.play();
-
-                            showCurrentTrackInfo();
-                        }
-                    }
-
-                    loadingIndicator.setVisibility(View.GONE);
-                    loadingStatusContainer.setVisibility(View.GONE);
-
-                    Toast.makeText(this, "Switched to " + serverType.toUpperCase() +
-                            " Server " + (serverIndex + 1), Toast.LENGTH_SHORT).show();
-
-                    Log.i(TAG, "Successfully switched to " + serverType +
-                            " Server " + (serverIndex + 1));
-                });
-
-            } catch (Exception e) {
-                Log.e(TAG, "Error switching server", e);
-                runOnUiThread(() -> {
-                    loadingIndicator.setVisibility(View.GONE);
-                    loadingStatusContainer.setVisibility(View.GONE);
-                    Toast.makeText(this, "Failed to switch server: " +
-                            e.getMessage(), Toast.LENGTH_LONG).show();
-                });
-            }
-        }).start();
-    }
-
-    private void updateServerButton() {
-        btnServer.setText(videoSources.get(currentSourceIndex).getQuality());
-    }
-
-    private void updateQualityButton() {
-        if (player == null) {
-            btnQuality.setText("Auto");
-            return;
-        }
-
-        Tracks tracks = player.getCurrentTracks();
-        if (tracks == null || tracks.isEmpty()) {
-            btnQuality.setText("Auto");
-            return;
-        }
-
-        // Find currently selected video track
-        for (Tracks.Group trackGroup : tracks.getGroups()) {
-            if (trackGroup.getType() == C.TRACK_TYPE_VIDEO) {
-                for (int i = 0; i < trackGroup.length; i++) {
-                    if (trackGroup.isTrackSelected(i)) {
-                        Format format = trackGroup.getTrackFormat(i);
-                        int height = format.height;
-
-                        if (height > 0) {
-                            btnQuality.setText(height + "p");
-                        } else {
-                            btnQuality.setText("Auto");
-                        }
-                        return;
-                    }
-                }
-            }
-        }
-
-        // No track selected or found
-        btnQuality.setText("Auto");
-    }
-
-    private void saveWatchProgress() {
-        saveWatchProgress(false);
-    }
-
-    private void saveWatchProgress(boolean completed) {
-        if (player == null || mediaItems == null || preferencesManager == null) {
-            return;
-        }
-
-        long currentPos = player.getCurrentPosition();
-        long duration = player.getDuration();
-
-        if (duration <= 0) {
-            return;
-        }
-
-        // Save watch history
-        String mediaId = mediaItems.getId() != null ? mediaItems.getId() : mediaItems.getTmdbId();
-        if (mediaId != null && !mediaId.isEmpty()) {
-            preferencesManager.saveWatchHistory(
-                    mediaItems,
-                    currentPos,
-                    duration
-            );
-
-            Log.i(TAG, "Saved watch progress: " + formatTime(currentPos) + " / " + formatTime(duration));
-        }
-    }
-
-    @Override
-    public boolean onKeyDown(int keyCode, KeyEvent event) {
-        // Show controls on Up button or Center button when hidden
-        if ((keyCode == KeyEvent.KEYCODE_DPAD_UP || keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_DPAD_DOWN)
-                && !controlsVisible) {
-            showControls();
-            return true;
-        }
-
-        // Seek forward 10 seconds on Right D-pad
-        if (keyCode == KeyEvent.KEYCODE_DPAD_RIGHT) {
-            if (!controlsVisible) {
-                if (player != null) {
-                    long currentPosition = player.getCurrentPosition();
-                    long duration = player.getDuration();
-                    long newPosition = Math.min(currentPosition + 10000, duration); // +10 seconds (10000ms)
-
-                    player.seekTo(newPosition);
-                    updateTimeDisplay();
-                    showToast("Forward +10s");
-
-                    // Show controls briefly if hidden
-                    if (!controlsVisible) {
-                        showControls();
-                    }
-                    resetHideControlsTimer();
-                }
                 return true;
             }
         }
@@ -2153,11 +1543,7 @@ public class PlayerActivity extends AppCompatActivity {
             player = null;
         }
 
-        // Shutdown AnimekaiApi if used for server switching
-        if (animekaiApi != null) {
-            animekaiApi.shutdown();
-            animekaiApi = null;
-        }
+
 
         // Clear handlers
         controlsHandler.removeCallbacks(hideControlsRunnable);

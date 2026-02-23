@@ -23,10 +23,8 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
-import com.kiduyu.klaus.kiduyutv.Api.AnimekaiApi;
 import com.kiduyu.klaus.kiduyutv.Api.TmdbRepository;
 import com.kiduyu.klaus.kiduyutv.R;
-import com.kiduyu.klaus.kiduyutv.Ui.details.anime.DetailsActivityAnime;
 import com.kiduyu.klaus.kiduyutv.Ui.details.movie.DetailsActivity;
 import com.kiduyu.klaus.kiduyutv.Ui.details.tv.DetailsActivityTv;
 import com.kiduyu.klaus.kiduyutv.Ui.search.SearchActivity;
@@ -42,9 +40,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-// Don't forget to add the import at the top of MainActivity.java:
-import com.kiduyu.klaus.kiduyutv.Api.AnimekaiApi;
-import com.kiduyu.klaus.kiduyutv.model.AnimeModel;
+
 
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "NetflixMainActivity";
@@ -57,9 +53,7 @@ public class MainActivity extends AppCompatActivity {
     private ImageView homeIcon;
     private ImageView moviesIcon;
 
-    private AnimekaiApi animekaiApi;
     private ImageView tvIcon;
-    private ImageView animeIcon;
     private ImageView myListIcon;
     private ImageView settingsIcon;
     private TextView nSeriesBadge;
@@ -77,7 +71,7 @@ public class MainActivity extends AppCompatActivity {
     private RelativeLayout loadingOverlay;
     private ProgressBar loadingProgressBar;
 
-    private AnimeModel animeListload;
+
 
     // Navigation
     private LinearLayout navigationSidebar;
@@ -108,7 +102,7 @@ public class MainActivity extends AppCompatActivity {
 
         preferencesManager = PreferencesManager.getInstance(this);
 
-        animekaiApi = new AnimekaiApi();
+
 
         initializeViews();
         setupClickListeners();
@@ -124,7 +118,7 @@ public class MainActivity extends AppCompatActivity {
         homeIcon = findViewById(R.id.homeIcon);
         moviesIcon = findViewById(R.id.moviesIcon);
         tvIcon = findViewById(R.id.tvIcon);
-        animeIcon = findViewById(R.id.apiIcon);
+
         myListIcon = findViewById(R.id.myListIcon);
         settingsIcon = findViewById(R.id.settingsIcon);
         nSeriesBadge = findViewById(R.id.nSeriesBadge);
@@ -180,7 +174,7 @@ public class MainActivity extends AppCompatActivity {
         findViewById(R.id.homeLabel).setVisibility(visibility);
         findViewById(R.id.moviesLabel).setVisibility(visibility);
         findViewById(R.id.tvLabel).setVisibility(visibility);
-        findViewById(R.id.apiLabel).setVisibility(visibility);
+
         findViewById(R.id.myListLabel).setVisibility(visibility);
         findViewById(R.id.settingsLabel).setVisibility(visibility);
     }
@@ -214,7 +208,7 @@ public class MainActivity extends AppCompatActivity {
         homeIcon.setOnFocusChangeListener(navFocusListener);
         moviesIcon.setOnFocusChangeListener(navFocusListener);
         tvIcon.setOnFocusChangeListener(navFocusListener);
-        animeIcon.setOnFocusChangeListener(navFocusListener);
+
         myListIcon.setOnFocusChangeListener(navFocusListener);
         settingsIcon.setOnFocusChangeListener(navFocusListener);
 
@@ -259,10 +253,7 @@ public class MainActivity extends AppCompatActivity {
             Toast.makeText(this, "TV Shows - Coming Soon", Toast.LENGTH_SHORT).show();
         });
 
-        animeIcon.setOnClickListener(v -> {
-            //Toast.makeText(this, "API Content", Toast.LENGTH_SHORT).show();
-            loadAnimeContent();
-        });
+
 
         myListIcon.setOnClickListener(v -> {
             Toast.makeText(this, "My List - Coming Soon", Toast.LENGTH_SHORT).show();
@@ -280,223 +271,6 @@ public class MainActivity extends AppCompatActivity {
         startActivity(intent);
     }
 
-    private void loadAnimeContent() {
-        if (isLoadingContent) {
-            Log.i(TAG, "Already loading content, skipping duplicate request");
-            return;
-        }
-
-        isLoadingContent = true;
-        loadedCategories = 0;
-        loadingOverlay.setVisibility(View.VISIBLE);
-
-        categories.clear();
-
-        // Setup adapter with initial empty structure
-        if (categoryAdapter == null) {
-            categoryAdapter = new CategoryAdapter(categories);
-            categoriesRecyclerView.setAdapter(categoryAdapter);
-            setupCategoryListeners();
-        } else {
-            categoryAdapter.notifyDataSetChanged();
-        }
-
-        // Fetch anime grouped by type from AnimekaiApi
-        animekaiApi.fetchAnimeUpdatesByTypeAsync(new AnimekaiApi.AnimeTypeGroupedCallback() {
-            @Override
-            public void onSuccess(Map<String, List<AnimeModel>> groupedAnime) {
-                runOnUiThread(() -> {
-                    List<AnimeModel> subAnime = groupedAnime.get("sub");
-                    List<AnimeModel> dubAnime = groupedAnime.get("dub");
-
-                    Log.i(TAG, "Loaded SUB anime: " + (subAnime != null ? subAnime.size() : 0));
-                    Log.i(TAG, "Loaded DUB anime: " + (dubAnime != null ? dubAnime.size() : 0));
-
-                    boolean hasContent = false;
-
-                    // Create SUB category if available
-                    if (subAnime != null && !subAnime.isEmpty()) {
-                        List<MediaItems> subMediaItems = convertAnimeToMediaItems(subAnime);
-                        CategorySection subSection = new CategorySection("🎌 Latest Sub Updates", subMediaItems);
-                        categories.add(subSection);
-                        hasContent = true;
-                        Log.i(TAG, "Created SUB category with " + subMediaItems.size() + " items");
-                    }
-
-                    // Create DUB category if available and different from SUB
-                    if (dubAnime != null && !dubAnime.isEmpty()) {
-                        // Filter out anime that are already in SUB (BOTH type)
-                        List<AnimeModel> dubOnlyAnime = new ArrayList<>();
-                        for (AnimeModel anime : dubAnime) {
-                            if (anime.getAnimeType() == AnimeModel.AnimeType.DUB) {
-                                dubOnlyAnime.add(anime);
-                            }
-                        }
-
-                        if (!dubAnime.isEmpty()) {
-                            List<MediaItems> dubMediaItems = convertAnimeToMediaItems(dubAnime);
-                            CategorySection dubSection = new CategorySection("🎌 Latest Dub Updates", dubMediaItems);
-                            categories.add(dubSection);
-                            hasContent = true;
-                            Log.i(TAG, "Created DUB category with " + dubMediaItems.size() + " items");
-                        }
-                    }
-
-                    if (hasContent) {
-                        categoryAdapter.notifyDataSetChanged();
-
-                        // Update hero content with first anime from SUB category (with full details)
-                        if (!categories.isEmpty() && !categories.get(0).getItems().isEmpty()) {
-                            MediaItems firstItem = categories.get(0).getItems().get(0);
-                            currentSelectedItem = firstItem;
-
-                            // Load full details for hero content using fetchAnimeDetailsAsync
-                            if (firstItem.getId() != null && firstItem.getMediaType().equalsIgnoreCase("anime")) {
-                                loadAnimeHeroDetails(firstItem.getId(), firstItem.getVideoUrl());
-                            } else {
-                                updateHeroContent(currentSelectedItem, 0);
-                            }
-                        }
-
-                        int totalAnime = (subAnime != null ? subAnime.size() : 0) + (dubAnime != null ? dubAnime.size() : 0);
-                        Toast.makeText(MainActivity.this,
-                                "Loaded " + totalAnime + " anime (" +
-                                (subAnime != null ? subAnime.size() : 0) + " sub, " +
-                                (dubAnime != null ? dubAnime.size() : 0) + " dub)",
-                                Toast.LENGTH_SHORT).show();
-                    } else {
-                        Toast.makeText(MainActivity.this,
-                                "No anime found",
-                                Toast.LENGTH_SHORT).show();
-                    }
-
-                    isLoadingContent = false;
-                    loadingOverlay.setVisibility(View.GONE);
-                });
-            }
-
-            @Override
-            public void onError(String error) {
-                runOnUiThread(() -> {
-                    Log.e(TAG, "Failed to load anime: " + error);
-                    Toast.makeText(MainActivity.this,
-                            "Failed to load anime: " + error,
-                            Toast.LENGTH_LONG).show();
-
-                    isLoadingContent = false;
-                    loadingOverlay.setVisibility(View.GONE);
-                });
-            }
-        });
-    }
-
-    /**
-     * Load full anime details for hero content display
-     */
-    private void loadAnimeHeroDetails(String dataTip, String animeUrl) {
-        if (dataTip == null || dataTip.isEmpty()) {
-            // Fallback to basic update if no dataTip
-            if (currentSelectedItem != null) {
-                updateHeroContent(currentSelectedItem, 0);
-            }
-            return;
-        }
-
-        animekaiApi.fetchAnimeDetailsAsync(dataTip, animeUrl, new AnimekaiApi.AnimeDetailsCallback() {
-            @Override
-            public void onSuccess(AnimeModel anime) {
-                runOnUiThread(() -> {
-                    Log.i(TAG, "Loaded full anime details for: " + anime.getAnimeName());
-
-                    // Update current selected item with full details
-                    if (currentSelectedItem != null) {
-                        currentSelectedItem.setTitle(anime.getAnimeName());
-                        currentSelectedItem.setDescription(anime.getAnimeDescription() != null ?
-                                anime.getAnimeDescription() : currentSelectedItem.getDescription());
-
-                        if (anime.getAnime_image_backgroud() != null) {
-                            currentSelectedItem.setBackgroundImageUrl(anime.getAnime_image_backgroud());
-                            currentSelectedItem.setPosterUrl(anime.getAnime_image_backgroud());
-                            currentSelectedItem.setCardImageUrl(anime.getAnime_image_backgroud());
-                        }
-
-                        // Update duration if available
-                        if (anime.getDuration() != null && !anime.getDuration().isEmpty()) {
-                            currentSelectedItem.setDuration(anime.getDuration());
-                        }
-
-                        // Update year if available
-                        if (anime.getDateAiredFrom() != null) {
-                            currentSelectedItem.setYear(anime.getDateAiredFrom().getYear());
-                        }
-
-                        // Update rating if available
-                        if (anime.getMalScore() > 0) {
-                            currentSelectedItem.setRating((float) anime.getMalScore());
-                        }
-                    }
-
-                    // Update hero with enriched content
-                    if (currentSelectedItem != null) {
-                        updateHeroContent(currentSelectedItem, 0);
-                    }
-                });
-            }
-
-            @Override
-            public void onError(String error) {
-                runOnUiThread(() -> {
-                    Log.e(TAG, "Failed to load anime details: " + error);
-                    // Fallback to basic update if details loading fails
-                    if (currentSelectedItem != null) {
-                        updateHeroContent(currentSelectedItem, 0);
-                    }
-                });
-            }
-        });
-    }
-
-    // Add this helper method to convert AnimeModel to MediaItems:
-    private List<MediaItems> convertAnimeToMediaItems(List<AnimeModel> animeList) {
-        List<MediaItems> mediaItemsList = new ArrayList<>();
-
-        for (AnimeModel anime : animeList) {
-            MediaItems mediaItem = new MediaItems();
-
-            // Set basic info
-            mediaItem.setTitle(anime.getAnimeName() != null ? anime.getAnimeName() : "Unknown Anime");
-            mediaItem.setDescription(anime.getAnimeDescription() != null ? anime.getAnimeDescription() : "");
-
-            // Set image URL - use the background image
-            if (anime.getAnime_image_backgroud() != null) {
-                mediaItem.setPosterUrl(anime.getAnime_image_backgroud());
-                mediaItem.setBackgroundImageUrl(anime.getAnime_image_backgroud());
-                mediaItem.setCardImageUrl(anime.getAnime_image_backgroud());
-            }
-
-            // Set anime link as a data field (you might need to add this field to MediaItems)
-            // For now, we can use the description or create a custom field
-            if (anime.getAnime_link() != null) {
-                // You might want to store this in a custom field or use existing fields
-                mediaItem.setVideoUrl(anime.getAnime_link());
-            }
-
-            // Mark as anime type
-            mediaItem.setMediaType("anime");
-            mediaItem.setId(anime.getData_tip());
-
-            // Set default values
-            mediaItem.setYear(2024); // You could parse from data_tip if available
-            mediaItem.setDuration("24 min"); // Default anime episode duration
-
-            // Mark as from API
-            //mediaItem.setFromAPI(true);
-
-            mediaItemsList.add(mediaItem);
-        }
-
-        return mediaItemsList;
-    }
     private void loadContent() {
         if (isLoadingContent) {
             Log.i(TAG, "Already loading content, skipping duplicate request");
@@ -930,8 +704,6 @@ public class MainActivity extends AppCompatActivity {
                 updateHeroContent(mediaItems, categoryPosition);
                 if (mediaItems.getMediaType().toLowerCase().equals("movie")) {
                     launchDetails(currentSelectedItem);
-                } else if (mediaItems.getMediaType().toLowerCase().equals("anime")) {
-                    launchAnimeDetails(currentSelectedItem);
                 } else {
                     launchTvDetails(currentSelectedItem);
                 }
@@ -947,25 +719,6 @@ public class MainActivity extends AppCompatActivity {
             }
         });
     }
-    private AnimeModel convertMediaItemsToAnime(MediaItems mediaItem) {
-        AnimeModel anime = new AnimeModel();
-        anime.setAnimeName(mediaItem.getTitle());
-        anime.setAnimeDescription(mediaItem.getDescription());
-        anime.setAnime_image_backgroud(mediaItem.getBackgroundImageUrl() != null ?
-                mediaItem.getBackgroundImageUrl() : mediaItem.getPosterUrl());
-        anime.setAnime_link(mediaItem.getVideoUrl());
-        anime.setData_tip(mediaItem.getId());
-        return anime;
-    }
-    private void launchAnimeDetails(MediaItems currentSelectedItem) {
-        // Convert MediaItems back to AnimeModel
-        AnimeModel animeModel = convertMediaItemsToAnime(currentSelectedItem);
-
-        Intent intent = new Intent(this, DetailsActivityAnime.class);
-        intent.putExtra("media_item", animeModel);
-        startActivity(intent);
-    }
-
     private void updateHeroContent(MediaItems mediaItems, int categoryPosition) {
         String imageUrl = mediaItems.getPrimaryImageUrl();
         if (imageUrl != null && !imageUrl.isEmpty()) {

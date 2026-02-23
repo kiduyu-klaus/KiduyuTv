@@ -31,9 +31,7 @@
                 android:resource="@xml/file_paths" />
         </provider>
 
-        <activity
-            android:name=".Ui.details.anime.DetailsActivityAnime"
-            android:exported="false" />
+
         <activity
             android:name=".Ui.testactivity.TestActivity"
             android:exported="false">

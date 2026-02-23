@@ -50,7 +50,7 @@ public class FetchStreams {
     private static final String YFLIX_API_BASE = "https://yflix.to";
     private static final String XPRIME_API_BASE = "https://backend.xprime.tv";
     private static final String KISSKH_API_BASE = "https://kisskh.do";
-    private static final String ANIMEKAI_API_BASE = "https://animekai.to";
+
     private static final String DATABASE_BASE = "https://enc-dec.app/db";
 
     private static final int TIMEOUT_SECONDS = 30;
@@ -140,13 +140,7 @@ public class FetchStreams {
         @GET("api/dec-kisskh")
         Call<String> decryptKisskh(@Query("url") String url);
 
-        // AnimeKai
-        @GET("api/enc-kai")
-        Call<EncryptResponse> encryptKai(@Query("text") String text);
 
-        @POST("api/dec-kai")
-        @Headers("Content-Type: application/json")
-        Call<DecryptResponse> decryptKai(@Body DecryptRequest request);
     }
 
     // Generic API interface for dynamic URLs
@@ -1621,108 +1615,7 @@ public class FetchStreams {
         });
     }
 
-    // ===================== ANIMEKAI =====================
-    /**
-     * Fetch anime streams from AnimeKai
-     * @param contentId The AnimeKai content ID
-     */
-    public void fetchAnimeKai(String contentId, StreamCallback callback) {
-        executorService.execute(() -> {
-            try {
-                // Get episodes list
-                Response<EncryptResponse> encIdResp = encDecApi.encryptKai(contentId).execute();
-                if (!encIdResp.isSuccessful() || encIdResp.body() == null) {
-                    throw new IOException("Failed to encrypt content ID");
-                }
-                String encId = encIdResp.body().result.token;
 
-                String episodesUrl = ANIMEKAI_API_BASE + "/ajax/episodes/list?ani_id=" +
-                        contentId + "&_=" + encId;
-
-                GenericApi api = createGenericApi(ANIMEKAI_API_BASE);
-                Response<ResponseBody> episodesResp = api.getResponse(episodesUrl, getUserAgent(), null).execute();
-
-                if (!episodesResp.isSuccessful() || episodesResp.body() == null) {
-                    throw new IOException("Failed to fetch episodes");
-                }
-
-                JSONObject episodesJson = new JSONObject(episodesResp.body().string());
-
-                // Parse HTML to get episode tokens (would need parse-html API here)
-                Response<ParseHtmlResponse> parseResp = encDecApi.parseHtml(
-                        new ParseHtmlRequest(episodesJson.getString("result"))).execute();
-
-                if (!parseResp.isSuccessful() || parseResp.body() == null) {
-                    throw new IOException("Failed to parse episodes HTML");
-                }
-
-                // Extract first episode token (simplified - actual implementation would need proper parsing)
-                String episodeToken = ""; // This would come from parsed HTML
-
-                // Get servers list
-                Response<EncryptResponse> encTokenResp = encDecApi.encryptKai(episodeToken).execute();
-                if (!encTokenResp.isSuccessful() || encTokenResp.body() == null) {
-                    throw new IOException("Failed to encrypt token");
-                }
-                String encToken = encTokenResp.body().result.token;
-
-                String serversUrl = ANIMEKAI_API_BASE + "/ajax/links/list?token=" +
-                        episodeToken + "&_=" + encToken;
-                Response<ResponseBody> serversResp = api.getResponse(serversUrl, getUserAgent(), null).execute();
-
-                if (!serversResp.isSuccessful() || serversResp.body() == null) {
-                    throw new IOException("Failed to fetch servers");
-                }
-
-                JSONObject serversJson = new JSONObject(serversResp.body().string());
-
-                // Parse servers HTML
-                Response<ParseHtmlResponse> parseServersResp = encDecApi.parseHtml(
-                        new ParseHtmlRequest(serversJson.getString("result"))).execute();
-
-                if (!parseServersResp.isSuccessful() || parseServersResp.body() == null) {
-                    throw new IOException("Failed to parse servers HTML");
-                }
-
-                // Get first server link ID (would need proper parsing)
-                String lid = ""; // This would come from parsed servers HTML
-
-                // Get embed URL
-                Response<EncryptResponse> encLidResp = encDecApi.encryptKai(lid).execute();
-                if (!encLidResp.isSuccessful() || encLidResp.body() == null) {
-                    throw new IOException("Failed to encrypt lid");
-                }
-                String encLid = encLidResp.body().result.token;
-
-                String embedUrl = ANIMEKAI_API_BASE + "/ajax/links/view?id=" + lid + "&_=" + encLid;
-                Response<ResponseBody> embedResp = api.getResponse(embedUrl, getUserAgent(), null).execute();
-
-                if (!embedResp.isSuccessful() || embedResp.body() == null) {
-                    throw new IOException("Failed to fetch embed");
-                }
-
-                JSONObject embedJson = new JSONObject(embedResp.body().string());
-                String encrypted = embedJson.getString("result");
-
-                // Decrypt
-                Response<DecryptResponse> decResp = encDecApi.decryptKai(
-                        DecryptRequest.withId(encrypted, null)).execute();
-
-                if (!decResp.isSuccessful() || decResp.body() == null) {
-                    throw new IOException("Failed to decrypt");
-                }
-
-                DecryptResponse.Result result = decResp.body().result;
-                String jsonStr = new com.google.gson.Gson().toJson(result);
-
-                MediaItems mediaItem = parseStreamData(jsonStr, embedUrl, new HashMap<>());
-                mainHandler.post(() -> callback.onSuccess(mediaItem));
-            } catch (Exception e) {
-                Log.e(TAG, "AnimeKai error", e);
-                mainHandler.post(() -> callback.onError(e.getMessage()));
-            }
-        });
-    }
 
     // ===================== DATABASE QUERIES =====================
     /**
@@ -1757,26 +1650,7 @@ public class FetchStreams {
         });
     }
 
-    public void queryKaiDatabase(String malId, DatabaseCallback callback) {
-        executorService.execute(() -> {
-            try {
-                String url = DATABASE_BASE + "/kai/find?mal_id=" + malId;
 
-                GenericApi api = createGenericApi(DATABASE_BASE);
-                Response<ResponseBody> response = api.getResponse(url, getUserAgent(), null).execute();
-
-                if (!response.isSuccessful() || response.body() == null) {
-                    throw new IOException("Failed to query database");
-                }
-
-                String jsonResult = response.body().string();
-                mainHandler.post(() -> callback.onSuccess(jsonResult));
-            } catch (Exception e) {
-                Log.e(TAG, "Database query error", e);
-                mainHandler.post(() -> callback.onError(e.getMessage()));
-            }
-        });
-    }
 
 
 
