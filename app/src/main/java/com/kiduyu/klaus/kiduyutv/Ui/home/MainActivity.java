@@ -114,11 +114,11 @@ public class MainActivity extends AppCompatActivity {
 
         initializeViews();
         setupClickListeners();
-        setupNavigationFocus();
         loadContent();
 
         // Set up DPAD navigation handling
         setupDPADNavigation();
+        setupNavigationFocus();
 
     }
 
@@ -260,12 +260,12 @@ public class MainActivity extends AppCompatActivity {
 
         moviesIcon.setOnClickListener(v -> {
             loadContent();
-            Toast.makeText(this, "Movies - Coming Soon", Toast.LENGTH_SHORT).show();
+
         });
 
         tvIcon.setOnClickListener(v -> {
             loadTvShows();
-            Toast.makeText(this, "TV Shows - Coming Soon", Toast.LENGTH_SHORT).show();
+
         });
 
 
@@ -370,6 +370,7 @@ public class MainActivity extends AppCompatActivity {
 
                 // Set focus on Continue Watching section since it exists
                 setInitialFocusToContent();
+                setFocusOnFirstContinueWatchingItem();
             } else {
                 Log.i(TAG, "No active watch history found");
                 // Set focus to first category when no continue watching
@@ -442,6 +443,8 @@ public class MainActivity extends AppCompatActivity {
 
             // First category should be Continue Watching
             CategorySection firstCategory = categories.get(0);
+            Log.i(TAG, "First category: " + firstCategory.getCategoryName());
+
             if ("Continue Watching".equals(firstCategory.getCategoryName()) &&
                     !firstCategory.getItems().isEmpty()) {
 

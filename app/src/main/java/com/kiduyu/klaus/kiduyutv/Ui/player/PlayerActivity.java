@@ -48,6 +48,7 @@ import androidx.media3.ui.SubtitleView;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DefaultDataSource;
 import androidx.media3.datasource.DefaultHttpDataSource;
+import androidx.media3.datasource.okhttp.OkHttpDataSource;
 import androidx.media3.exoplayer.DefaultLoadControl;
 import androidx.media3.exoplayer.DefaultRenderersFactory;
 import androidx.media3.exoplayer.ExoPlayer;
@@ -72,6 +73,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+
+import okhttp3.OkHttpClient;
 
 @UnstableApi
 @RequiresApi(api = Build.VERSION_CODES.O)
@@ -129,6 +132,10 @@ public class PlayerActivity extends AppCompatActivity {
     private String mediaType; // "anime", "movie", "tv", etc.
     private boolean nextEpisodeTriggered = false;
 
+    // Shared OkHttpClient for streaming - maintains cookies/sessions from API calls
+    private OkHttpClient sharedOkHttpClient;
+
+    // Headers map - now only contains User Agent, Referer, and Origin
     Map<String, String> headers = new HashMap<>();
 
     // Anime server switching data
@@ -206,6 +213,9 @@ public class PlayerActivity extends AppCompatActivity {
             finish();
             return;
         }
+
+        // Initialize shared OkHttpClient - maintains cookies/sessions from FetchStreams API calls
+        sharedOkHttpClient = FetchStreams.getSharedClient(this);
 
         // Initialize player
         initializePlayer();
@@ -303,7 +313,7 @@ public class PlayerActivity extends AppCompatActivity {
         // Server/Source button
         btnServer.setOnClickListener(v -> {
 
-                showServerDialog();
+            showServerDialog();
 
         });
 
@@ -321,7 +331,7 @@ public class PlayerActivity extends AppCompatActivity {
         // Audio button - used for server type selection in anime
         btnAudio.setOnClickListener(v -> {
 
-                Toast.makeText(this, "Audio track selection coming soon", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Audio track selection coming soon", Toast.LENGTH_SHORT).show();
 
         });
 
@@ -626,43 +636,51 @@ public class PlayerActivity extends AppCompatActivity {
     }
 
     private DataSource.Factory buildDataSourceFactory(MediaItems.VideoSource source) {
-        // Build custom headers from the video source
+        // Clear previous headers - we only want User Agent, Referer, and Origin
+        headers.clear();
 
+        // Only add User Agent - the shared OkHttpClient handles cookies/sessions
+        String userAgent = FetchStreams.getUserAgent();
+        headers.put("User-Agent", userAgent);
 
-        headers.put("User-Agent", DEFAULT_USER_AGENT);
-        headers.put("Accept", "*/*");
-        headers.put("Accept-Encoding", "gzip, deflate");
-        headers.put("Accept-Language", "en-US,en;q=0.9");
-        headers.put("Connection", "keep-alive");
-        if (source.getUrl().startsWith("https://one.techparadise")) {
+        // Add Referer and Origin based on URL patterns
+        if (source.getUrl().startsWith("https://one.techparadise") || source.getUrl().startsWith("https://one.trueparadise")) {
+            // Videasy: Use accurate headers from EncDecEndpoints
             headers.put("Referer", "https://videasy.net/");
-            headers.put("Origin", "https://videasy.net/");
-        }
-        if (source.getUrl().startsWith("https://p.10015")) {
+            headers.put("Origin", "https://player.videasy.net");
+        } else if (source.getUrl().startsWith("https://p.10015")) {
+            // Hexa: Keep existing headers
             headers.put("Referer", "https://hexa.su/");
             headers.put("Origin", "https://hexa.su/");
-        }
-        if (source.getUrl().startsWith("https://storm.vodvidl.site")) {
+        } else if (source.getUrl().startsWith("https://storm.vodvidl.site")) {
+            // Vidlink: Use accurate headers from EncDecEndpoints
             headers.put("Referer", "https://vidlink.pro/");
-            headers.put("Origin", "https://megacloud.blog");
+            headers.put("Origin", "https://vidlink.pro");
+        } else {
+            // Use the referer from the source if available
+            String refererUrl = source.getRefererUrl();
+            if (refererUrl != null && !refererUrl.isEmpty()) {
+                headers.put("Referer", refererUrl);
+                // Extract origin from referer URL
+                try {
+                    java.net.URL url = new java.net.URL(refererUrl);
+                    headers.put("Origin", url.getProtocol() + "://" + url.getHost());
+                } catch (Exception e) {
+                    // Use default origin if parsing fails
+                }
+            }
         }
 
-        // Add referer if available
-//        if (source.getRefererUrl() != null && !source.getRefererUrl().isEmpty()) {
-//            headers.put("Referer", source.getRefererUrl());
-//        }
+        // Use the shared OkHttpClient which maintains cookies/sessions from FetchStreams
+        // This shares the connection pool and cookie jar with API calls
+        OkHttpDataSource.Factory okHttpDataSourceFactory = new OkHttpDataSource.Factory(sharedOkHttpClient);
 
-        // Build HTTP data source with headers
-        DefaultHttpDataSource.Factory httpDataSourceFactory = new DefaultHttpDataSource.Factory()
-                .setAllowCrossProtocolRedirects(true)
-                .setConnectTimeoutMs(DefaultHttpDataSource.DEFAULT_CONNECT_TIMEOUT_MILLIS)
-                .setReadTimeoutMs(DefaultHttpDataSource.DEFAULT_READ_TIMEOUT_MILLIS);
-
+        // Set custom headers for the data source
         if (!headers.isEmpty()) {
-            httpDataSourceFactory.setDefaultRequestProperties(headers);
+            okHttpDataSourceFactory.setDefaultRequestProperties(headers);
         }
 
-        return new DefaultDataSource.Factory(this, httpDataSourceFactory);
+        return new DefaultDataSource.Factory(this, okHttpDataSourceFactory);
     }
 
     /**
@@ -1448,82 +1466,7 @@ public class PlayerActivity extends AppCompatActivity {
         }
     }
 
-    /**
-     * Populate genre tags for anime content using description string
-     * Anime API doesn't provide genres in a structured list, so we extract from description
-     */
-    private void populateAnimeGenreTags(String animeDescription) {
-        // Common anime genres to look for in descriptions
-        List<String> commonGenres = new ArrayList<>();
-        commonGenres.add("Action");
-        commonGenres.add("Adventure");
-        commonGenres.add("Comedy");
-        commonGenres.add("Drama");
-        commonGenres.add("Ecchi");
-        commonGenres.add("Fantasy");
-        commonGenres.add("Horror");
-        commonGenres.add("Mahou Shoujo");
-        commonGenres.add("Mecha");
-        commonGenres.add("Music");
-        commonGenres.add("Mystery");
-        commonGenres.add("Psychological");
-        commonGenres.add("Romance");
-        commonGenres.add("Sci-Fi");
-        commonGenres.add("Slice of Life");
-        commonGenres.add("Sports");
-        commonGenres.add("Supernatural");
-        commonGenres.add("Thriller");
 
-        // Create array of tag TextViews
-        TextView[] tags = {tag1, tag2, tag3, tag4, tag5};
-
-        // Hide all tags first
-        for (TextView tag : tags) {
-            tag.setVisibility(View.GONE);
-        }
-
-        // Try to find genres in description
-        List<String> foundGenres = new ArrayList<>();
-
-        if (animeDescription != null) {
-            String lowerDesc = animeDescription.toLowerCase(Locale.US);
-
-            for (String genre : commonGenres) {
-                if (foundGenres.size() >= 5) {
-                    break; // Only need 5 genres
-                }
-
-                if (lowerDesc.contains(genre.toLowerCase())) {
-                    foundGenres.add(genre);
-                    Log.i(TAG, "Found genre in description: " + genre);
-                }
-            }
-        }
-
-        // If no genres found in description, set default anime genres
-        if (foundGenres.isEmpty()) {
-            foundGenres.add("Anime");
-            foundGenres.add("Animation");
-            Log.i(TAG, "No genres found in description, using defaults");
-        }
-
-        // Populate tags
-        int tagIndex = 0;
-        for (String genre : foundGenres) {
-            if (tagIndex >= tags.length) {
-                break;
-            }
-            tags[tagIndex].setText(genre);
-            tags[tagIndex].setVisibility(View.VISIBLE);
-            Log.i(TAG, "Set anime tag" + (tagIndex + 1) + " to: " + genre);
-            tagIndex++;
-        }
-
-        // Hide remaining unused tags
-        for (int i = tagIndex; i < tags.length; i++) {
-            tags[i].setVisibility(View.GONE);
-        }
-    }
 
     /**
      * Hide all genre tag TextViews
