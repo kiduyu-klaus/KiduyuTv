@@ -5,6 +5,7 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
+import android.widget.LinearLayout;
 import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.RelativeLayout;
@@ -27,6 +28,7 @@ import com.kiduyu.klaus.kiduyutv.Api.TmdbRepository;
 import com.kiduyu.klaus.kiduyutv.R;
 import com.kiduyu.klaus.kiduyutv.Ui.details.actor.ActorDetailsActivity;
 import com.kiduyu.klaus.kiduyutv.Ui.player.PlayerActivity;
+import com.kiduyu.klaus.kiduyutv.Ui.testactivity.ProgressButton;
 import com.kiduyu.klaus.kiduyutv.adapter.CastAdapter;
 import com.kiduyu.klaus.kiduyutv.adapter.RecommendationsAdapter;
 import com.kiduyu.klaus.kiduyutv.model.CastMember;
@@ -51,7 +53,8 @@ public class DetailsActivity extends AppCompatActivity {
     private TextView genresTextView;
     private TextView creatorsTextView;
     private TextView starsTextView;
-    private AppCompatButton playButton;
+    private LinearLayout genreContainer;
+    private ProgressButton playButton;
     private AppCompatButton favoriteButton;
     private ProgressBar loadingProgressBar;
     // Watch history
@@ -92,7 +95,9 @@ public class DetailsActivity extends AppCompatActivity {
             return;
         }
 
-        Log.i("PlayerActivity", "Loading media:\n" + mediaItems.toString());
+        Log.i(TAG, "Loading media:\n" + mediaItems.toString());
+
+        Log.i(TAG,"genres"+mediaItems.getGenres());
 
         // Initialize FetchStreams instance
         initializeFetchStreams();
@@ -143,6 +148,7 @@ public class DetailsActivity extends AppCompatActivity {
         yearTextView = findViewById(R.id.yearTextView);
         ratingTextView = findViewById(R.id.ratingTextView);
         durationTextView = findViewById(R.id.durationTextView);
+        genreContainer = findViewById(R.id.genreContainer);
         genresTextView = findViewById(R.id.genresTextView);
         creatorsTextView = findViewById(R.id.creatorsTextView);
         starsTextView = findViewById(R.id.starsTextView);
@@ -154,6 +160,9 @@ public class DetailsActivity extends AppCompatActivity {
         recommendationsRecyclerView = findViewById(R.id.recommendationsRecyclerView);
         recommendationsTitle = findViewById(R.id.recommendationsTitle);
         recommendationsLoadingBar = findViewById(R.id.recommendationsLoadingBar);
+
+        playButton.setAutoStartOnVisible(true);
+        playButton.loopAnimation(800);
 
         // Cast section views
         castRecyclerView = findViewById(R.id.castRecyclerView);
@@ -190,16 +199,58 @@ public class DetailsActivity extends AppCompatActivity {
             durationTextView.setVisibility(View.GONE);
         }
 
-        if (mediaItems.getGenres() != null && !mediaItems.getGenres().isEmpty()) {
-            genresTextView.setText(String.join(" • ", mediaItems.getGenres()));
-        } else if (mediaItems.getGenre() != null && !mediaItems.getGenre().isEmpty()) {
-            genresTextView.setText(mediaItems.getGenre());
-        } else {
-            genresTextView.setVisibility(View.GONE);
-        }
+        populateGenres();
 
         creatorsTextView.setText("Loading...");
         starsTextView.setText("Loading...");
+    }
+
+    /**
+     * Dynamically populates genreContainer with one pill TextView per genre.
+     * Works for any number of genres returned by mediaItems.getGenres().
+     */
+    private void populateGenres() {
+        genreContainer.removeAllViews(); // clear any stale views
+
+        List<String> genres = mediaItems.getGenres();
+
+        // Fall back to the single-genre string if the list is empty/null
+        if (genres == null || genres.isEmpty()) {
+            String singleGenre = mediaItems.getGenre();
+            if (singleGenre != null && !singleGenre.isEmpty()) {
+                genres = new ArrayList<>();
+                genres.add(singleGenre);
+            }
+        }
+
+        if (genres == null || genres.isEmpty()) {
+            genreContainer.setVisibility(View.GONE);
+            return;
+        }
+
+        int horizontalPadding = (int) (16 * getResources().getDisplayMetrics().density);
+        int verticalPadding   = (int) (8  * getResources().getDisplayMetrics().density);
+        int marginEnd         = (int) (12 * getResources().getDisplayMetrics().density);
+
+        for (String genre : genres) {
+            TextView pill = new TextView(this);
+            pill.setText(genre);
+            pill.setTextColor(android.graphics.Color.WHITE);
+            pill.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 16);
+            pill.setBackgroundResource(R.drawable.genre_pill_background);
+            pill.setPadding(horizontalPadding, verticalPadding, horizontalPadding, verticalPadding);
+
+            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+            );
+            params.setMarginEnd(marginEnd);
+            pill.setLayoutParams(params);
+
+            genreContainer.addView(pill);
+        }
+
+        genreContainer.setVisibility(View.VISIBLE);
     }
 
     /**
@@ -480,7 +531,7 @@ public class DetailsActivity extends AppCompatActivity {
         mediaItems.setMediaType(String.valueOf(TmdbApi.ContentType.MOVIE));
         intent.putExtra("media_item", mediaItems);
 
-                // Pass start position if continuing watch history
+        // Pass start position if continuing watch history
         if (hasWatchHistory && savedPosition > 0) {
             intent.putExtra("start_position", savedPosition);
             Log.i(TAG, "Launching player from saved position: " + preferencesManager.formatTime((int) savedPosition));
@@ -559,10 +610,10 @@ public class DetailsActivity extends AppCompatActivity {
             savedPosition = historyItem.currentPosition;
 
             // Update button text and style for "Continue Watching"
-            playButton.setText("Continue Watching");
+            playButton.setButtonText("Continue Watching");
 
-                    // Format the time for display
-                    String timeStr = preferencesManager.formatTime((int) historyItem.currentPosition);
+            // Format the time for display
+            String timeStr = preferencesManager.formatTime((int) historyItem.currentPosition);
             String totalTimeStr = preferencesManager.formatTime((int) historyItem.totalDuration);
 
             // Show a hint about progress
@@ -572,7 +623,7 @@ public class DetailsActivity extends AppCompatActivity {
         } else {
             hasWatchHistory = false;
             savedPosition = 0;
-            playButton.setText("Play");
+            playButton.setButtonText("Play");
         }
     }
 }

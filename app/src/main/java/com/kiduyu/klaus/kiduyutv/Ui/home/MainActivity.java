@@ -31,6 +31,7 @@ import com.kiduyu.klaus.kiduyutv.Ui.details.movie.DetailsActivity;
 import com.kiduyu.klaus.kiduyutv.Ui.details.tv.DetailsActivityTv;
 import com.kiduyu.klaus.kiduyutv.Ui.search.SearchActivity;
 import com.kiduyu.klaus.kiduyutv.Ui.settings.SettingsActivity;
+import com.kiduyu.klaus.kiduyutv.Ui.testactivity.TestActivity;
 import com.kiduyu.klaus.kiduyutv.adapter.CategoryAdapter;
 import com.kiduyu.klaus.kiduyutv.adapter.VerticalSpaceItemDecoration;
 import com.kiduyu.klaus.kiduyutv.model.CategorySection;
@@ -265,12 +266,18 @@ public class MainActivity extends AppCompatActivity {
 
         myListIcon.setOnClickListener(v -> {
             Toast.makeText(this, "My List - Coming Soon", Toast.LENGTH_SHORT).show();
+            launcTestActivity();
         });
 
         settingsIcon.setOnClickListener(v -> {
             Intent intent = new Intent(MainActivity.this, SettingsActivity.class);
             startActivity(intent);
         });
+    }
+
+    private void launcTestActivity() {
+        Intent intent = new Intent(MainActivity.this, TestActivity.class);
+        startActivity(intent);
     }
 
     private void loadAnimeContent() {

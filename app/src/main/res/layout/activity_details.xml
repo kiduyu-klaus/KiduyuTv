@@ -104,50 +104,13 @@
 
                     </LinearLayout>
 
-                    <!-- Genre Pills -->
+                    <!-- Genre Pills (populated dynamically from mediaItems.getGenres()) -->
                     <LinearLayout
                         android:id="@+id/genreContainer"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginBottom="10dp"
-                        android:orientation="horizontal">
-
-                        <TextView
-                            android:id="@+id/genre1TextView"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginEnd="12dp"
-                            android:background="@drawable/genre_pill_background"
-                            android:paddingHorizontal="16dp"
-                            android:paddingVertical="8dp"
-                            android:text="Thriller"
-                            android:textColor="@android:color/white"
-                            android:textSize="16sp" />
-
-                        <TextView
-                            android:id="@+id/genre2TextView"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginEnd="12dp"
-                            android:background="@drawable/genre_pill_background"
-                            android:paddingHorizontal="16dp"
-                            android:paddingVertical="8dp"
-                            android:text="Crime"
-                            android:textColor="@android:color/white"
-                            android:textSize="16sp" />
-
-                        <TextView
-                            android:id="@+id/genre3TextView"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:background="@drawable/genre_pill_background"
-                            android:paddingHorizontal="16dp"
-                            android:paddingVertical="8dp"
-                            android:text="Mystery"
-                            android:textColor="@android:color/white"
-                            android:textSize="16sp" />
-
-                    </LinearLayout>
+                        android:orientation="horizontal" />
 
                     <!-- Description -->
                     <TextView
@@ -172,28 +135,35 @@
                         android:orientation="horizontal">
 
                         <!-- Play Now Button -->
-                        <androidx.appcompat.widget.AppCompatButton
+                        <com.kiduyu.klaus.kiduyutv.Ui.testactivity.ProgressButton
                             android:id="@+id/playButton"
-                            android:layout_width="wrap_content"
+                            android:layout_width="200dp"
                             android:layout_height="56dp"
                             android:layout_marginEnd="16dp"
-                            android:background="@drawable/play_button_background"
-                            android:drawableStart="@drawable/ic_play_white"
-                            android:drawablePadding="12dp"
-                            android:focusable="true"
-                            android:focusableInTouchMode="true"
                             android:gravity="center"
-                            android:minWidth="200dp"
-                            android:nextFocusRight="@id/favoriteButton"
-                            android:nextFocusDown="@id/castRecyclerView"
-                            android:paddingHorizontal="28dp"
-                            android:text="Play Now"
-                            android:textAllCaps="false"
-                            android:textColor="@android:color/white"
-                            android:textSize="20sp"
-                            android:textStyle="bold" />
+                            android:minWidth="200dp"/>
+                        <!-- <androidx.appcompat.widget.AppCompatButton
+                             android:id="@+id/playButton"
+                             android:layout_width="wrap_content"
+                             android:layout_height="56dp"
+                             android:layout_marginEnd="16dp"
+                             android:background="@drawable/play_button_background"
+                             android:drawableStart="@drawable/ic_play_white"
+                             android:drawablePadding="12dp"
+                             android:focusable="true"
+                             android:focusableInTouchMode="true"
+                             android:gravity="center"
+                             android:minWidth="200dp"
+                             android:nextFocusRight="@id/favoriteButton"
+                             android:nextFocusDown="@id/castRecyclerView"
+                             android:paddingHorizontal="28dp"
+                             android:text="Play Now"
+                             android:textAllCaps="false"
+                             android:textColor="@android:color/white"
+                             android:textSize="20sp"
+                             android:textStyle="bold" />
 
-                        <!-- Add to List Button -->
+                          Add to List Button -->
                         <androidx.appcompat.widget.AppCompatButton
                             android:id="@+id/favoriteButton"
                             android:layout_width="56dp"

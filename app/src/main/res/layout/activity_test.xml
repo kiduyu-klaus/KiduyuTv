@@ -1,23 +1,35 @@
-<RelativeLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:padding="32dp"
+    android:background="#F5F5F5"
+    tools:context=".Ui.testactivity.TestActivity">
 
-    <TextView
-        android:id="@+id/trendingTitle"
+    <!-- ProgressButton Usage Example -->
+    <com.kiduyu.klaus.kiduyutv.Ui.testactivity.ProgressButton
+        android:id="@+id/progressButton"
+        android:layout_width="200dp"
+        android:layout_height="50dp"
+        android:layout_margin="16dp" />
+
+    <!-- Another example with longer text -->
+    <com.kiduyu.klaus.kiduyutv.Ui.testactivity.ProgressButton
+        android:id="@+id/progressButton2"
+        android:layout_width="240dp"
+        android:layout_height="50dp"
+        android:layout_margin="16dp" />
+
+    <!-- Reset button -->
+    <Button
+        android:id="@+id/resetButton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:gravity="center"
-        android:text="Loading..."
-        android:layout_centerHorizontal="true"
-        android:layout_marginTop="32dp"/>
+        android:layout_margin="16dp"
+        android:text="Reset" />
 
-    <ProgressBar
-        android:id="@+id/progressBar"
-        style="?android:attr/progressBarStyleLarge"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_centerInParent="true"
-        android:visibility="visible"/>
-
-</RelativeLayout>
+</LinearLayout>
