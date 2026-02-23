@@ -59,7 +59,6 @@ import androidx.media3.exoplayer.trackselection.DefaultTrackSelector;
 import com.kiduyu.klaus.kiduyutv.Api.FetchStreams;
 import com.kiduyu.klaus.kiduyutv.Api.TmdbRepository;
 import com.kiduyu.klaus.kiduyutv.R;
-
 import com.kiduyu.klaus.kiduyutv.model.EpisodeModel;
 import com.kiduyu.klaus.kiduyutv.model.MediaItems;
 import com.kiduyu.klaus.kiduyutv.utils.PreferencesManager;
@@ -126,9 +125,17 @@ public class PlayerActivity extends AppCompatActivity {
     private int currentSourceIndex = 0;
     private int currentSubtitleIndex = -1; // -1 means no subtitle selected
     private float currentSpeed = 1.0f;
-    private String mediaType; // "movie", "tv", etc.
+    private String mediaType; // "anime", "movie", "tv", etc.
     private boolean nextEpisodeTriggered = false;
 
+    Map<String, String> headers = new HashMap<>();
+
+    // Anime server switching data
+    private String episodeToken;
+    private String currentServerType;
+    private int currentServerIndex;
+    private ArrayList<String> availableServerTypes;
+    private HashMap<String, Integer> serverCounts;
 
 
     // Control visibility
@@ -160,7 +167,7 @@ public class PlayerActivity extends AppCompatActivity {
 
         setContentView(R.layout.activity_player);
 
-        // Continue with normal playback flow
+        // Continue with normal playback flow for non-anime content
         // Get media item from intent
         mediaItems = getIntent().getParcelableExtra("media_item");
         mediaType = getIntent().getStringExtra("media_type");
@@ -209,6 +216,10 @@ public class PlayerActivity extends AppCompatActivity {
 
 
     }
+
+    /**
+     * Handle anime playback with extras passed from DetailsActivityAnime
+     */
 
 
 
@@ -288,7 +299,9 @@ public class PlayerActivity extends AppCompatActivity {
 
         // Server/Source button
         btnServer.setOnClickListener(v -> {
-            showServerDialog();
+
+                showServerDialog();
+
         });
 
         // Quality button
@@ -302,9 +315,11 @@ public class PlayerActivity extends AppCompatActivity {
             Toast.makeText(this, "Settings clicked", Toast.LENGTH_SHORT).show();
         });
 
-        // Audio button
+        // Audio button - used for server type selection in anime
         btnAudio.setOnClickListener(v -> {
-            Toast.makeText(this, "Audio track selection coming soon", Toast.LENGTH_SHORT).show();
+
+                Toast.makeText(this, "Audio track selection coming soon", Toast.LENGTH_SHORT).show();
+
         });
 
         // Touch on video surface to toggle controls
@@ -333,7 +348,7 @@ public class PlayerActivity extends AppCompatActivity {
         // Update speed button
         btnSpeed.setText(String.format(Locale.US, "Speed %.2fx", currentSpeed));
 
-        // Set hardsub badge based on media type
+        // Set hardsub badge based on media type for non-anime content
         updateHardsubBadgeForMediaType();
     }
 
@@ -593,7 +608,7 @@ public class PlayerActivity extends AppCompatActivity {
 
     private DataSource.Factory buildDataSourceFactory(MediaItems.VideoSource source) {
         // Build custom headers from the video source
-        Map<String, String> headers = new HashMap<>();
+
 
         headers.put("User-Agent", DEFAULT_USER_AGENT);
         headers.put("Accept", "*/*");
@@ -1325,6 +1340,48 @@ public class PlayerActivity extends AppCompatActivity {
     }
 
     /**
+     * Update anime server button labels
+     */
+    private void updateAnimeServerButtons() {
+        if (currentServerType != null && serverCounts != null) {
+            // Update Audio button to show current server type
+            String typeLabel = currentServerType.toUpperCase();
+            btnAudio.setText(typeLabel);
+
+            // Update Server button to show current server index
+            Integer count = serverCounts.get(currentServerType);
+            if (count != null && count > 1) {
+                btnServer.setText(videoSources.get(currentSourceIndex).getQuality());
+            } else {
+                btnServer.setText("Server 1");
+            }
+
+            // Update hardsub badge to show server type for anime content
+            hardsubBadge.setText(typeLabel);
+            hardsubBadge.setVisibility(View.VISIBLE);
+
+            Log.i(TAG, "Updated buttons: Type=" + typeLabel + ", Server=" + (currentServerIndex + 1));
+        }
+    }
+
+    /**
+     * Update hardsub badge based on media type for non-anime content
+     */
+    private void updateHardsubBadgeForMediaType() {
+        if ("anime".equals(mediaType)) {
+            // For anime, badge will be updated via updateAnimeServerButtons() based on server type
+            hardsubBadge.setVisibility(View.GONE);
+        } else {
+            // For non-anime (movies, TV shows), set badge based on media type
+            if (mediaItems != null) {
+                hardsubBadge.setText(mediaType);
+            } else {
+                hardsubBadge.setVisibility(View.GONE);
+            }
+        }
+    }
+
+    /**
      * Populate genre tags from MediaItems genres list
      */
     private void populateGenreTags() {
@@ -1370,6 +1427,216 @@ public class PlayerActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * Populate genre tags for anime content using description string
+     * Anime API doesn't provide genres in a structured list, so we extract from description
+     */
+    private void populateAnimeGenreTags(String animeDescription) {
+        // Common anime genres to look for in descriptions
+        List<String> commonGenres = new ArrayList<>();
+        commonGenres.add("Action");
+        commonGenres.add("Adventure");
+        commonGenres.add("Comedy");
+        commonGenres.add("Drama");
+        commonGenres.add("Ecchi");
+        commonGenres.add("Fantasy");
+        commonGenres.add("Horror");
+        commonGenres.add("Mahou Shoujo");
+        commonGenres.add("Mecha");
+        commonGenres.add("Music");
+        commonGenres.add("Mystery");
+        commonGenres.add("Psychological");
+        commonGenres.add("Romance");
+        commonGenres.add("Sci-Fi");
+        commonGenres.add("Slice of Life");
+        commonGenres.add("Sports");
+        commonGenres.add("Supernatural");
+        commonGenres.add("Thriller");
+
+        // Create array of tag TextViews
+        TextView[] tags = {tag1, tag2, tag3, tag4, tag5};
+
+        // Hide all tags first
+        for (TextView tag : tags) {
+            tag.setVisibility(View.GONE);
+        }
+
+        // Try to find genres in description
+        List<String> foundGenres = new ArrayList<>();
+
+        if (animeDescription != null) {
+            String lowerDesc = animeDescription.toLowerCase(Locale.US);
+
+            for (String genre : commonGenres) {
+                if (foundGenres.size() >= 5) {
+                    break; // Only need 5 genres
+                }
+
+                if (lowerDesc.contains(genre.toLowerCase())) {
+                    foundGenres.add(genre);
+                    Log.i(TAG, "Found genre in description: " + genre);
+                }
+            }
+        }
+
+        // If no genres found in description, set default anime genres
+        if (foundGenres.isEmpty()) {
+            foundGenres.add("Anime");
+            foundGenres.add("Animation");
+            Log.i(TAG, "No genres found in description, using defaults");
+        }
+
+        // Populate tags
+        int tagIndex = 0;
+        for (String genre : foundGenres) {
+            if (tagIndex >= tags.length) {
+                break;
+            }
+            tags[tagIndex].setText(genre);
+            tags[tagIndex].setVisibility(View.VISIBLE);
+            Log.i(TAG, "Set anime tag" + (tagIndex + 1) + " to: " + genre);
+            tagIndex++;
+        }
+
+        // Hide remaining unused tags
+        for (int i = tagIndex; i < tags.length; i++) {
+            tags[i].setVisibility(View.GONE);
+        }
+    }
+
+    /**
+     * Hide all genre tag TextViews
+     */
+    private void hideAllGenreTags() {
+        tag1.setVisibility(View.GONE);
+        tag2.setVisibility(View.GONE);
+        tag3.setVisibility(View.GONE);
+        tag4.setVisibility(View.GONE);
+        tag5.setVisibility(View.GONE);
+    }
+
+
+
+
+    /**
+     * Switch to a specific server
+     */
+    private void switchToServer(String serverType, int serverIndex) {
+
+
+        Log.i(TAG, "Switching to " + serverType + " Server " + (serverIndex + 1));
+
+        long currentPosition = player != null ? player.getCurrentPosition() : 0;
+        boolean wasPlaying = player != null && player.isPlaying();
+
+        loadingIndicator.setVisibility(View.VISIBLE);
+        loadingStatusContainer.setVisibility(View.VISIBLE);
+        loadingStatusText.setText("Loading " + serverType.toUpperCase() +
+                " Server " + (serverIndex + 1) + "...");
+        loadingIndicator.setVisibility(View.GONE);
+        loadingStatusContainer.setVisibility(View.GONE);
+
+
+
+
+
+    }
+
+    private void updateServerButton() {
+        btnServer.setText(videoSources.get(currentSourceIndex).getQuality());
+    }
+
+    private void updateQualityButton() {
+        if (player == null) {
+            btnQuality.setText("Auto");
+            return;
+        }
+
+        Tracks tracks = player.getCurrentTracks();
+        if (tracks == null || tracks.isEmpty()) {
+            btnQuality.setText("Auto");
+            return;
+        }
+
+        // Find currently selected video track
+        for (Tracks.Group trackGroup : tracks.getGroups()) {
+            if (trackGroup.getType() == C.TRACK_TYPE_VIDEO) {
+                for (int i = 0; i < trackGroup.length; i++) {
+                    if (trackGroup.isTrackSelected(i)) {
+                        Format format = trackGroup.getTrackFormat(i);
+                        int height = format.height;
+
+                        if (height > 0) {
+                            btnQuality.setText(height + "p");
+                        } else {
+                            btnQuality.setText("Auto");
+                        }
+                        return;
+                    }
+                }
+            }
+        }
+
+        // No track selected or found
+        btnQuality.setText("Auto");
+    }
+
+    private void saveWatchProgress() {
+        saveWatchProgress(false);
+    }
+
+    private void saveWatchProgress(boolean completed) {
+        if (player == null || mediaItems == null || preferencesManager == null) {
+            return;
+        }
+
+        long currentPos = player.getCurrentPosition();
+        long duration = player.getDuration();
+
+        if (duration <= 0) {
+            return;
+        }
+
+        // Save watch history
+        String mediaId = mediaItems.getId() != null ? mediaItems.getId() : mediaItems.getTmdbId();
+        if (mediaId != null && !mediaId.isEmpty()) {
+            preferencesManager.saveWatchHistory(
+                    mediaItems,
+                    currentPos,
+                    duration
+            );
+
+            Log.i(TAG, "Saved watch progress: " + formatTime(currentPos) + " / " + formatTime(duration));
+        }
+    }
+
+    @Override
+    public boolean onKeyDown(int keyCode, KeyEvent event) {
+        // Show controls on Up button or Center button when hidden
+        if ((keyCode == KeyEvent.KEYCODE_DPAD_UP || keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_DPAD_DOWN)
+                && !controlsVisible) {
+            showControls();
+            return true;
+        }
+
+        // Seek forward 10 seconds on Right D-pad
+        if (keyCode == KeyEvent.KEYCODE_DPAD_RIGHT) {
+            if (!controlsVisible) {
+                if (player != null) {
+                    long currentPosition = player.getCurrentPosition();
+                    long duration = player.getDuration();
+                    long newPosition = Math.min(currentPosition + 10000, duration); // +10 seconds (10000ms)
+
+                    player.seekTo(newPosition);
+                    updateTimeDisplay();
+                    showToast("Forward +10s");
+
+                    // Show controls briefly if hidden
+                    if (!controlsVisible) {
+                        showControls();
+                    }
+                    resetHideControlsTimer();
+                }
                 return true;
             }
         }
