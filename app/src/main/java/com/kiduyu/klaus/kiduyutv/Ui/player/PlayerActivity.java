@@ -342,6 +342,7 @@ public class PlayerActivity extends AppCompatActivity {
             Glide.with(this)
                     .load(backgroundUrl)
                     .centerCrop()
+                    .timeout(15000)
                     .into(backgroundImage);
         }
 
@@ -640,6 +641,10 @@ public class PlayerActivity extends AppCompatActivity {
         if (source.getUrl().startsWith("https://p.10015")) {
             headers.put("Referer", "https://hexa.su/");
             headers.put("Origin", "https://hexa.su/");
+        }
+        if (source.getUrl().startsWith("https://storm.vodvidl.site")) {
+            headers.put("Referer", "https://vidlink.pro/");
+            headers.put("Origin", "https://megacloud.blog");
         }
 
         // Add referer if available
