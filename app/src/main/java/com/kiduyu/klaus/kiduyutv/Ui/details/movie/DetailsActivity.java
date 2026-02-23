@@ -162,7 +162,6 @@ public class DetailsActivity extends AppCompatActivity {
         recommendationsLoadingBar = findViewById(R.id.recommendationsLoadingBar);
 
         playButton.setAutoStartOnVisible(true);
-        playButton.loopAnimation(800);
 
         // Cast section views
         castRecyclerView = findViewById(R.id.castRecyclerView);

@@ -14,6 +14,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
+import androidx.annotation.OptIn;
 import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
@@ -271,6 +272,7 @@ public class DetailsActivityTv extends AppCompatActivity {
 
         // Callback to handle each server response
         FetchStreams.StreamCallback callback = new FetchStreams.StreamCallback() {
+            @OptIn(markerClass = UnstableApi.class)
             @Override
             public void onSuccess(MediaItems item) {
                 // Add video sources
@@ -297,6 +299,7 @@ public class DetailsActivityTv extends AppCompatActivity {
                 checkAndProceed();
             }
 
+            @OptIn(markerClass = UnstableApi.class)
             @Override
             public void onError(String error) {
                 Log.e(TAG, "Server fetch error: " + error);

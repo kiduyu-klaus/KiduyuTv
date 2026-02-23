@@ -41,6 +41,7 @@ import androidx.media3.common.TrackGroup;
 import androidx.media3.common.TrackSelectionOverride;
 import androidx.media3.common.TrackSelectionParameters;
 import androidx.media3.common.Tracks;
+import androidx.media3.common.text.Cue;
 import androidx.media3.common.text.CueGroup;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.ui.SubtitleView;
@@ -177,7 +178,7 @@ public class PlayerActivity extends AppCompatActivity {
         // Get media type from intent
         Log.i(TAG, "Media type: " + mediaType);
 
-
+        Log.i(TAG,"genres: "+mediaItems.getGenres());
 
         startPosition = getIntent().getLongExtra("start_position", 0);
 
@@ -194,6 +195,7 @@ public class PlayerActivity extends AppCompatActivity {
         initializeViews();
         setupClickListeners();
         populateMediaInfo();
+        fetchExternalSubtitles();
 
         // Initialize video sources and subtitles
         videoSources = mediaItems.getVideoSources();
@@ -244,6 +246,7 @@ public class PlayerActivity extends AppCompatActivity {
         btnQuality = findViewById(R.id.btnQuality);
         btnAudio = findViewById(R.id.btnAudio);
         btnSubtitles = findViewById(R.id.btnSubtitles);
+        btnSubtitles.setText("None"); // show no subtitle by default
         loadingStatusContainer = findViewById(R.id.loadingStatusContainer);
         loadingStatusText = findViewById(R.id.loadingStatusText);
         hardsubBadge = findViewById(R.id.hardsubBadge);
@@ -391,6 +394,7 @@ public class PlayerActivity extends AppCompatActivity {
         // Configure subtitle view
         subtitleView.setUserDefaultStyle();
         subtitleView.setUserDefaultTextSize();
+        subtitleView.bringToFront();
 
         player.setVideoSurfaceView(videoSurface);
 
@@ -399,7 +403,15 @@ public class PlayerActivity extends AppCompatActivity {
             @Override
             public void onCues(@NonNull CueGroup cueGroup) {
                 subtitleView.setCues(cueGroup.cues);
-                Log.i(TAG, "Subtitle cues updated");
+                if (cueGroup.cues.isEmpty()) {
+                    Log.i(TAG, "Subtitle cues cleared (empty)");
+                } else {
+                    for (int i = 0; i < cueGroup.cues.size(); i++) {
+                        Cue cue = cueGroup.cues.get(i);
+                        Log.i(TAG, "Cue[" + i + "] text: " + cue.text
+                                + " | presentationTimeUs: " + cueGroup.presentationTimeUs);
+                    }
+                }
             }
 
             @Override
@@ -547,11 +559,17 @@ public class PlayerActivity extends AppCompatActivity {
 
             // Build subtitle configuration with detected/actual values
             MediaItem.SubtitleConfiguration.Builder subtitleBuilder =
-                    new MediaItem.SubtitleConfiguration.Builder(android.net.Uri.parse(subtitle.getUrl()))
+                    new MediaItem.SubtitleConfiguration.Builder(
+                            android.net.Uri.parse(subtitle.getUrl())
+                    )
                             .setMimeType(mimeType)
-                            .setLanguage(languageCode)
-                            .setLabel(subtitle.getLanguage())
-                            .setSelectionFlags(C.SELECTION_FLAG_DEFAULT | C.SELECTION_FLAG_AUTOSELECT)
+                            // Hardcoded to English
+                            .setLanguage("en")
+                            .setLabel("English")
+                            .setSelectionFlags(
+                                    C.SELECTION_FLAG_DEFAULT
+                                            | C.SELECTION_FLAG_AUTOSELECT
+                            )
                             .setRoleFlags(C.ROLE_FLAG_SUBTITLE);
 
             // Note: In Media3, subtitle tracks use the same DataSource.Factory as the video,
@@ -650,18 +668,19 @@ public class PlayerActivity extends AppCompatActivity {
             return MimeTypes.TEXT_VTT;
         }
 
-        String lowerUrl = subtitleUrl.toLowerCase(Locale.US);
+        // strip query parameters to reliably inspect extension
+        String path = subtitleUrl.split("\\?")[0].toLowerCase(Locale.US);
 
-        if (lowerUrl.endsWith(".srt")) {
+        if (path.endsWith(".srt")) {
             Log.i(TAG, "Detected subtitle format: SRT");
             return MimeTypes.APPLICATION_SUBRIP;
-        } else if (lowerUrl.endsWith(".ssa") || lowerUrl.endsWith(".ass")) {
+        } else if (path.endsWith(".ssa") || path.endsWith(".ass")) {
             Log.i(TAG, "Detected subtitle format: SSA/ASS");
             return MimeTypes.TEXT_SSA;
-        } else if (lowerUrl.endsWith(".ttml") || lowerUrl.endsWith(".xml")) {
+        } else if (path.endsWith(".ttml") || path.endsWith(".xml")) {
             Log.i(TAG, "Detected subtitle format: TTML");
             return MimeTypes.APPLICATION_TTML;
-        } else if (lowerUrl.endsWith(".vtt")) {
+        } else if (path.endsWith(".vtt")) {
             Log.i(TAG, "Detected subtitle format: WebVTT");
             return MimeTypes.TEXT_VTT;
         } else {
@@ -754,35 +773,7 @@ public class PlayerActivity extends AppCompatActivity {
         return null;
     }
 
-    private void autoSelectEnglishSubtitle() {
-        if (subtitles == null || subtitles.isEmpty()) {
-            btnSubtitles.setText("No Subtitles");
-            return;
-        }
 
-        // Try to find English subtitle
-        for (int i = 0; i < subtitles.size(); i++) {
-            MediaItems.SubtitleItem subtitle = subtitles.get(i);
-            String lang = subtitle.getLang() != null ? subtitle.getLang().toLowerCase() : "";
-            String language = subtitle.getLanguage() != null ? subtitle.getLanguage().toLowerCase() : "";
-
-            if (lang.contains("en") || lang.equals("eng") ||
-                    language.contains("english") || language.contains("en")) {
-                currentSubtitleIndex = i;
-                btnSubtitles.setText(subtitle.getLanguage());
-                Log.i(TAG, "Auto-selected English subtitle: " + subtitle.getLanguage());
-                return;
-            }
-        }
-
-        // If no English subtitle found, select first subtitle
-        if (!subtitles.isEmpty()) {
-            currentSubtitleIndex = 0;
-            btnSubtitles.setText(subtitles.get(0).getLanguage());
-        } else {
-            btnSubtitles.setText("No Subtitles");
-        }
-    }
 
     private void selectSubtitleTrack() {
         if (player == null) {
@@ -792,13 +783,14 @@ public class PlayerActivity extends AppCompatActivity {
 
         if (currentSubtitleIndex < 0) {
             Log.i(TAG, "No subtitle selected (index -1), disabling text tracks");
-            // Disable text tracks
+            // Properly disable text renderer instead of fiddling with flags
             TrackSelectionParameters disableParams = player.getTrackSelectionParameters()
                     .buildUpon()
-                    .setPreferredTextLanguage(null)
-                    .setIgnoredTextSelectionFlags(~C.SELECTION_FLAG_DEFAULT)
+                    .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
                     .build();
             player.setTrackSelectionParameters(disableParams);
+            // clear any existing cues so the subtitle overlay disappears immediately
+            subtitleView.setCues(Collections.emptyList());
             return;
         }
 
@@ -838,6 +830,8 @@ public class PlayerActivity extends AppCompatActivity {
         // Build track selection parameters to enable text tracks using actual subtitle language
         TrackSelectionParameters.Builder builder = player.getTrackSelectionParameters()
                 .buildUpon()
+                // make sure text renderer is enabled in case it was disabled previously
+                .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
                 .setPreferredTextLanguage(subtitleLanguage)
                 .setPreferredTextRoleFlags(C.ROLE_FLAG_SUBTITLE | C.ROLE_FLAG_CAPTION)
                 .setSelectUndeterminedTextLanguage(true)
@@ -1259,16 +1253,29 @@ public class PlayerActivity extends AppCompatActivity {
             return;
         }
 
-        String[] subtitleLabels = new String[subtitles.size()];
+        // prepare labels array with an explicit "None" option at index 0
+        String[] subtitleLabels = new String[subtitles.size() + 1];
+        subtitleLabels[0] = "None";
         for (int i = 0; i < subtitles.size(); i++) {
-            subtitleLabels[i] = subtitles.get(i).getLanguage();
+            subtitleLabels[i + 1] = subtitles.get(i).getLanguage();
         }
 
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle("Select Subtitle");
         builder.setItems(subtitleLabels, (dialog, which) -> {
-            currentSubtitleIndex = which;
-            btnSubtitles.setText(subtitles.get(which).getLanguage());
+            if (which == 0) {
+                // user chose "None" – clear selection
+                currentSubtitleIndex = -1;
+                btnSubtitles.setText("None");
+            } else {
+                currentSubtitleIndex = which - 1;
+                btnSubtitles.setText(subtitles.get(currentSubtitleIndex).getLanguage());
+            }
+            // remember current playback position so we can resume after reload
+            if (player != null) {
+                startPosition = player.getCurrentPosition();
+            }
+            // reload source so MediaItem is rebuilt without a subtitle track when none selected
             loadVideoSource(currentSourceIndex);
         });
 
@@ -1282,6 +1289,8 @@ public class PlayerActivity extends AppCompatActivity {
             Toast.makeText(this, "Cannot fetch subtitles: No TMDB ID", Toast.LENGTH_SHORT).show();
             return;
         }
+        Log.i(TAG, "Fetching subtitles for TMDB ID: " + mediaItems.getTmdbId());
+
 
         showLoadingServer();
         loadingStatusText.setText("FETCHING SUBTITLES...");
@@ -1301,14 +1310,21 @@ public class PlayerActivity extends AppCompatActivity {
                     subtitles = new ArrayList<>();
                     for (Subtitle sub : externalSubtitles) {
                         MediaItems.SubtitleItem item = new MediaItems.SubtitleItem();
-                        item.setLanguage(sub.language + " (" + sub.release + ")");
+                        String fileName = sub.srtUri.getLastPathSegment();
+                        item.setLanguage(sub.language + " (" + fileName + ")");
                         item.setUrl(sub.srtUri.toString());
                         item.setLang(sub.language);
                         subtitles.add(item);
                     }
 
+                    // reset any previously selected index – user will choose from new list
+                    currentSubtitleIndex = -1;
+                    if (btnSubtitles != null) {
+                        btnSubtitles.setText("None");
+                    }
+
                     // Show dialog again with new subtitles
-                    showSubtitleDialog();
+                    //showSubtitleDialog();
                 });
             }
 
