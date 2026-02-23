@@ -30,11 +30,13 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+import androidx.activity.OnBackPressedCallback;
 
 import com.kiduyu.klaus.kiduyutv.Api.TmdbApi;
 import com.kiduyu.klaus.kiduyutv.Api.TmdbRepository;
 import com.kiduyu.klaus.kiduyutv.R;
 import com.kiduyu.klaus.kiduyutv.Ui.details.movie.DetailsActivity;
+import com.kiduyu.klaus.kiduyutv.Ui.details.tv.DetailsActivityTv;
 import com.kiduyu.klaus.kiduyutv.adapter.SearchResultsAdapter;
 import com.kiduyu.klaus.kiduyutv.model.MediaItems;
 import com.kiduyu.klaus.kiduyutv.utils.PreferencesManager;
@@ -89,6 +91,19 @@ public class SearchActivity extends AppCompatActivity {
         setupListeners();
         loadInitialData();
 
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                if (!searchEditText.getText().toString().isEmpty()) {
+                    searchEditText.setText("");
+                } else {
+                    // Disable this callback and let system handle back
+                    setEnabled(false);
+                    getOnBackPressedDispatcher().onBackPressed();
+                }
+            }
+        });
+
     }
     private void initializeViews() {
         searchEditText = findViewById(R.id.searchEditText);
@@ -115,18 +130,20 @@ public class SearchActivity extends AppCompatActivity {
     }
 
     private void setupListeners() {
-        // Focus change listener for all interactive elements
+        // Focus change listener for all interactive elements (excluding EditText)
         View.OnFocusChangeListener focusChangeListener = (v, hasFocus) -> {
             if (hasFocus) {
-                v.animate().scaleX(1.05f).scaleY(1.05f).setDuration(200).start();
+                // Only apply scale animation to non-EditText views
                 if (!(v instanceof EditText)) {
+                    v.animate().scaleX(1.05f).scaleY(1.05f).setDuration(200).start();
                     v.setBackgroundResource(R.drawable.generic_focus_selector);
                 }
                 // Bring into view when focused
                 v.requestFocus();
             } else {
-                v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(200).start();
+                // Only apply scale animation to non-EditText views
                 if (!(v instanceof EditText)) {
+                    v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(200).start();
                     v.setBackground(null);
                 }
             }
@@ -271,12 +288,14 @@ public class SearchActivity extends AppCompatActivity {
         for (String trending : trendingSearches) {
             Button chip = new Button(this);
             chip.setText(trending);
-            chip.setBackgroundResource(R.drawable.chip_background);
+            chip.setBackgroundResource(R.drawable.chip_focus_background);
             chip.setTextColor(getResources().getColor(android.R.color.white));
             chip.setPadding(32, 16, 32, 16);
+            chip.setAllCaps(false);
             // Enable focus for D-pad navigation
             chip.setFocusable(true);
             chip.setFocusableInTouchMode(true);
+            chip.setClickable(true);
             chip.setContentDescription("Search for: " + trending);
 
             chip.setOnClickListener(v -> {
@@ -397,8 +416,19 @@ public class SearchActivity extends AppCompatActivity {
             preferencesManager.addToSearchHistory(title);
         }
 
-        // Launch details activity
-        Intent intent = new Intent(this, DetailsActivity.class);
+        // Determine the correct details activity based on media type
+        String mediaType = mediaItems.getMediaType();
+        Log.i(TAG, "Media type: " + mediaType);
+
+        Intent intent;
+        if ("tv".equals(mediaType)) {
+            // Open TV details activity for TV shows
+            intent = new Intent(this, DetailsActivityTv.class);
+        } else {
+            // Open movie details activity for movies (default)
+            intent = new Intent(this, DetailsActivity.class);
+        }
+
         intent.putExtra("media_item", mediaItems);
         startActivity(intent);
     }
@@ -450,14 +480,7 @@ public class SearchActivity extends AppCompatActivity {
         }
     }
 
-    @Override
-    public void onBackPressed() {
-        if (!searchEditText.getText().toString().isEmpty()) {
-            searchEditText.setText("");
-        } else {
-            super.onBackPressed();
-        }
-    }
+
 
     @Override
     protected void onDestroy() {

@@ -19,13 +19,13 @@
         <EditText
             android:id="@+id/searchEditText"
             android:layout_width="0dp"
-            android:layout_height="56dp"
+            android:layout_height="48dp"
             android:layout_weight="1"
             android:background="@drawable/search_input_background"
             android:hint="Search movies and TV shows..."
             android:textColor="@color/white"
             android:textColorHint="@color/text_secondary"
-            android:textSize="18sp"
+            android:textSize="16sp"
             android:paddingStart="16dp"
             android:paddingEnd="56dp"
             android:imeOptions="actionSearch"
@@ -34,6 +34,7 @@
             android:ellipsize="end"
             android:focusable="true"
             android:focusableInTouchMode="true"
+            android:gravity="center_vertical"
             android:contentDescription="Search movies and TV shows" />
 
         <!-- Clear Button -->
@@ -45,11 +46,11 @@
             android:layout_gravity="center_vertical"
             android:background="@android:color/transparent"
             android:src="@drawable/ic_close"
-            android:tint="@color/text_secondary"
             android:visibility="gone"
             android:focusable="true"
             android:focusableInTouchMode="true"
-            android:contentDescription="Clear search" />
+            android:contentDescription="Clear search"
+            app:tint="@color/text_secondary" />
 
         <!-- Voice Search Button -->
         <ImageButton
@@ -60,10 +61,10 @@
             android:layout_gravity="center_vertical"
             android:background="@drawable/voice_search_button_background"
             android:src="@drawable/ic_mic"
-            android:tint="@color/white"
             android:focusable="true"
             android:focusableInTouchMode="true"
-            android:contentDescription="Voice search" />
+            android:contentDescription="Voice search"
+            app:tint="@color/white" />
 
     </LinearLayout>
 
@@ -199,6 +200,7 @@
                         android:text="Recent Searches"
                         android:textColor="@color/white"
                         android:textSize="18sp"
+                        android:visibility="gone"
                         android:textStyle="bold"
                         android:layout_marginBottom="12dp" />
 
