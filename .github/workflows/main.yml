@@ -20,7 +20,12 @@ on:
         description: 'Release notes / changelog'
         required: false
         default: 'Debug build — see commits for changes.'
-
+# ── Explicit permissions required for GITHUB_TOKEN to create/update releases ──
+# Without this block GitHub defaults to read-only scope → 403 on release create.
+permissions:
+  contents: write   # create tags, create/update releases, upload APK assets
+  actions: read     # read workflow run metadata
+  
 jobs:
   build:
     name: Build Debug APK
