@@ -1100,6 +1100,7 @@ public class PlayerActivity extends AppCompatActivity {
         builder.setTitle("Select Server");
         builder.setItems(serverLabels, (dialog, which) -> {
             currentSourceIndex = which;
+            startPosition = player.getCurrentPosition();
             loadVideoSource(currentSourceIndex);
         });
 

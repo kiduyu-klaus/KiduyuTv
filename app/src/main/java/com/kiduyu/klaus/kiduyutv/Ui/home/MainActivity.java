@@ -565,7 +565,7 @@ public class MainActivity extends AppCompatActivity {
 
         // Add API content category
         //categories.add(new CategorySection("🎆 Live API Content", apiRepository.getAPISampleContent()));
-
+/**
         tmdbRepository.getPopularTVShowsAsync(new TmdbRepository.TMDBCallback() {
             @Override
             public void onSuccess(List<MediaItems> tvShows) {
@@ -594,6 +594,7 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+
         tmdbRepository.getTopRatedTVShowsAsync(new TmdbRepository.TMDBCallback() {
             @Override
             public void onSuccess(List<MediaItems> tvShows) {
@@ -620,7 +621,7 @@ public class MainActivity extends AppCompatActivity {
                 // Handle error
                 Log.e(TAG, "Failed to load featured movies: " + error);
             }
-        });
+        }); **/
 
         tmdbRepository.getTrendingTVShowsAsync(new TmdbRepository.TMDBCallback() {
             @Override
