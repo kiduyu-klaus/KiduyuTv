@@ -18,8 +18,8 @@
 
 <p>
   <!-- Build status -->
-  <a href="../../actions/workflows/build-release.yml">
-    <img src="https://img.shields.io/github/actions/workflow/status/KiduyuKlaus/KiduyuTv/build-release.yml?branch=main&style=for-the-badge&logo=github-actions&logoColor=white&label=BUILD&color=22c55e&labelColor=0d1117" alt="Build Status"/>
+  <a href="../../actions/workflows/main.yml">
+    <img src="https://img.shields.io/github/actions/workflow/status/KiduyuKlaus/KiduyuTv/main.yml?branch=main&style=for-the-badge&logo=github-actions&logoColor=white&label=BUILD&color=22c55e&labelColor=0d1117" alt="Build Status"/>
   </a>
   <!-- Latest release -->
   <a href="../../releases/latest">
