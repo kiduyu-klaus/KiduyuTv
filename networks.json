@@ -1,0 +1,230 @@
+[
+  {
+    "network_id": 213,
+    "name": "Netflix"
+  },
+  {
+    "network_id": 49,
+    "name": "HBO"
+  },
+  {
+    "network_id": 1024,
+    "name": "Amazon"
+  },
+  {
+    "network_id": 2739,
+    "name": "Disney+"
+  },
+  {
+    "network_id": 2552,
+    "name": "Apple TV+"
+  },
+  {
+    "network_id": 453,
+    "name": "Hulu"
+  },
+  {
+    "network_id": 6,
+    "name": "NBC"
+  },
+  {
+    "network_id": 2,
+    "name": "ABC"
+  },
+  {
+    "network_id": 16,
+    "name": "CBS"
+  },
+  {
+    "network_id": 19,
+    "name": "FOX"
+  },
+  {
+    "network_id": 71,
+    "name": "The CW"
+  },
+  {
+    "network_id": 88,
+    "name": "FX"
+  },
+  {
+    "network_id": 174,
+    "name": "AMC"
+  },
+  {
+    "network_id": 67,
+    "name": "Showtime"
+  },
+  {
+    "network_id": 4,
+    "name": "BBC One"
+  },
+  {
+    "network_id": 26,
+    "name": "Channel 4"
+  },
+  {
+    "network_id": 214,
+    "name": "Sky"
+  },
+  {
+    "network_id": 3353,
+    "name": "Peacock"
+  },
+  {
+    "network_id": 4330,
+    "name": "Paramount+"
+  },
+  {
+    "network_id": 4353,
+    "name": "Discovery+"
+  },
+  {
+    "network_id": 29,
+    "name": "ESPN"
+  },
+  {
+    "network_id": 47,
+    "name": "Comedy Central"
+  },
+  {
+    "network_id": 33,
+    "name": "MTV"
+  },
+  {
+    "network_id": 13,
+    "name": "Nickelodeon"
+  },
+  {
+    "network_id": 56,
+    "name": "Cartoon Network"
+  },
+  {
+    "network_id": 80,
+    "name": "Adult Swim"
+  },
+  {
+    "network_id": 799,
+    "name": "National Geographic"
+  },
+  {
+    "network_id": 65,
+    "name": "History"
+  },
+  {
+    "network_id": 129,
+    "name": "A&E"
+  },
+  {
+    "network_id": 41,
+    "name": "TNT"
+  },
+  {
+    "network_id": 68,
+    "name": "TBS"
+  },
+  {
+    "network_id": 77,
+    "name": "Syfy"
+  },
+  {
+    "network_id": 30,
+    "name": "USA Network"
+  },
+  {
+    "network_id": 74,
+    "name": "Bravo"
+  },
+  {
+    "network_id": 76,
+    "name": "E!"
+  },
+  {
+    "network_id": 34,
+    "name": "Lifetime"
+  },
+  {
+    "network_id": 14,
+    "name": "PBS"
+  },
+  {
+    "network_id": 54,
+    "name": "Disney Channel"
+  },
+  {
+    "network_id": 44,
+    "name": "Disney XD"
+  },
+  {
+    "network_id": 2243,
+    "name": "Freeform"
+  },
+  {
+    "network_id": 64,
+    "name": "Discovery Channel"
+  },
+  {
+    "network_id": 210,
+    "name": "Animal Planet"
+  },
+  {
+    "network_id": 59,
+    "name": "TLC"
+  },
+  {
+    "network_id": 158,
+    "name": "Food Network"
+  },
+  {
+    "network_id": 192,
+    "name": "HGTV"
+  },
+  {
+    "network_id": 55,
+    "name": "Spike"
+  },
+  {
+    "network_id": 84,
+    "name": "truTV"
+  },
+  {
+    "network_id": 91,
+    "name": "VH1"
+  },
+  {
+    "network_id": 202,
+    "name": "WGN America"
+  },
+  {
+    "network_id": 95,
+    "name": "BET"
+  },
+  {
+    "network_id": 3,
+    "name": "BBC Two"
+  },
+  {
+    "network_id": 9,
+    "name": "ITV"
+  },
+  {
+    "network_id": 99,
+    "name": "Channel 5"
+  },
+  {
+    "network_id": 318,
+    "name": "Starz"
+  },
+  {
+    "network_id": 1267,
+    "name": "Crunchyroll"
+  },
+  {
+    "network_id": 3444,
+    "name": "YouTube Premium"
+  },
+  {
+    "network_id": 4881,
+    "name": "Hallmark Channel"
+  }
+]
