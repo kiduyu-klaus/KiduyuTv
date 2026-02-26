@@ -4,6 +4,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
 
+import com.kiduyu.klaus.kiduyutv.model.CompanyNetwork;
 import com.kiduyu.klaus.kiduyutv.model.Episode;
 import com.kiduyu.klaus.kiduyutv.model.MediaItems;
 import com.kiduyu.klaus.kiduyutv.model.Season;
@@ -465,6 +466,78 @@ public class TmdbRepository {
             trending.add("James Bond");
             trending.add("Fast & Furious");
             callback.onSuccess(trending);
+        });
+    }
+
+    /**
+     * Callback interface for company/network operations
+     */
+    public interface CompanyNetworkCallback {
+        void onSuccess(List<CompanyNetwork> companiesNetworks);
+        void onError(String error);
+    }
+
+    /**
+     * Async method to fetch top production companies from TMDB
+     */
+    public void getTopProductionCompaniesAsync(CompanyNetworkCallback callback) {
+        executorService.execute(() -> {
+            try {
+                List<CompanyNetwork> companies = TmdbApi.fetchTopProductionCompanies();
+                mainHandler.post(() -> callback.onSuccess(companies));
+            } catch (Exception e) {
+                Log.e(TAG, "Error fetching top production companies", e);
+                mainHandler.post(() -> callback.onError(e.getMessage()));
+            }
+        });
+    }
+
+    /**
+     * Async method to fetch top TV networks from TMDB
+     */
+    public void getTopTVNetworksAsync(CompanyNetworkCallback callback) {
+        executorService.execute(() -> {
+            try {
+                List<CompanyNetwork> networks = TmdbApi.fetchTopTVNetworks();
+                mainHandler.post(() -> callback.onSuccess(networks));
+            } catch (Exception e) {
+                Log.e(TAG, "Error fetching top TV networks", e);
+                mainHandler.post(() -> callback.onError(e.getMessage()));
+            }
+        });
+    }
+
+    /**
+     * Async method to discover movies by production company
+     * @param companyId The TMDB company ID
+     * @param page Page number for pagination
+     */
+    public void discoverMoviesByCompanyAsync(int companyId, int page, TMDBCallback callback) {
+        executorService.execute(() -> {
+            try {
+                List<MediaItems> movies = TmdbApi.discoverMoviesByCompany(companyId, page);
+                mainHandler.post(() -> callback.onSuccess(movies));
+            } catch (Exception e) {
+                Log.e(TAG, "Error discovering movies by company", e);
+                mainHandler.post(() -> callback.onError(e.getMessage()));
+            }
+        });
+    }
+
+    /**
+     * Async method to discover TV shows by network
+     * @param networkId The TMDB network ID
+     * @param page Page number for pagination
+     */
+    public void discoverTVShowsByNetworkAsync(int networkId, int page, TMDBCallback callback) {
+        executorService.execute(() -> {
+            try {
+                List<MediaItems> tvShows = TmdbApi.discoverTVShowsByNetwork(networkId, page);
+                mainHandler.post(() -> callback.onSuccess(tvShows));
+            } catch (Exception e) {
+                Log.e(TAG, "Error discovering TV shows by network", e);
+                mainHandler.post(() -> callback.onError(e.getMessage()));
+            }
         });
     }
 }

@@ -313,7 +313,7 @@ public class PlayerActivity extends AppCompatActivity {
         // Server/Source button
         btnServer.setOnClickListener(v -> {
 
-            showServerDialog();
+                showServerDialog();
 
         });
 
@@ -331,7 +331,7 @@ public class PlayerActivity extends AppCompatActivity {
         // Audio button - used for server type selection in anime
         btnAudio.setOnClickListener(v -> {
 
-            Toast.makeText(this, "Audio track selection coming soon", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Audio track selection coming soon", Toast.LENGTH_SHORT).show();
 
         });
 
@@ -644,7 +644,7 @@ public class PlayerActivity extends AppCompatActivity {
         headers.put("User-Agent", userAgent);
 
         // Add Referer and Origin based on URL patterns
-        if (source.getUrl().startsWith("https://one.techparadise") || source.getUrl().startsWith("https://one.trueparadise")) {
+        if (source.getUrl().startsWith("https://one.techparadise")) {
             // Videasy: Use accurate headers from EncDecEndpoints
             headers.put("Referer", "https://videasy.net/");
             headers.put("Origin", "https://player.videasy.net");
@@ -1466,7 +1466,82 @@ public class PlayerActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * Populate genre tags for anime content using description string
+     * Anime API doesn't provide genres in a structured list, so we extract from description
+     */
+    private void populateAnimeGenreTags(String animeDescription) {
+        // Common anime genres to look for in descriptions
+        List<String> commonGenres = new ArrayList<>();
+        commonGenres.add("Action");
+        commonGenres.add("Adventure");
+        commonGenres.add("Comedy");
+        commonGenres.add("Drama");
+        commonGenres.add("Ecchi");
+        commonGenres.add("Fantasy");
+        commonGenres.add("Horror");
+        commonGenres.add("Mahou Shoujo");
+        commonGenres.add("Mecha");
+        commonGenres.add("Music");
+        commonGenres.add("Mystery");
+        commonGenres.add("Psychological");
+        commonGenres.add("Romance");
+        commonGenres.add("Sci-Fi");
+        commonGenres.add("Slice of Life");
+        commonGenres.add("Sports");
+        commonGenres.add("Supernatural");
+        commonGenres.add("Thriller");
 
+        // Create array of tag TextViews
+        TextView[] tags = {tag1, tag2, tag3, tag4, tag5};
+
+        // Hide all tags first
+        for (TextView tag : tags) {
+            tag.setVisibility(View.GONE);
+        }
+
+        // Try to find genres in description
+        List<String> foundGenres = new ArrayList<>();
+
+        if (animeDescription != null) {
+            String lowerDesc = animeDescription.toLowerCase(Locale.US);
+
+            for (String genre : commonGenres) {
+                if (foundGenres.size() >= 5) {
+                    break; // Only need 5 genres
+                }
+
+                if (lowerDesc.contains(genre.toLowerCase())) {
+                    foundGenres.add(genre);
+                    Log.i(TAG, "Found genre in description: " + genre);
+                }
+            }
+        }
+
+        // If no genres found in description, set default anime genres
+        if (foundGenres.isEmpty()) {
+            foundGenres.add("Anime");
+            foundGenres.add("Animation");
+            Log.i(TAG, "No genres found in description, using defaults");
+        }
+
+        // Populate tags
+        int tagIndex = 0;
+        for (String genre : foundGenres) {
+            if (tagIndex >= tags.length) {
+                break;
+            }
+            tags[tagIndex].setText(genre);
+            tags[tagIndex].setVisibility(View.VISIBLE);
+            Log.i(TAG, "Set anime tag" + (tagIndex + 1) + " to: " + genre);
+            tagIndex++;
+        }
+
+        // Hide remaining unused tags
+        for (int i = tagIndex; i < tags.length; i++) {
+            tags[i].setVisibility(View.GONE);
+        }
+    }
 
     /**
      * Hide all genre tag TextViews

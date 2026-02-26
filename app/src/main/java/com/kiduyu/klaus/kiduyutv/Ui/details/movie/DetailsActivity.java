@@ -495,7 +495,7 @@ public class DetailsActivity extends AppCompatActivity {
         };
 
         // 1. Fetch from Videasy
-        //fetchStreams.fetchVideasyMovie(title, year, tmdbId,tmdbId, callback);
+        //fetchStreams.fetchVideasyMovie(title, year, tmdbId, callback);
 
         // 2. Fetch from Hexa
         fetchStreams.fetchHexaMovie(tmdbId, callback);

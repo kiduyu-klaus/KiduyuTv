@@ -11,6 +11,7 @@ import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
+import com.bumptech.glide.load.engine.DiskCacheStrategy;
 import com.kiduyu.klaus.kiduyutv.R;
 import com.kiduyu.klaus.kiduyutv.model.MediaItems;
 
@@ -75,6 +76,9 @@ public class RecommendationsAdapter extends RecyclerView.Adapter<Recommendations
                     .load(item.getPosterUrl())
                     .centerCrop()
                     .placeholder(R.drawable.placeholder_movie)
+                    .error(R.drawable.placeholder_movie)
+                    .diskCacheStrategy(DiskCacheStrategy.ALL)
+                    .timeout(15000)
                     .into(posterImageView);
 
             // Set title

@@ -27,6 +27,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.bumptech.glide.Glide;
 import com.kiduyu.klaus.kiduyutv.Api.TmdbRepository;
 import com.kiduyu.klaus.kiduyutv.R;
+import com.kiduyu.klaus.kiduyutv.Ui.details.CompanyContentActivity;
 import com.kiduyu.klaus.kiduyutv.Ui.details.movie.DetailsActivity;
 import com.kiduyu.klaus.kiduyutv.Ui.details.tv.DetailsActivityTv;
 import com.kiduyu.klaus.kiduyutv.Ui.search.SearchActivity;
@@ -35,6 +36,7 @@ import com.kiduyu.klaus.kiduyutv.Ui.testactivity.TestActivity;
 import com.kiduyu.klaus.kiduyutv.adapter.CategoryAdapter;
 import com.kiduyu.klaus.kiduyutv.adapter.VerticalSpaceItemDecoration;
 import com.kiduyu.klaus.kiduyutv.model.CategorySection;
+import com.kiduyu.klaus.kiduyutv.model.CompanyNetwork;
 import com.kiduyu.klaus.kiduyutv.model.MediaItems;
 import com.kiduyu.klaus.kiduyutv.utils.PreferencesManager;
 
@@ -114,11 +116,11 @@ public class MainActivity extends AppCompatActivity {
 
         initializeViews();
         setupClickListeners();
+        setupNavigationFocus();
         loadContent();
 
         // Set up DPAD navigation handling
         setupDPADNavigation();
-        setupNavigationFocus();
 
     }
 
@@ -260,12 +262,12 @@ public class MainActivity extends AppCompatActivity {
 
         moviesIcon.setOnClickListener(v -> {
             loadContent();
-
+            Toast.makeText(this, "Movies - Coming Soon", Toast.LENGTH_SHORT).show();
         });
 
         tvIcon.setOnClickListener(v -> {
             loadTvShows();
-
+            Toast.makeText(this, "TV Shows - Coming Soon", Toast.LENGTH_SHORT).show();
         });
 
 
@@ -370,7 +372,6 @@ public class MainActivity extends AppCompatActivity {
 
                 // Set focus on Continue Watching section since it exists
                 setInitialFocusToContent();
-                setFocusOnFirstContinueWatchingItem();
             } else {
                 Log.i(TAG, "No active watch history found");
                 // Set focus to first category when no continue watching
@@ -443,8 +444,6 @@ public class MainActivity extends AppCompatActivity {
 
             // First category should be Continue Watching
             CategorySection firstCategory = categories.get(0);
-            Log.i(TAG, "First category: " + firstCategory.getCategoryName());
-
             if ("Continue Watching".equals(firstCategory.getCategoryName()) &&
                     !firstCategory.getItems().isEmpty()) {
 
@@ -524,11 +523,11 @@ public class MainActivity extends AppCompatActivity {
 
         // Find the ViewHolder for this category
         RecyclerView.ViewHolder categoryViewHolder = categoriesRecyclerView.findViewHolderForAdapterPosition(categoryIndex);
-
+        
         if (categoryViewHolder instanceof CategoryAdapter.CategoryViewHolder) {
             CategoryAdapter.CategoryViewHolder holder = (CategoryAdapter.CategoryViewHolder) categoryViewHolder;
             RecyclerView itemsRecyclerView = holder.itemsRecyclerView;
-
+            
             if (itemsRecyclerView != null) {
                 // Scroll to the item in the horizontal list
                 LinearLayoutManager layoutManager = (LinearLayoutManager) itemsRecyclerView.getLayoutManager();
@@ -545,7 +544,7 @@ public class MainActivity extends AppCompatActivity {
                         if (navigationSidebar != null) {
                             navigationSidebar.clearFocus();
                         }
-
+                        
                         itemViewHolder.itemView.requestFocus();
                         lastFocusedView = itemViewHolder.itemView;
                         Log.i(TAG, "Focus set on category " + categoryIndex + ", item " + finalItemIndex);
@@ -574,20 +573,20 @@ public class MainActivity extends AppCompatActivity {
             switch (keyCode) {
                 case KeyEvent.KEYCODE_DPAD_RIGHT:
                     return handleDPADRight();
-
+                    
                 case KeyEvent.KEYCODE_DPAD_LEFT:
                     return handleDPADLeft();
-
+                    
                 case KeyEvent.KEYCODE_DPAD_DOWN:
                     return handleDPADDown();
-
+                    
                 case KeyEvent.KEYCODE_DPAD_UP:
                     return handleDPADUp();
-
+                    
                 case KeyEvent.KEYCODE_ENTER:
                 case KeyEvent.KEYCODE_DPAD_CENTER:
                     return handleDPADCenter();
-
+                    
                 default:
                     return false;
             }
@@ -704,10 +703,10 @@ public class MainActivity extends AppCompatActivity {
         MediaItems selectedItem = category.getItems().get(currentItemIndex);
         if (selectedItem != null) {
             currentSelectedItem = selectedItem;
-
+            
             // Launch details activity based on media type
-            if ("movie".equalsIgnoreCase(selectedItem.getMediaType()) ||
-                    "Movie".equalsIgnoreCase(selectedItem.getMediaType())) {
+            if ("movie".equalsIgnoreCase(selectedItem.getMediaType()) || 
+                "Movie".equalsIgnoreCase(selectedItem.getMediaType())) {
                 launchDetails(selectedItem);
             } else {
                 launchTvDetails(selectedItem);
@@ -970,6 +969,46 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        // Load top production companies
+        tmdbRepository.getTopProductionCompaniesAsync(new TmdbRepository.CompanyNetworkCallback() {
+            @Override
+            public void onSuccess(List<CompanyNetwork> companiesNetworks) {
+                Log.i(TAG, "Successfully loaded " + companiesNetworks.size() + " production companies");
+                if (!companiesNetworks.isEmpty()) {
+                    CategorySection companySection = new CategorySection("Production Companies", companiesNetworks, CategorySection.TYPE_COMPANY_NETWORK);
+                    categories.add(companySection);
+                    if (categoryAdapter != null) {
+                        categoryAdapter.notifyDataSetChanged();
+                    }
+                }
+            }
+
+            @Override
+            public void onError(String error) {
+                Log.e(TAG, "Failed to load production companies: " + error);
+            }
+        });
+
+        // Load top TV networks
+        tmdbRepository.getTopTVNetworksAsync(new TmdbRepository.CompanyNetworkCallback() {
+            @Override
+            public void onSuccess(List<CompanyNetwork> companiesNetworks) {
+                Log.i(TAG, "Successfully loaded " + companiesNetworks.size() + " TV networks");
+                if (!companiesNetworks.isEmpty()) {
+                    CategorySection networkSection = new CategorySection("TV Networks", companiesNetworks, CategorySection.TYPE_COMPANY_NETWORK);
+                    categories.add(networkSection);
+                    if (categoryAdapter != null) {
+                        categoryAdapter.notifyDataSetChanged();
+                    }
+                }
+            }
+
+            @Override
+            public void onError(String error) {
+                Log.e(TAG, "Failed to load TV networks: " + error);
+            }
+        });
+
 
         // Setup adapter with initial empty structure
         if (categoryAdapter == null) {
@@ -1006,7 +1045,18 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         });
+
+        // Add company/network click listener
+        categoryAdapter.setOnCompanyNetworkClickListener(new CategoryAdapter.OnCompanyNetworkClickListener() {
+            @Override
+            public void onCompanyNetworkClick(CompanyNetwork companyNetwork, int categoryPosition, int itemPosition) {
+                // Open CompanyContentActivity to show movies/TV shows for this company/network
+                Intent intent = CompanyContentActivity.createIntent(MainActivity.this, companyNetwork);
+                startActivity(intent);
+            }
+        });
     }
+
     private void updateHeroContent(MediaItems mediaItems, int categoryPosition) {
         String imageUrl = mediaItems.getPrimaryImageUrl();
         if (imageUrl != null && !imageUrl.isEmpty()) {

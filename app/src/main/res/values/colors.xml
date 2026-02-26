@@ -28,6 +28,9 @@
 
     <!-- Placeholder Colors -->
     <color name="placeholder_gray">#404040</color>
+    
+    <!-- Company Network Colors -->
+    <color name="company_card_background">#2D2D2D</color>
 
     <!-- Additional Theme Colors -->
     <color name="primary">#E50914</color>
@@ -42,7 +45,8 @@
     <color name="teal_700">#FF018786</color>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
-
+    <color name="company_network_bg">#00ACC1</color>
+    <color name="rating_yellow">#FDD835</color>
 
 
 </resources>

@@ -4,6 +4,7 @@ package com.kiduyu.klaus.kiduyutv.Api;
 
 import android.util.Log;
 
+import com.kiduyu.klaus.kiduyutv.model.CompanyNetwork;
 import com.kiduyu.klaus.kiduyutv.model.MediaItems;
 import com.kiduyu.klaus.kiduyutv.utils.utils;
 
@@ -282,6 +283,187 @@ public class TmdbApi {
             Log.e(TAG, "Error making HTTP request", e);
             return null;
         }
+    }
+
+    /**
+     * Fetch top production companies from a remote JSON list,
+     * then fetch full details for each from TMDB /company/{id}
+     */
+    public static List<CompanyNetwork> fetchTopProductionCompanies() throws IOException, JSONException {
+        List<CompanyNetwork> companies = new ArrayList<>();
+
+        // Step 1: Fetch company IDs from the remote JSON
+        String companiesJsonUrl = "https://raw.githubusercontent.com/kiduyu-klaus/KiduyuTv/refs/heads/main/companies.json";
+
+        Connection.Response listResponse = Jsoup.connect(companiesJsonUrl)
+                .ignoreContentType(true)
+                .timeout(TIMEOUT_MS)
+                .method(Connection.Method.GET)
+                .execute();
+
+        if (listResponse.statusCode() != 200) {
+            Log.e(TAG, "fetchTopProductionCompanies: Failed to fetch company list, status " + listResponse.statusCode());
+            throw new IOException("Failed to fetch company list: " + listResponse.statusCode());
+        }
+
+        JSONArray companyList = new JSONArray(listResponse.body());
+
+        // Step 2: For each company_id, fetch full details from TMDB
+        for (int i = 0; i < companyList.length(); i++) {
+            JSONObject item = companyList.getJSONObject(i);
+            int companyId = item.getInt("company_id");
+
+            String detailUrl = TmdbRepository.TMDB_BASE_URL + "/company/" + companyId;
+
+            try {
+                Connection.Response detailResponse = Jsoup.connect(detailUrl)
+                        .header("accept", "application/json")
+                        .header("Authorization", "Bearer " + BEARER_TOKEN)
+                        .ignoreContentType(true)
+                        .timeout(TIMEOUT_MS)
+                        .method(Connection.Method.GET)
+                        .execute();
+
+                if (detailResponse.statusCode() == 200) {
+                    Log.i(TAG, "fetchTopProductionCompanies: Fetched company id=" + companyId);
+
+                    JSONObject companyJson = new JSONObject(detailResponse.body());
+                    CompanyNetwork company = createCompanyFromTMDB(companyJson, false);
+                    if (company != null) {
+                        companies.add(company);
+                    }
+                } else {
+                    Log.w(TAG, "fetchTopProductionCompanies: Skipping company id=" + companyId
+                            + ", status=" + detailResponse.statusCode());
+                }
+
+            } catch (IOException | JSONException e) {
+                Log.e(TAG, "fetchTopProductionCompanies: Error fetching company id=" + companyId, e);
+                // Continue to next company instead of failing entirely
+            }
+        }
+
+        return companies;
+    }
+
+
+    /**
+     * Fetch top TV networks from a remote JSON list,
+     * then fetch full details for each from TMDB /network/{id}
+     */
+    public static List<CompanyNetwork> fetchTopTVNetworks() throws IOException, JSONException {
+        List<CompanyNetwork> networks = new ArrayList<>();
+
+        // Step 1: Fetch network IDs from the remote JSON
+        String networksJsonUrl = "https://raw.githubusercontent.com/kiduyu-klaus/KiduyuTv/refs/heads/main/networks.json";
+
+        Connection.Response listResponse = Jsoup.connect(networksJsonUrl)
+                .ignoreContentType(true)
+                .timeout(TIMEOUT_MS)
+                .method(Connection.Method.GET)
+                .execute();
+
+        if (listResponse.statusCode() != 200) {
+            Log.e(TAG, "fetchTopTVNetworks: Failed to fetch network list, status " + listResponse.statusCode());
+            throw new IOException("Failed to fetch network list: " + listResponse.statusCode());
+        }
+
+        JSONArray networkList = new JSONArray(listResponse.body());
+
+        // Step 2: For each network_id, fetch full details from TMDB
+        for (int i = 0; i < networkList.length(); i++) {
+            JSONObject item = networkList.getJSONObject(i);
+            int networkId = item.getInt("network_id");
+
+            String detailUrl = TmdbRepository.TMDB_BASE_URL + "/network/" + networkId;
+
+            try {
+                Connection.Response detailResponse = Jsoup.connect(detailUrl)
+                        .header("accept", "application/json")
+                        .header("Authorization", "Bearer " + BEARER_TOKEN)
+                        .ignoreContentType(true)
+                        .timeout(TIMEOUT_MS)
+                        .method(Connection.Method.GET)
+                        .execute();
+
+                if (detailResponse.statusCode() == 200) {
+                    Log.i(TAG, "fetchTopTVNetworks: Fetched network id=" + networkId);
+
+                    JSONObject networkJson = new JSONObject(detailResponse.body());
+                    CompanyNetwork network = createCompanyFromTMDB(networkJson, true);
+                    if (network != null) {
+                        networks.add(network);
+                    }
+                } else {
+                    Log.w(TAG, "fetchTopTVNetworks: Skipping network id=" + networkId
+                            + ", status=" + detailResponse.statusCode());
+                }
+
+            } catch (IOException | JSONException e) {
+                Log.e(TAG, "fetchTopTVNetworks: Error fetching network id=" + networkId, e);
+                // Continue to next network instead of failing entirely
+                //throw new IOException("Failed to fetch networks: " + e.getMessage());
+            }
+        }
+
+        return networks;
+    }
+    /**
+     * Create a CompanyNetwork object from TMDB JSON response
+     */
+    private static CompanyNetwork createCompanyFromTMDB(JSONObject tmdbItem, boolean isNetwork) {
+        try {
+            CompanyNetwork companyNetwork = new CompanyNetwork();
+
+            int id = tmdbItem.getInt("id");
+            String name = tmdbItem.getString("name");
+
+            companyNetwork.setId(id);
+            companyNetwork.setName(name);
+            companyNetwork.setNetwork(isNetwork);
+
+            // Set logo URL if available
+            String logoPath = tmdbItem.optString("logo_path", "");
+            if (!logoPath.isEmpty()) {
+                companyNetwork.setLogoPath(IMAGE_BASE_URL + "w500" + logoPath);
+            }
+
+            return companyNetwork;
+
+        } catch (JSONException e) {
+            Log.e(TAG, "Error creating CompanyNetwork from TMDB data", e);
+            return null;
+        }
+    }
+
+    /**
+     * Discover movies by production company
+     * @param companyId The TMDB company ID
+     * @param page Page number for pagination
+     */
+    public static List<MediaItems> discoverMoviesByCompany(int companyId, int page) throws IOException, JSONException {
+        List<MediaItems> movies = new ArrayList<>();
+
+        String urlString = TmdbRepository.TMDB_BASE_URL + "/discover/movie?include_adult=false&include_video=false&language=en-US&page=" + page + "&sort_by=popularity.desc&with_companies=" + companyId;
+
+        movies = fetchMoviesFromTMDB(urlString);
+
+        return movies;
+    }
+
+    /**
+     * Discover TV shows by network
+     * @param networkId The TMDB network ID
+     * @param page Page number for pagination
+     */
+    public static List<MediaItems> discoverTVShowsByNetwork(int networkId, int page) throws IOException, JSONException {
+        List<MediaItems> tvShows = new ArrayList<>();
+
+        String urlString = TmdbRepository.TMDB_BASE_URL + "/discover/tv?include_adult=false&include_null_first_air_dates=false&language=en-US&page=" + page + "&sort_by=popularity.desc&with_networks=" + networkId;
+
+        tvShows = fetchTVShowsFromTMDB(urlString);
+
+        return tvShows;
     }
 
 }

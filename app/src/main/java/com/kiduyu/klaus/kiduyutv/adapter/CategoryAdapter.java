@@ -12,6 +12,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.kiduyu.klaus.kiduyutv.R;
 import com.kiduyu.klaus.kiduyutv.model.CategorySection;
+import com.kiduyu.klaus.kiduyutv.model.CompanyNetwork;
 import com.kiduyu.klaus.kiduyutv.model.MediaItems;
 
 import java.util.List;
@@ -20,10 +21,15 @@ public class CategoryAdapter extends RecyclerView.Adapter<CategoryAdapter.Catego
 
     private List<CategorySection> categories;
     private OnItemClickListener listener;
+    private OnCompanyNetworkClickListener companyNetworkListener;
 
     public interface OnItemClickListener {
         void onItemClick(MediaItems mediaItems, int categoryPosition, int itemPosition);
         void onItemFocusChanged(MediaItems mediaItems, int categoryPosition, int itemPosition, boolean hasFocus);
+    }
+
+    public interface OnCompanyNetworkClickListener {
+        void onCompanyNetworkClick(CompanyNetwork companyNetwork, int categoryPosition, int itemPosition);
     }
 
     public CategoryAdapter(List<CategorySection> categories) {
@@ -32,6 +38,10 @@ public class CategoryAdapter extends RecyclerView.Adapter<CategoryAdapter.Catego
 
     public void setOnItemClickListener(OnItemClickListener listener) {
         this.listener = listener;
+    }
+
+    public void setOnCompanyNetworkClickListener(OnCompanyNetworkClickListener listener) {
+        this.companyNetworkListener = listener;
     }
 
     @NonNull
@@ -99,26 +109,43 @@ public class CategoryAdapter extends RecyclerView.Adapter<CategoryAdapter.Catego
         public void bind(CategorySection category, int categoryPosition) {
             categoryTitle.setText(category.getCategoryName());
 
-            // Setup content adapter for this category
-            contentAdapter = new ContentCarouselAdapter(category.getItems());
-            itemsRecyclerView.setAdapter(contentAdapter);
+            // Check if this is a company/network section
+            if (category.getSectionType() == CategorySection.TYPE_COMPANY_NETWORK) {
+                // Setup company network adapter
+                CompanyNetworkAdapter companyAdapter = new CompanyNetworkAdapter(category.getCompanyNetworks());
+                itemsRecyclerView.setAdapter(companyAdapter);
 
-            // Set click listener
-            contentAdapter.setOnItemClickListener(new ContentCarouselAdapter.OnItemClickListener() {
-                @Override
-                public void onItemClick(MediaItems mediaItems, int position) {
-                    if (listener != null) {
-                        listener.onItemClick(mediaItems, categoryPosition, position);
+                // Set click listener
+                companyAdapter.setOnItemClickListener(new CompanyNetworkAdapter.OnItemClickListener() {
+                    @Override
+                    public void onItemClick(CompanyNetwork companyNetwork, int position) {
+                        if (companyNetworkListener != null) {
+                            companyNetworkListener.onCompanyNetworkClick(companyNetwork, categoryPosition, position);
+                        }
                     }
-                }
+                });
+            } else {
+                // Setup content adapter for this category (media items)
+                contentAdapter = new ContentCarouselAdapter(category.getItems());
+                itemsRecyclerView.setAdapter(contentAdapter);
 
-                @Override
-                public void onFocusChanged(MediaItems mediaItems, int position, boolean hasFocus) {
-                    if (listener != null) {
-                        listener.onItemFocusChanged(mediaItems, categoryPosition, position, hasFocus);
+                // Set click listener
+                contentAdapter.setOnItemClickListener(new ContentCarouselAdapter.OnItemClickListener() {
+                    @Override
+                    public void onItemClick(MediaItems mediaItems, int position) {
+                        if (listener != null) {
+                            listener.onItemClick(mediaItems, categoryPosition, position);
+                        }
                     }
-                }
-            });
+
+                    @Override
+                    public void onFocusChanged(MediaItems mediaItems, int position, boolean hasFocus) {
+                        if (listener != null) {
+                            listener.onItemFocusChanged(mediaItems, categoryPosition, position, hasFocus);
+                        }
+                    }
+                });
+            }
         }
     }
 }

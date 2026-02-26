@@ -246,7 +246,7 @@
         app:layout_constraintGuide_percent="0.50" />
 
     <!-- Hero Content (Top 50%) -->
-    <ScrollView
+    <RelativeLayout
         android:id="@+id/heroContent"
         android:layout_width="0dp"
         android:layout_height="0dp"
@@ -398,7 +398,7 @@
 -->
         </LinearLayout>
 
-    </ScrollView>
+    </RelativeLayout>
 
     <!-- Categories Section (Bottom 50%) -->
     <androidx.recyclerview.widget.RecyclerView

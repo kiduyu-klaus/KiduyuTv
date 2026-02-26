@@ -9,6 +9,7 @@ import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
+import com.bumptech.glide.load.engine.DiskCacheStrategy;
 import com.kiduyu.klaus.kiduyutv.R;
 import com.kiduyu.klaus.kiduyutv.model.MediaItems;
 
@@ -98,6 +99,9 @@ public class ContentCarouselAdapter extends RecyclerView.Adapter<ContentCarousel
             Glide.with(itemView.getContext())
                     .load(mediaItems.getPosterUrl())
                     .centerCrop()
+                    .error(R.drawable.placeholder_movie)
+                    .diskCacheStrategy(DiskCacheStrategy.ALL)
+                    .timeout(15000)
                     .into(contentImage);
 
             updateFocusState(position == selectedPosition);

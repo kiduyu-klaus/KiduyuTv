@@ -30,7 +30,6 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
-import androidx.activity.OnBackPressedCallback;
 
 import com.kiduyu.klaus.kiduyutv.Api.TmdbApi;
 import com.kiduyu.klaus.kiduyutv.Api.TmdbRepository;
@@ -90,19 +89,6 @@ public class SearchActivity extends AppCompatActivity {
         initializeViews();
         setupListeners();
         loadInitialData();
-
-        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
-            @Override
-            public void handleOnBackPressed() {
-                if (!searchEditText.getText().toString().isEmpty()) {
-                    searchEditText.setText("");
-                } else {
-                    // Disable this callback and let system handle back
-                    setEnabled(false);
-                    getOnBackPressedDispatcher().onBackPressed();
-                }
-            }
-        });
 
     }
     private void initializeViews() {
@@ -418,17 +404,16 @@ public class SearchActivity extends AppCompatActivity {
 
         // Determine the correct details activity based on media type
         String mediaType = mediaItems.getMediaType();
-        Log.i(TAG, "Media type: " + mediaType);
-
+        
         Intent intent;
-        if ("tv".equals(mediaType)) {
+        if ("TV".equals(mediaType)) {
             // Open TV details activity for TV shows
             intent = new Intent(this, DetailsActivityTv.class);
         } else {
             // Open movie details activity for movies (default)
             intent = new Intent(this, DetailsActivity.class);
         }
-
+        
         intent.putExtra("media_item", mediaItems);
         startActivity(intent);
     }
@@ -480,7 +465,14 @@ public class SearchActivity extends AppCompatActivity {
         }
     }
 
-
+    @Override
+    public void onBackPressed() {
+        if (!searchEditText.getText().toString().isEmpty()) {
+            searchEditText.setText("");
+        } else {
+            super.onBackPressed();
+        }
+    }
 
     @Override
     protected void onDestroy() {

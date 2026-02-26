@@ -46,11 +46,11 @@
             android:layout_gravity="center_vertical"
             android:background="@android:color/transparent"
             android:src="@drawable/ic_close"
+            android:tint="@color/text_secondary"
             android:visibility="gone"
             android:focusable="true"
             android:focusableInTouchMode="true"
-            android:contentDescription="Clear search"
-            app:tint="@color/text_secondary" />
+            android:contentDescription="Clear search" />
 
         <!-- Voice Search Button -->
         <ImageButton
@@ -61,10 +61,10 @@
             android:layout_gravity="center_vertical"
             android:background="@drawable/voice_search_button_background"
             android:src="@drawable/ic_mic"
+            android:tint="@color/white"
             android:focusable="true"
             android:focusableInTouchMode="true"
-            android:contentDescription="Voice search"
-            app:tint="@color/white" />
+            android:contentDescription="Voice search" />
 
     </LinearLayout>
 
@@ -200,7 +200,6 @@
                         android:text="Recent Searches"
                         android:textColor="@color/white"
                         android:textSize="18sp"
-                        android:visibility="gone"
                         android:textStyle="bold"
                         android:layout_marginBottom="12dp" />
 

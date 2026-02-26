@@ -67,6 +67,9 @@
             android:name=".Ui.details.movie.DetailsActivity"
             android:exported="false" />
         <activity
+            android:name=".Ui.details.CompanyContentActivity"
+            android:exported="false" />
+        <activity
             android:name=".Ui.home.MainActivity"
             android:exported="false" />
     </application>

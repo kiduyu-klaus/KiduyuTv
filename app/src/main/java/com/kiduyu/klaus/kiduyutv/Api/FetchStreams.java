@@ -158,8 +158,8 @@ public class FetchStreams {
         @GET
         @Headers("Accept: */*")
         Call<ResponseBody> getResponseWithOrigin(@Url String url, @Header("User-Agent") String userAgent,
-                                                 @Header("Referer") String referer,
-                                                 @Header("Origin") String origin);
+                                                  @Header("Referer") String referer,
+                                                  @Header("Origin") String origin);
 
         @POST
         @Headers("Content-Type: application/json")
@@ -304,7 +304,9 @@ public class FetchStreams {
     /**
      * Get the User-Agent string used by FetchStreams
      */
-
+    public static String getUserAgent() {
+        return "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36";
+    }
 
     // ===================== VIDEASY =====================
     public void fetchVideasyMovie(String title, String year, String tmdbId, String imdbId, StreamCallback callback) {
@@ -349,7 +351,7 @@ public class FetchStreams {
         Log.i(TAG, "Fetching from: " + url);
 
         // Use the API that includes Origin header (matching Python implementation)
-        Response<ResponseBody> response = api.getResponseWithOrigin(url, getUserAgent(),
+        Response<ResponseBody> response = api.getResponseWithOrigin(url, getUserAgent(), 
                 "https://videasy.net/", "https://player.videasy.net").execute();
         if (!response.isSuccessful() || response.body() == null) {
             throw new IOException("Failed to fetch encrypted data");
@@ -1012,35 +1014,35 @@ public class FetchStreams {
      */
     private MediaItems fetchMappleStreams(String tmdbId, String mediaType, String season, String episode) throws Exception {
         GenericApi api = createGenericApi(MAPPLE_API_BASE);
-
+        
         // Step 1: Get HTML and extract request token (matching Python implementation)
         String watchUrl = MAPPLE_API_BASE + "/watch/" + mediaType + "/" + tmdbId;
         if ("tv".equals(mediaType) && season != null && episode != null) {
             watchUrl = MAPPLE_API_BASE + "/watch/" + mediaType + "/" + tmdbId + "/" + season + "-" + episode;
         }
-
+        
         Map<String, String> headers = new HashMap<>();
         headers.put("User-Agent", getUserAgent());
         headers.put("Referer", "https://mapple.uk/");
-
+        
         // Fetch HTML to extract __REQUEST_TOKEN__
         Response<ResponseBody> htmlResponse = api.getResponse(watchUrl, getUserAgent(), "https://mapple.uk/").execute();
         if (!htmlResponse.isSuccessful() || htmlResponse.body() == null) {
             throw new IOException("Failed to fetch Mapple HTML");
         }
-
+        
         String html = htmlResponse.body().string();
-
+        
         // Extract __REQUEST_TOKEN__ from HTML using regex (matching Python: window.__REQUEST_TOKEN__ = "...")
         String requestToken = extractRequestToken(html);
         if (requestToken == null) {
             throw new IOException("Failed to extract request token from HTML");
         }
         Log.i(TAG, "Extracted request token: " + requestToken);
-
+        
         // Step 2: Call /api/encrypt with payload (matching Python implementation)
         String encryptUrl = MAPPLE_API_BASE + "/api/encrypt";
-
+        
         // Build the encrypt payload JSON
         JSONObject encryptPayload = new JSONObject();
         JSONObject dataObj = new JSONObject();
@@ -1050,49 +1052,49 @@ public class FetchStreams {
         dataObj.put("source", "mapple");
         encryptPayload.put("data", dataObj);
         encryptPayload.put("endpoint", "stream-encrypted");
-
+        
         // Make the encrypt request - need to use raw OkHttpClient for this
         okhttp3.RequestBody body = okhttp3.RequestBody.create(
                 okhttp3.MediaType.parse("application/json"),
                 encryptPayload.toString()
         );
-
+        
         okhttp3.Request.Builder requestBuilder = new okhttp3.Request.Builder()
                 .url(encryptUrl)
                 .post(body)
                 .addHeader("User-Agent", getUserAgent())
                 .addHeader("Referer", "https://mapple.uk/")
                 .addHeader("Content-Type", "application/json");
-
+        
         okhttp3.Response encryptResp = okHttpClient.newCall(requestBuilder.build()).execute();
         if (!encryptResp.isSuccessful() || encryptResp.body() == null) {
             throw new IOException("Failed to encrypt Mapple request");
         }
-
+        
         JSONObject encryptJson = new JSONObject(encryptResp.body().string());
         String streamPath = encryptJson.optString("url", "");
         if (streamPath.isEmpty()) {
             throw new IOException("No stream path in encrypt response");
         }
         Log.i(TAG, "Stream path: " + streamPath);
-
+        
         // Step 3: Build final URL with stream path and token (matching Python implementation)
         String finalUrl = MAPPLE_API_BASE + streamPath + "&requestToken=" + requestToken;
         Log.i(TAG, "Final stream URL: " + finalUrl);
-
+        
         // Fetch streams
         Response<ResponseBody> streamResp = api.getResponse(finalUrl, getUserAgent(), "https://mapple.uk/").execute();
         if (!streamResp.isSuccessful() || streamResp.body() == null) {
             throw new IOException("Failed to fetch Mapple streams");
         }
-
+        
         String streamData = streamResp.body().string();
         Log.i(TAG, "Mapple stream data: " + streamData);
-
+        
         MediaItems result = parseStreamData(streamData, "https://mapple.uk/", new HashMap<>());
         return result;
     }
-
+    
     /**
      * Extract __REQUEST_TOKEN__ from HTML using regex
      * Matches Python: window.__REQUEST_TOKEN__ = "([^"]+)"
@@ -1134,9 +1136,7 @@ public class FetchStreams {
         return retrofit.create(GenericApi.class);
     }
 
-    public static String getUserAgent() {
-        return "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36";
-    }
+
 
     private String generateHexKey() {
         byte[] bytes = new byte[32];
@@ -1559,7 +1559,7 @@ public class FetchStreams {
                 String mediaUrl = embedUrl.replace("/e/", "/media/");
 
                 GenericApi api = createGenericApi("https://megaup.live");
-
+                
                 // Use correct Referer header matching Python megaup.py
                 Response<ResponseBody> response = api.getResponse(mediaUrl, getUserAgent(), "https://megaup.live/").execute();
 
@@ -1613,7 +1613,7 @@ public class FetchStreams {
 
                 // Use API with Origin header (matching Python xprime.py)
                 GenericApi api = createGenericApiWithHeaders(XPRIME_API_BASE, "https://xprime.tv");
-
+                
                 // Include Origin header matching Python implementation
                 Response<ResponseBody> response = api.getResponseWithOrigin(url, getUserAgent(),
                         "https://xprime.tv", "https://xprime.tv").execute();
@@ -1661,7 +1661,7 @@ public class FetchStreams {
 
                 // Use API with Origin header (matching Python xprime.py)
                 GenericApi api = createGenericApiWithHeaders(XPRIME_API_BASE, "https://xprime.tv");
-
+                
                 // Include Origin header matching Python implementation
                 Response<ResponseBody> response = api.getResponseWithOrigin(url, getUserAgent(),
                         "https://xprime.tv", "https://xprime.tv").execute();
