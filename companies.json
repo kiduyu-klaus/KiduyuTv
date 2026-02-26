@@ -1,0 +1,262 @@
+[
+  {
+    "company_id": 2,
+    "name": "Walt Disney Pictures"
+  },
+  {
+    "company_id": 174,
+    "name": "Warner Bros. Pictures"
+  },
+  {
+    "company_id": 33,
+    "name": "Universal Pictures"
+  },
+  {
+    "company_id": 4,
+    "name": "Paramount Pictures"
+  },
+  {
+    "company_id": 25,
+    "name": "20th Century Studios"
+  },
+  {
+    "company_id": 34,
+    "name": "Sony Pictures"
+  },
+  {
+    "company_id": 5,
+    "name": "Columbia Pictures"
+  },
+  {
+    "company_id": 12,
+    "name": "New Line Cinema"
+  },
+  {
+    "company_id": 521,
+    "name": "DreamWorks Pictures"
+  },
+  {
+    "company_id": 923,
+    "name": "Legendary Pictures"
+  },
+  {
+    "company_id": 1,
+    "name": "Lucasfilm"
+  },
+  {
+    "company_id": 420,
+    "name": "Marvel Studios"
+  },
+  {
+    "company_id": 3,
+    "name": "Pixar"
+  },
+  {
+    "company_id": 9383,
+    "name": "Blue Sky Studios"
+  },
+  {
+    "company_id": 6704,
+    "name": "Illumination"
+  },
+  {
+    "company_id": 10342,
+    "name": "Studio Ghibli"
+  },
+  {
+    "company_id": 41077,
+    "name": "A24"
+  },
+  {
+    "company_id": 3172,
+    "name": "Blumhouse Productions"
+  },
+  {
+    "company_id": 11461,
+    "name": "Bad Robot"
+  },
+  {
+    "company_id": 56242,
+    "name": "Plan B Entertainment"
+  },
+  {
+    "company_id": 56,
+    "name": "Amblin Entertainment"
+  },
+  {
+    "company_id": 23,
+    "name": "Imagine Entertainment"
+  },
+  {
+    "company_id": 130,
+    "name": "Jerry Bruckheimer Films"
+  },
+  {
+    "company_id": 79,
+    "name": "Village Roadshow Pictures"
+  },
+  {
+    "company_id": 1632,
+    "name": "Lionsgate"
+  },
+  {
+    "company_id": 10146,
+    "name": "Focus Features"
+  },
+  {
+    "company_id": 43,
+    "name": "Fox Searchlight Pictures"
+  },
+  {
+    "company_id": 14,
+    "name": "Miramax"
+  },
+  {
+    "company_id": 308,
+    "name": "The Weinstein Company"
+  },
+  {
+    "company_id": 21,
+    "name": "Metro-Goldwyn-Mayer (MGM)"
+  },
+  {
+    "company_id": 60,
+    "name": "United Artists"
+  },
+  {
+    "company_id": 97,
+    "name": "Castle Rock Entertainment"
+  },
+  {
+    "company_id": 9195,
+    "name": "Touchstone Pictures"
+  },
+  {
+    "company_id": 559,
+    "name": "TriStar Pictures"
+  },
+  {
+    "company_id": 3287,
+    "name": "Screen Gems"
+  },
+  {
+    "company_id": 7295,
+    "name": "Relativity Media"
+  },
+  {
+    "company_id": 491,
+    "name": "Summit Entertainment"
+  },
+  {
+    "company_id": 9288,
+    "name": "Alcon Entertainment"
+  },
+  {
+    "company_id": 82819,
+    "name": "Skydance Media"
+  },
+  {
+    "company_id": 76043,
+    "name": "STX Entertainment"
+  },
+  {
+    "company_id": 44297,
+    "name": "Annapurna Pictures"
+  },
+  {
+    "company_id": 213,
+    "name": "Netflix"
+  },
+  {
+    "company_id": 20580,
+    "name": "Amazon Studios"
+  },
+  {
+    "company_id": 7429,
+    "name": "HBO Films"
+  },
+  {
+    "company_id": 6125,
+    "name": "DreamWorks Animation"
+  },
+  {
+    "company_id": 7505,
+    "name": "Marvel Animation"
+  },
+  {
+    "company_id": 13252,
+    "name": "DC Entertainment"
+  },
+  {
+    "company_id": 11073,
+    "name": "BBC Films"
+  },
+  {
+    "company_id": 1557,
+    "name": "Warner Bros. Television"
+  },
+  {
+    "company_id": 2263,
+    "name": "Universal Television"
+  },
+  {
+    "company_id": 1440,
+    "name": "HBO"
+  },
+  {
+    "company_id": 19177,
+    "name": "FX Productions"
+  },
+  {
+    "company_id": 88934,
+    "name": "Neon"
+  },
+  {
+    "company_id": 127928,
+    "name": "Searchlight Pictures"
+  },
+  {
+    "company_id": 104403,
+    "name": "AGBO"
+  },
+  {
+    "company_id": 7,
+    "name": "DreamWorks"
+  },
+  {
+    "company_id": 429,
+    "name": "RatPac Entertainment"
+  },
+  {
+    "company_id": 306,
+    "name": "Twentieth Century Fox Film Corporation"
+  },
+  {
+    "company_id": 127928,
+    "name": "20th Century Studios"
+  },
+  {
+    "company_id": 8601,
+    "name": "Sony Pictures Animation"
+  },
+  {
+    "company_id": 17,
+    "name": "Warner Bros."
+  },
+  {
+    "company_id": 10201,
+    "name": "Syncopy"
+  },
+  {
+    "company_id": 76907,
+    "name": "Cross Creek Pictures"
+  },
+  {
+    "company_id": 7431,
+    "name": "Working Title Films"
+  },
+  {
+    "company_id": 508,
+    "name": "Regency Enterprises"
+  }
+]
