@@ -61,6 +61,22 @@
 
         </LinearLayout>
 
+        <!-- Focused item title bar — shown when D-pad focus lands on a grid card -->
+        <TextView
+            android:id="@+id/focusedItemTitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingHorizontal="16dp"
+            android:paddingVertical="6dp"
+            android:textColor="@android:color/white"
+            android:textSize="15sp"
+            android:textStyle="bold"
+            android:singleLine="true"
+            android:ellipsize="end"
+            android:background="#CC1A1A1A"
+            android:alpha="0"
+            android:visibility="gone" />
+
         <!-- Content RecyclerView -->
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/contentRecyclerView"

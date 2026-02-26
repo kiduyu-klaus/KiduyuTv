@@ -22,6 +22,7 @@ public class CategoryAdapter extends RecyclerView.Adapter<CategoryAdapter.Catego
     private List<CategorySection> categories;
     private OnItemClickListener listener;
     private OnCompanyNetworkClickListener companyNetworkListener;
+    private OnCompanyNetworkFocusChangeListener companyNetworkFocusListener;
 
     public interface OnItemClickListener {
         void onItemClick(MediaItems mediaItems, int categoryPosition, int itemPosition);
@@ -30,6 +31,10 @@ public class CategoryAdapter extends RecyclerView.Adapter<CategoryAdapter.Catego
 
     public interface OnCompanyNetworkClickListener {
         void onCompanyNetworkClick(CompanyNetwork companyNetwork, int categoryPosition, int itemPosition);
+    }
+
+    public interface OnCompanyNetworkFocusChangeListener {
+        void onCompanyNetworkFocusChanged(CompanyNetwork companyNetwork, int categoryPosition, int itemPosition, boolean hasFocus);
     }
 
     public CategoryAdapter(List<CategorySection> categories) {
@@ -42,6 +47,10 @@ public class CategoryAdapter extends RecyclerView.Adapter<CategoryAdapter.Catego
 
     public void setOnCompanyNetworkClickListener(OnCompanyNetworkClickListener listener) {
         this.companyNetworkListener = listener;
+    }
+
+    public void setOnCompanyNetworkFocusChangeListener(OnCompanyNetworkFocusChangeListener listener) {
+        this.companyNetworkFocusListener = listener;
     }
 
     @NonNull
@@ -121,6 +130,16 @@ public class CategoryAdapter extends RecyclerView.Adapter<CategoryAdapter.Catego
                     public void onItemClick(CompanyNetwork companyNetwork, int position) {
                         if (companyNetworkListener != null) {
                             companyNetworkListener.onCompanyNetworkClick(companyNetwork, categoryPosition, position);
+                        }
+                    }
+                });
+
+                // Set focus listener for Production Companies / TV Networks
+                companyAdapter.setOnFocusChangeListener(new CompanyNetworkAdapter.OnFocusChangeListener() {
+                    @Override
+                    public void onFocusChanged(CompanyNetwork companyNetwork, int position, boolean hasFocus) {
+                        if (companyNetworkFocusListener != null) {
+                            companyNetworkFocusListener.onCompanyNetworkFocusChanged(companyNetwork, categoryPosition, position, hasFocus);
                         }
                     }
                 });

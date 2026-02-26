@@ -33,8 +33,18 @@ public class CompanyNetworkAdapter extends RecyclerView.Adapter<CompanyNetworkAd
         void onItemClick(CompanyNetwork companyNetwork, int position);
     }
 
+    public interface OnFocusChangeListener {
+        void onFocusChanged(CompanyNetwork companyNetwork, int position, boolean hasFocus);
+    }
+
     public void setOnItemClickListener(OnItemClickListener listener) {
         this.listener = listener;
+    }
+
+    private OnFocusChangeListener focusChangeListener;
+
+    public void setOnFocusChangeListener(OnFocusChangeListener listener) {
+        this.focusChangeListener = listener;
     }
 
     public void setItems(List<CompanyNetwork> items) {
@@ -59,11 +69,24 @@ public class CompanyNetworkAdapter extends RecyclerView.Adapter<CompanyNetworkAd
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
         CompanyNetwork item = items.get(position);
         holder.bind(item);
-        
+
         holder.itemView.setOnClickListener(v -> {
             if (listener != null) {
                 listener.onItemClick(item, position);
             }
+        });
+
+        holder.itemView.setOnFocusChangeListener((v, hasFocus) -> {
+            if (focusChangeListener != null) {
+                focusChangeListener.onFocusChanged(item, position, hasFocus);
+            }
+            // Scale animation for TV D-pad focus feedback
+            float scale = hasFocus ? 1.08f : 1.0f;
+            v.animate()
+                    .scaleX(scale)
+                    .scaleY(scale)
+                    .setDuration(150)
+                    .start();
         });
     }
 
@@ -80,11 +103,14 @@ public class CompanyNetworkAdapter extends RecyclerView.Adapter<CompanyNetworkAd
             super(itemView);
             logoImage = itemView.findViewById(R.id.companyLogo);
             nameText = itemView.findViewById(R.id.companyName);
+            // Required for Android TV D-pad navigation
+            itemView.setFocusable(true);
+            itemView.setFocusableInTouchMode(false);
         }
 
         void bind(CompanyNetwork item) {
             nameText.setText(item.getName());
-            
+
             // Load logo with Glide
             if (item.getLogoUrl() != null) {
                 Glide.with(itemView.getContext())

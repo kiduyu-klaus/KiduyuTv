@@ -30,11 +30,24 @@ public class CompanyContentAdapter extends RecyclerView.Adapter<CompanyContentAd
     public interface OnMediaItemClickListener {
         void onMediaItemClick(MediaItems mediaItem);
     }
+
+    /**
+     * Interface for handling media item focus changes (Android TV D-pad navigation)
+     */
+    public interface OnMediaItemFocusChangeListener {
+        void onMediaItemFocusChanged(MediaItems mediaItem, int position, boolean hasFocus);
+    }
+
     private final OnMediaItemClickListener listener;
+    private OnMediaItemFocusChangeListener focusChangeListener;
     private List<MediaItems> items = new ArrayList<>();
 
     public CompanyContentAdapter(OnMediaItemClickListener listener) {
         this.listener = listener;
+    }
+
+    public void setOnFocusChangeListener(OnMediaItemFocusChangeListener focusChangeListener) {
+        this.focusChangeListener = focusChangeListener;
     }
 
     public void setItems(List<MediaItems> items) {
@@ -59,7 +72,7 @@ public class CompanyContentAdapter extends RecyclerView.Adapter<CompanyContentAd
     @Override
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
         MediaItems item = items.get(position);
-        holder.bind(item, listener);
+        holder.bind(item, position, listener, focusChangeListener);
     }
 
     @Override
@@ -81,7 +94,7 @@ public class CompanyContentAdapter extends RecyclerView.Adapter<CompanyContentAd
             yearTextView = itemView.findViewById(R.id.yearTextView);
         }
 
-        void bind(MediaItems item, OnMediaItemClickListener listener) {
+        void bind(MediaItems item, int position, OnMediaItemClickListener listener, OnMediaItemFocusChangeListener focusChangeListener) {
             titleTextView.setText(item.getTitle());
 
             // Set rating
@@ -124,9 +137,25 @@ public class CompanyContentAdapter extends RecyclerView.Adapter<CompanyContentAd
                 }
             });
 
+            // Focus listener for Android TV D-pad navigation
+            itemView.setOnFocusChangeListener((v, hasFocus) -> {
+                if (focusChangeListener != null) {
+                    focusChangeListener.onMediaItemFocusChanged(item, position, hasFocus);
+                }
+                // Scale + elevation animation for focused card feedback
+                float scale = hasFocus ? 1.10f : 1.0f;
+                float elevation = hasFocus ? 12f : 2f;
+                v.animate()
+                        .scaleX(scale)
+                        .scaleY(scale)
+                        .setDuration(150)
+                        .start();
+                v.setElevation(elevation);
+            });
+
             // Make focusable for TV remote navigation
             itemView.setFocusable(true);
-            itemView.setFocusableInTouchMode(true);
+            itemView.setFocusableInTouchMode(false);
         }
     }
 }

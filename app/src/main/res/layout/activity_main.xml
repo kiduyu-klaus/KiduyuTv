@@ -243,7 +243,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        app:layout_constraintGuide_percent="0.50" />
+        app:layout_constraintGuide_percent="0.40" />
 
     <!-- Hero Content (Top 50%) -->
     <RelativeLayout
@@ -273,6 +273,7 @@
                 android:layout_marginBottom="16dp"
                 android:background="@drawable/n_series_badge"
                 android:padding="8dp"
+                android:visibility="gone"
                 android:text="CINE STREAM"
                 android:textColor="@color/white"
                 android:textSize="12sp"
@@ -285,6 +286,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="8dp"
                 android:text="98% Match"
+                android:visibility="gone"
                 android:textColor="#00C853"
                 android:textSize="18sp"
                 android:textStyle="bold" />
@@ -407,11 +409,10 @@
         android:layout_height="0dp"
         android:clipToPadding="false"
         android:paddingTop="20dp"
+        android:layout_marginTop="10dp"
         android:paddingBottom="16dp"
         android:focusable="true"
         android:focusableInTouchMode="true"
-        android:nextFocusUp="@id/heroContent"
-        android:nextFocusDown="@null"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toEndOf="@id/navigationSidebar"

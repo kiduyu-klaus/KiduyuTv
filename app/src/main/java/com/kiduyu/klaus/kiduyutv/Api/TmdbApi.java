@@ -466,4 +466,26 @@ public class TmdbApi {
         return tvShows;
     }
 
+    /**
+     * Discover movies by network
+     * @param networkId The TMDB network ID
+     * @param page Page number for pagination
+     */
+    public static List<MediaItems> discoverMoviesByNetwork(int networkId, int page) throws IOException, JSONException {
+        String urlString = TmdbRepository.TMDB_BASE_URL + "/discover/movie?include_adult=false&include_video=false&language=en-US&page=" + page + "&sort_by=popularity.desc&with_networks=" + networkId;
+
+        return fetchMoviesFromTMDB(urlString);
+    }
+
+    /**
+     * Discover TV shows by production company
+     * @param companyId The TMDB company ID
+     * @param page Page number for pagination
+     */
+    public static List<MediaItems> discoverTVShowsByCompany(int companyId, int page) throws IOException, JSONException {
+        String urlString = TmdbRepository.TMDB_BASE_URL + "/discover/tv?include_adult=false&include_null_first_air_dates=false&language=en-US&page=" + page + "&sort_by=popularity.desc&with_companies=" + companyId;
+
+        return fetchTVShowsFromTMDB(urlString);
+    }
+
 }

@@ -540,4 +540,38 @@ public class TmdbRepository {
             }
         });
     }
+
+    /**
+     * Async method to discover movies by network
+     * @param networkId The TMDB network ID
+     * @param page Page number for pagination
+     */
+    public void discoverMoviesByNetworkAsync(int networkId, int page, TMDBCallback callback) {
+        executorService.execute(() -> {
+            try {
+                List<MediaItems> movies = TmdbApi.discoverMoviesByNetwork(networkId, page);
+                mainHandler.post(() -> callback.onSuccess(movies));
+            } catch (Exception e) {
+                Log.e(TAG, "Error discovering movies by network", e);
+                mainHandler.post(() -> callback.onError(e.getMessage()));
+            }
+        });
+    }
+
+    /**
+     * Async method to discover TV shows by production company
+     * @param companyId The TMDB company ID
+     * @param page Page number for pagination
+     */
+    public void discoverTVShowsByCompanyAsync(int companyId, int page, TMDBCallback callback) {
+        executorService.execute(() -> {
+            try {
+                List<MediaItems> tvShows = TmdbApi.discoverTVShowsByCompany(companyId, page);
+                mainHandler.post(() -> callback.onSuccess(tvShows));
+            } catch (Exception e) {
+                Log.e(TAG, "Error discovering TV shows by company", e);
+                mainHandler.post(() -> callback.onError(e.getMessage()));
+            }
+        });
+    }
 }

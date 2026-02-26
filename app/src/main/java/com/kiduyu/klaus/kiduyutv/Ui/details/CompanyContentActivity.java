@@ -3,6 +3,7 @@ package com.kiduyu.klaus.kiduyutv.Ui.details;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
+import android.util.DisplayMetrics;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -44,6 +45,7 @@ public class CompanyContentActivity extends AppCompatActivity implements Company
     private LinearLayout errorView;
     private TextView errorTextView;
     private AppCompatButton retryButton;
+    private TextView focusedItemTitle;
 
     private CompanyContentAdapter adapter;
     private TmdbRepository tmdbRepository;
@@ -102,6 +104,7 @@ public class CompanyContentActivity extends AppCompatActivity implements Company
         errorView = findViewById(R.id.errorView);
         errorTextView = findViewById(R.id.errorTextView);
         retryButton = findViewById(R.id.retryButton);
+        focusedItemTitle = findViewById(R.id.focusedItemTitle);
 
         tmdbRepository = new TmdbRepository();
 
@@ -112,7 +115,7 @@ public class CompanyContentActivity extends AppCompatActivity implements Company
         if (companyNetwork.getLogoPath() != null && !companyNetwork.getLogoPath().isEmpty()) {
             Glide.with(logoImageView.getContext())
                     .load(companyNetwork.getLogoPath())
-                    .centerCrop() // or .fitCenter() depending on your layout
+                    .fitCenter() // or .fitCenter() depending on your layout
                     .into(logoImageView);
         }
 
@@ -132,10 +135,51 @@ public class CompanyContentActivity extends AppCompatActivity implements Company
     }
 
     private void setupRecyclerView() {
+
+
+        // Get screen width in pixels
+        DisplayMetrics displayMetrics = new DisplayMetrics();
+        getWindowManager().getDefaultDisplay().getMetrics(displayMetrics);
+        int screenWidthPx = displayMetrics.widthPixels;
+
+        // Convert 140dp to pixels
+        float itemWidthDp = 140f;
+        float density = getResources().getDisplayMetrics().density;
+        int itemWidthPx = (int) (itemWidthDp * density);
+
+        // Calculate span count
+        int spanCount = Math.max(1, screenWidthPx / itemWidthPx);
+
         adapter = new CompanyContentAdapter(this);
-        GridLayoutManager layoutManager = new GridLayoutManager(this, 3);
+        GridLayoutManager layoutManager = new GridLayoutManager(this, spanCount);
         contentRecyclerView.setLayoutManager(layoutManager);
         contentRecyclerView.setAdapter(adapter);
+        // Focus listener: highlight header and show focused item title for TV D-pad navigation
+        adapter.setOnFocusChangeListener((mediaItem, position, hasFocus) -> {
+            if (hasFocus) {
+                // Animate logo/name subtly to acknowledge active browsing
+                logoImageView.animate().alpha(1.0f).scaleX(1.05f).scaleY(1.05f).setDuration(200).start();
+                nameTextView.animate().alpha(1.0f).setDuration(200).start();
+
+                // Show focused item title below header
+                if (focusedItemTitle != null) {
+                    focusedItemTitle.setText(mediaItem.getTitle());
+                    focusedItemTitle.setVisibility(View.VISIBLE);
+                    focusedItemTitle.animate().alpha(1.0f).translationY(0f).setDuration(150).start();
+                }
+            } else {
+                logoImageView.animate().scaleX(1.0f).scaleY(1.0f).setDuration(200).start();
+
+                if (focusedItemTitle != null) {
+                    focusedItemTitle.animate()
+                            .alpha(0f)
+                            .translationY(8f)
+                            .setDuration(150)
+                            .withEndAction(() -> focusedItemTitle.setVisibility(View.GONE))
+                            .start();
+                }
+            }
+        });
 
         contentRecyclerView.addOnScrollListener(new RecyclerView.OnScrollListener() {
             @Override
