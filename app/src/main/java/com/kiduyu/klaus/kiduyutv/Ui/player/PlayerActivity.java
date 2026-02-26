@@ -23,6 +23,8 @@ import android.widget.ProgressBar;
 import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.content.Intent;
+import android.content.pm.ActivityInfo;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
@@ -488,7 +490,7 @@ public class PlayerActivity extends AppCompatActivity {
                         btnPlayPause.setImageResource(android.R.drawable.ic_media_play);
                         showControls();
                         // Check for auto-play next episode
-                        if ("TV".equals(mediaType)) {
+                        if ("TV".equalsIgnoreCase(mediaType)) {
                             playNextEpisode();
                         }
                         break;
@@ -1909,6 +1911,7 @@ public class PlayerActivity extends AppCompatActivity {
         }
     }
 
+
     private void fetchNextEpisodeStreams(String tmdbId, String season, String episodeNumber) {
         runOnUiThread(() -> loadingStatusText.setText("FETCHING NEXT EPISODE..."));
 
@@ -1917,18 +1920,39 @@ public class PlayerActivity extends AppCompatActivity {
             @Override
             public void onSuccess(MediaItems nextMedia) {
                 if (nextMedia.getVideoSources() != null && !nextMedia.getVideoSources().isEmpty()) {
-                    // Update current media items with next episode info
+                    // Update current media items with next episode info - matching DetailsActivityTv intent extras
                     mediaItems.setVideoSources(nextMedia.getVideoSources());
                     mediaItems.setSubtitles(nextMedia.getSubtitles());
                     mediaItems.setSeason(season);
                     mediaItems.setEpisode(episodeNumber);
 
-                    // Update UI info
+                    // Set mediaType to TV (matching DetailsActivityTv intent extras)
+                    mediaItems.setMediaType("tv");
+
+                    // Set backgroundImageUrl to posterUrl (matching DetailsActivityTv line 297)
+                    // This ensures the player has the correct background image for the new episode
+                    if (mediaItems.getPosterUrl() != null) {
+                        mediaItems.setBackgroundImageUrl(mediaItems.getPosterUrl());
+                    }
+
+                    // Instead of just updating the info, restart the activity fresh
+                    // This ensures all initialization logic runs exactly like DetailsActivityTv launched it
                     runOnUiThread(() -> {
                         nextEpisodeTriggered = false; // Reset flag for the next episode
-                        populateMediaInfo();
-                        currentSourceIndex = 0;
-                        loadVideoSource(currentSourceIndex);
+
+                        // Restart the activity with the updated mediaItems (fresh start)
+                        Intent restartIntent = new Intent(PlayerActivity.this, PlayerActivity.class);
+                        restartIntent.putExtra("media_item", mediaItems);
+                        restartIntent.putExtra("media_type", "tv");
+                        restartIntent.putExtra("start_position", 0); // Start from beginning for new episode
+
+                        // Clear any existing activity stack and start fresh
+                        restartIntent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
+                        startActivity(restartIntent);
+
+                        // Finish this instance so pressing back goes to DetailsActivityTv
+                        finish();
+
                         Toast.makeText(PlayerActivity.this, "Playing Episode " + episodeNumber, Toast.LENGTH_SHORT).show();
                     });
                 } else {
