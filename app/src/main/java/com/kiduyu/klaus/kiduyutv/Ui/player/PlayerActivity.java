@@ -14,12 +14,16 @@ import android.view.SurfaceView;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
+import android.view.animation.Animation;
+import android.view.animation.AnimationUtils;
 import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.ProgressBar;
+import android.widget.RadioButton;
+import android.widget.RelativeLayout;
 import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -30,6 +34,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.SwitchCompat;
 
 import com.bumptech.glide.Glide;
 
@@ -120,6 +125,20 @@ public class PlayerActivity extends AppCompatActivity {
     private TextView tag4;
     private TextView tag5;
 
+    // Settings Panel Components
+    private RelativeLayout settingsPanelContainer;
+    private View settingsOverlayBackground;
+    private LinearLayout settingsPanel;
+    private SwitchCompat switchAutoQuality;
+    private SwitchCompat switchShowSubtitles;
+    private SwitchCompat switchUseDoh;
+    private SwitchCompat switchProgressiveCache;
+    private SwitchCompat switchImageCdn;
+    private TextView textBufferSize;
+    private TextView textSubtitleLanguage;
+    private Button btnCloseSettings;
+    private boolean settingsPanelVisible = false;
+
     private Handler handler = new Handler();
     private Handler hideControlsHandler = new Handler();
     private Handler backPressHandler = new Handler();
@@ -133,6 +152,10 @@ public class PlayerActivity extends AppCompatActivity {
     private float currentSpeed = 1.0f;
     private String mediaType; // "anime", "movie", "tv", etc.
     private boolean nextEpisodeTriggered = false;
+
+    // Quality selection tracking
+    private String currentQuality = "Auto"; // Auto, High, Medium, Low
+    private int currentQualityHeight = 0; // 0 = Auto, otherwise actual height in pixels
 
     // Shared OkHttpClient for streaming - maintains cookies/sessions from API calls
     private OkHttpClient sharedOkHttpClient;
@@ -271,6 +294,9 @@ public class PlayerActivity extends AppCompatActivity {
         tag4 = findViewById(R.id.tag4);
         tag5 = findViewById(R.id.tag5);
 
+        // Initialize Settings Panel
+        initializeSettingsPanel();
+
         totalTime.setText(formatTime(0));
         currentTime.setText(formatTime(0));
         if (mediaType.equals("TV") || mediaType.equals("MOVIE")) {
@@ -315,7 +341,7 @@ public class PlayerActivity extends AppCompatActivity {
         // Server/Source button
         btnServer.setOnClickListener(v -> {
 
-                showServerDialog();
+            showServerDialog();
 
         });
 
@@ -327,13 +353,13 @@ public class PlayerActivity extends AppCompatActivity {
 
         // Settings button
         btnSettings.setOnClickListener(v -> {
-            Toast.makeText(this, "Settings clicked", Toast.LENGTH_SHORT).show();
+            showSettingsPanel();
         });
 
         // Audio button - used for server type selection in anime
         btnAudio.setOnClickListener(v -> {
 
-                Toast.makeText(this, "Audio track selection coming soon", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Audio track selection coming soon", Toast.LENGTH_SHORT).show();
 
         });
 
@@ -570,15 +596,15 @@ public class PlayerActivity extends AppCompatActivity {
             Log.i(TAG, "Adding subtitle to MediaItem: " + subtitle.getLanguage() + " - " + subtitle.getUrl());
             Log.i(TAG, "Detected MIME type: " + mimeType + ", Language code: " + languageCode);
 
-            // Build subtitle configuration with detected/actual values
+            // Use actual language code from subtitle metadata instead of hardcoded "en"
             MediaItem.SubtitleConfiguration.Builder subtitleBuilder =
                     new MediaItem.SubtitleConfiguration.Builder(
                             android.net.Uri.parse(subtitle.getUrl())
                     )
                             .setMimeType(mimeType)
-                            // Hardcoded to English
-                            .setLanguage("en")
-                            .setLabel("English")
+                            // Use the actual language code from subtitle metadata
+                            .setLanguage(languageCode)
+                            .setLabel(subtitle.getLanguage())
                             .setSelectionFlags(
                                     C.SELECTION_FLAG_DEFAULT
                                             | C.SELECTION_FLAG_AUTOSELECT
@@ -1117,77 +1143,193 @@ public class PlayerActivity extends AppCompatActivity {
             return;
         }
 
+        // Get available tracks to determine what qualities are available
         Tracks tracks = player.getCurrentTracks();
-        if (tracks == null || tracks.isEmpty()) {
-            showToast("No tracks");
-            return;
-        }
 
-        // List to store quality options
-        List<String> qualityList = new ArrayList<>();
-        List<TrackSelectionOverride> overrideList = new ArrayList<>();
-
-        // Add "Auto" option
-        //overrideList.add(null); // null indicates auto selection
-
-        // Iterate through track groups to find video tracks
-        for (Tracks.Group trackGroup : tracks.getGroups()) {
-            int trackType = trackGroup.getType();
-
-            if (trackType == C.TRACK_TYPE_VIDEO) {
-                TrackGroup mediaTrackGroup = trackGroup.getMediaTrackGroup();
-
-                for (int i = 0; i < trackGroup.length; i++) {
-                    Format format = trackGroup.getTrackFormat(i);
-                    int width = format.width;
-                    int height = format.height;
-                    int bitrate = format.bitrate;
-
-                    StringBuilder qualityLabel = new StringBuilder();
-
-                    // Build quality label
-                    if (width > 0 && height > 0) {
-                        qualityLabel.append(height).append("p");
-
-                        if (bitrate > 0) {
-                            // Convert bitrate to Mbps
-                            float bitrateMbps = bitrate / 1_000_000f;
-                            qualityLabel.append(" (").append(String.format("%.2f", bitrateMbps)).append(" Mbps)");
+        // Determine available heights from video tracks
+        List<Integer> availableHeights = new ArrayList<>();
+        if (tracks != null && !tracks.isEmpty()) {
+            for (Tracks.Group trackGroup : tracks.getGroups()) {
+                if (trackGroup.getType() == C.TRACK_TYPE_VIDEO) {
+                    for (int i = 0; i < trackGroup.length; i++) {
+                        Format format = trackGroup.getTrackFormat(i);
+                        if (format.height > 0 && !availableHeights.contains(format.height)) {
+                            availableHeights.add(format.height);
                         }
-                    } else {
-                        qualityLabel.append("Unknown Quality");
                     }
-
-                    qualityList.add(qualityLabel.toString());
-
-                    // Create override for this specific track
-                    TrackSelectionOverride override = new TrackSelectionOverride(
-                            mediaTrackGroup,
-                            Collections.singletonList(i)
-                    );
-                    overrideList.add(override);
                 }
             }
         }
 
-        if (qualityList.size() <= 1) {
-            showToast("No quality options available");
+        // Sort heights in descending order
+        Collections.sort(availableHeights, Collections.reverseOrder());
+
+        // Find the highest quality available
+        int highestHeight = availableHeights.isEmpty() ? 1080 : availableHeights.get(0);
+
+        // Inflate custom layout
+        View dialogView = getLayoutInflater().inflate(R.layout.dialog_quality, null);
+
+        // Get references to views
+        RadioButton radioAuto = dialogView.findViewById(R.id.radioAuto);
+        RadioButton radioHigh = dialogView.findViewById(R.id.radioHigh);
+        RadioButton radioMedium = dialogView.findViewById(R.id.radioMedium);
+        RadioButton radioLow = dialogView.findViewById(R.id.radioLow);
+
+        LinearLayout optionAuto = dialogView.findViewById(R.id.optionAuto);
+        LinearLayout optionHigh = dialogView.findViewById(R.id.optionHigh);
+        LinearLayout optionMedium = dialogView.findViewById(R.id.optionMedium);
+        LinearLayout optionLow = dialogView.findViewById(R.id.optionLow);
+
+        // Set initial selection based on current quality
+        switch (currentQuality) {
+            case "Auto":
+                radioAuto.setChecked(true);
+                break;
+            case "High":
+                radioHigh.setChecked(true);
+                break;
+            case "Medium":
+                radioMedium.setChecked(true);
+                break;
+            case "Low":
+                radioLow.setChecked(true);
+                break;
+        }
+
+        // Create dialog
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setView(dialogView);
+
+        AlertDialog dialog = builder.create();
+
+        // Set click listeners for each option
+        optionAuto.setOnClickListener(v -> {
+            selectQuality("Auto", 0, highestHeight);
+            dialog.dismiss();
+        });
+
+        optionHigh.setOnClickListener(v -> {
+            selectQuality("High", highestHeight, highestHeight);
+            dialog.dismiss();
+        });
+
+        optionMedium.setOnClickListener(v -> {
+            selectQuality("Medium", 720, highestHeight);
+            dialog.dismiss();
+        });
+
+        optionLow.setOnClickListener(v -> {
+            selectQuality("Low", 360, highestHeight);
+            dialog.dismiss();
+        });
+
+        dialog.show();
+    }
+
+    /**
+     * Select video quality and update track selection
+     * @param qualityName Quality level: Auto, High, Medium, Low
+     * @param targetHeight Target height in pixels (0 for Auto)
+     * @param highestAvailable Highest quality available in the stream
+     */
+    private void selectQuality(String qualityName, int targetHeight, int highestAvailable) {
+        currentQuality = qualityName;
+        currentQualityHeight = targetHeight;
+
+        // Update button text
+        String buttonText = qualityName;
+        if (qualityName.equals("High")) {
+            buttonText = "High " + highestAvailable + "p";
+        } else if (qualityName.equals("Medium")) {
+            buttonText = "Medium 720p";
+        } else if (qualityName.equals("Low")) {
+            buttonText = "Low 360p";
+        }
+        btnQuality.setText(buttonText);
+
+        if (player == null) {
             return;
         }
 
-        // Convert list to array for AlertDialog
-        String[] qualityLabels = qualityList.toArray(new String[0]);
+        if (qualityName.equals("Auto")) {
+            // Enable auto quality - clear overrides and let player decide
+            TrackSelectionParameters params = player.getTrackSelectionParameters()
+                    .buildUpon()
+                    .clearOverrides()
+                    .build();
+            player.setTrackSelectionParameters(params);
+            showToast("Quality: Auto (best network quality)");
+        } else {
+            // Find the track closest to target height
+            Tracks tracks = player.getCurrentTracks();
+            if (tracks == null || tracks.isEmpty()) {
+                showToast("No tracks available");
+                return;
+            }
 
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("Select Quality");
-        builder.setItems(qualityLabels, (dialog, which) -> {
-            TrackSelectionOverride selectedOverride = overrideList.get(which);
-            switchToTrack(selectedOverride);
-        });
+            int selectedHeight = 0;
+            TrackSelectionOverride selectedOverride = null;
 
-        AlertDialog dialog = builder.create();
-        applyFocusHighlight(dialog);
-        dialog.show();
+            for (Tracks.Group trackGroup : tracks.getGroups()) {
+                if (trackGroup.getType() == C.TRACK_TYPE_VIDEO) {
+                    TrackGroup mediaTrackGroup = trackGroup.getMediaTrackGroup();
+
+                    for (int i = 0; i < trackGroup.length; i++) {
+                        Format format = trackGroup.getTrackFormat(i);
+                        int height = format.height;
+
+                        if (height > 0) {
+                            // For High: select highest available
+                            // For Medium: select 720 or closest below
+                            // For Low: select 360 or closest below
+                            boolean shouldSelect = false;
+
+                            if (qualityName.equals("High")) {
+                                // Select highest quality available
+                                if (height > selectedHeight) {
+                                    selectedHeight = height;
+                                    shouldSelect = true;
+                                }
+                            } else if (qualityName.equals("Medium")) {
+                                // Select 720p or closest below
+                                if (height <= 720 && height > selectedHeight) {
+                                    selectedHeight = height;
+                                    shouldSelect = true;
+                                }
+                            } else if (qualityName.equals("Low")) {
+                                // Select 360p or closest below
+                                if (height <= 360 && height > selectedHeight) {
+                                    selectedHeight = height;
+                                    shouldSelect = true;
+                                }
+                            }
+
+                            if (shouldSelect) {
+                                selectedOverride = new TrackSelectionOverride(
+                                        mediaTrackGroup,
+                                        Collections.singletonList(i)
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (selectedOverride != null) {
+                TrackSelectionParameters params = player.getTrackSelectionParameters()
+                        .buildUpon()
+                        .clearOverrides()
+                        .addOverride(selectedOverride)
+                        .build();
+                player.setTrackSelectionParameters(params);
+                showToast("Quality: " + qualityName + " " + selectedHeight + "p");
+            } else {
+                // If the requested quality is not available, fall back to auto
+                showToast("Quality " + targetHeight + "p not available, using Auto");
+                selectQuality("Auto", 0, highestAvailable);
+            }
+        }
     }
 
     // Helper method to switch tracks
@@ -1589,38 +1731,49 @@ public class PlayerActivity extends AppCompatActivity {
     }
 
     private void updateQualityButton() {
-        if (player == null) {
-            btnQuality.setText("Auto");
-            return;
-        }
-
-        Tracks tracks = player.getCurrentTracks();
-        if (tracks == null || tracks.isEmpty()) {
-            btnQuality.setText("Auto");
-            return;
-        }
-
-        // Find currently selected video track
-        for (Tracks.Group trackGroup : tracks.getGroups()) {
-            if (trackGroup.getType() == C.TRACK_TYPE_VIDEO) {
-                for (int i = 0; i < trackGroup.length; i++) {
-                    if (trackGroup.isTrackSelected(i)) {
-                        Format format = trackGroup.getTrackFormat(i);
-                        int height = format.height;
-
-                        if (height > 0) {
-                            btnQuality.setText(height + "p");
-                        } else {
-                            btnQuality.setText("Auto");
+        // Use the current quality selection to update button text
+        switch (currentQuality) {
+            case "Auto":
+                btnQuality.setText("Auto");
+                break;
+            case "High":
+                // Try to find the highest available quality
+                if (player != null) {
+                    Tracks tracks = player.getCurrentTracks();
+                    if (tracks != null && !tracks.isEmpty()) {
+                        int highestHeight = 0;
+                        for (Tracks.Group trackGroup : tracks.getGroups()) {
+                            if (trackGroup.getType() == C.TRACK_TYPE_VIDEO) {
+                                for (int i = 0; i < trackGroup.length; i++) {
+                                    Format format = trackGroup.getTrackFormat(i);
+                                    if (format.height > highestHeight) {
+                                        highestHeight = format.height;
+                                    }
+                                }
+                            }
                         }
-                        return;
+                        if (highestHeight > 0) {
+                            btnQuality.setText("High " + highestHeight + "p");
+                        } else {
+                            btnQuality.setText("High");
+                        }
+                    } else {
+                        btnQuality.setText("High");
                     }
+                } else {
+                    btnQuality.setText("High");
                 }
-            }
+                break;
+            case "Medium":
+                btnQuality.setText("Medium 720p");
+                break;
+            case "Low":
+                btnQuality.setText("Low 360p");
+                break;
+            default:
+                btnQuality.setText("Auto");
+                break;
         }
-
-        // No track selected or found
-        btnQuality.setText("Auto");
     }
 
     private void saveWatchProgress() {
@@ -1658,6 +1811,11 @@ public class PlayerActivity extends AppCompatActivity {
         if ((keyCode == KeyEvent.KEYCODE_DPAD_UP || keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_DPAD_DOWN)
                 && !controlsVisible) {
             showControls();
+            btnPlayPause.requestFocus();
+            return true;
+        }
+        if (keyCode == KeyEvent.KEYCODE_MEDIA_PLAY || keyCode == KeyEvent.KEYCODE_MEDIA_PAUSE || keyCode == KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE) {
+            togglePlayPause();
             return true;
         }
 
@@ -1723,26 +1881,7 @@ public class PlayerActivity extends AppCompatActivity {
             return true;
         }
 
-        // Seek backward 10 seconds on Media Rewind
-        if (keyCode == KeyEvent.KEYCODE_MEDIA_REWIND) {
-            if (player != null) {
-                long currentPosition = player.getCurrentPosition();
-                long newPosition = Math.max(currentPosition - 10000, 0);
-
-                player.seekTo(newPosition);
-                updateTimeDisplay();
-                showToast("Backward -10s");
-
-                if (!controlsVisible) {
-                    showControls();
-                }
-                resetHideControlsTimer();
-            }
-            return true;
-        }
-
-
-        // Back button - double press to exit
+        // Seek backward 10 seconds on Media Rewind\n        if (keyCode == KeyEvent.KEYCODE_MEDIA_REWIND) {\n            if (player != null) {\n                long currentPosition = player.getCurrentPosition();\n                long newPosition = Math.max(currentPosition - 10000, 0);\n\n                player.seekTo(newPosition);\n                updateTimeDisplay();\n                showToast(\"Backward -10s\");\n\n                if (!controlsVisible) {\n                    showControls();\n                }\n                resetHideControlsTimer();\n            }\n            return true;\n        }\n\n        // Handle MEDIA_PLAY key - start/resume playback\n        if (keyCode == KeyEvent.KEYCODE_MEDIA_PLAY) {\n            if (player != null && !player.isPlaying()) {\n                player.play();\n                showControls();\n                showToast(\"Playing\");\n                resetHideControlsTimer();\n            }\n            return true;\n        }\n\n        // Handle MEDIA_PAUSE key - pause playback\n        if (keyCode == KeyEvent.KEYCODE_MEDIA_PAUSE) {\n            if (player != null && player.isPlaying()) {\n                player.pause();\n                showControls();\n                showToast(\"Paused\");\n            }\n            return true;\n        }\n\n        // Handle MEDIA_PLAY_PAUSE key - toggle play/pause\n        if (keyCode == KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE || keyCode == KeyEvent.KEYCODE_HEADSETHOOK) {\n            togglePlayPause();\n            return true;\n        }\n\n\n        // Back button - double press to exit
         if (keyCode == KeyEvent.KEYCODE_BACK) {
             if (controlsVisible) {
                 hideControls();
@@ -1995,5 +2134,224 @@ public class PlayerActivity extends AppCompatActivity {
         // Reset flag after 5 seconds
         backPressHandler.postDelayed(backPressResetTask, 5000);
 
+    }
+
+    // ============================================
+    // Settings Panel Methods
+    // ============================================
+
+    /**
+     * Initialize the settings panel and its components
+     */
+    private void initializeSettingsPanel() {
+        settingsPanelContainer = findViewById(R.id.settingsPanelContainer);
+        settingsOverlayBackground = findViewById(R.id.settingsOverlayBackground);
+        settingsPanel = findViewById(R.id.settingsPanel);
+        switchAutoQuality = findViewById(R.id.switchAutoQuality);
+        switchShowSubtitles = findViewById(R.id.switchShowSubtitles);
+        switchUseDoh = findViewById(R.id.switchUseDoh);
+        switchProgressiveCache = findViewById(R.id.switchProgressiveCache);
+        switchImageCdn = findViewById(R.id.switchImageCdn);
+        textBufferSize = findViewById(R.id.textBufferSize);
+        textSubtitleLanguage = findViewById(R.id.textSubtitleLanguage);
+        btnCloseSettings = findViewById(R.id.btnCloseSettings);
+
+        // Load current settings values
+        loadSettingsValues();
+
+        // Setup click listeners
+        settingsOverlayBackground.setOnClickListener(v -> hideSettingsPanel());
+        btnCloseSettings.setOnClickListener(v -> hideSettingsPanel());
+
+        // Toggle listeners
+        switchAutoQuality.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            preferencesManager.setAutoQualityEnabled(isChecked);
+            showToast("Auto Quality " + (isChecked ? "enabled" : "disabled"));
+        });
+
+        switchShowSubtitles.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            if (isChecked && currentSubtitleIndex < 0 && subtitles != null && !subtitles.isEmpty()) {
+                // If enabling subtitles but none selected, show subtitle dialog
+                currentSubtitleIndex = 0;
+                if (subtitles.size() > 0) {
+                    btnSubtitles.setText(subtitles.get(0).getLanguage());
+                    loadVideoSource(currentSourceIndex);
+                }
+            } else if (!isChecked) {
+                // Disable subtitles
+                currentSubtitleIndex = -1;
+                btnSubtitles.setText("None");
+                loadVideoSource(currentSourceIndex);
+            }
+            showToast("Subtitles " + (isChecked ? "enabled" : "disabled"));
+        });
+
+        switchUseDoh.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            showToast("DoH " + (isChecked ? "enabled" : "disabled"));
+        });
+
+        switchProgressiveCache.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            showToast("Progressive Cache " + (isChecked ? "enabled" : "disabled"));
+        });
+
+        switchImageCdn.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            showToast("Image CDN " + (isChecked ? "enabled" : "disabled"));
+        });
+
+        // Setting click listeners
+        findViewById(R.id.settingBufferSize).setOnClickListener(v -> showBufferSizeDialog());
+        findViewById(R.id.settingSubtitleLanguage).setOnClickListener(v -> showSubtitleLanguageDialog());
+    }
+
+    /**
+     * Load current settings values from PreferencesManager
+     */
+    private void loadSettingsValues() {
+        switchAutoQuality.setChecked(preferencesManager.isAutoQualityEnabled());
+        switchShowSubtitles.setChecked(currentSubtitleIndex >= 0);
+        textBufferSize.setText(preferencesManager.getPlaybackBufferDuration() + " min");
+
+        // Load subtitle language
+        String subtitleLang = preferencesManager.getSubtitleLanguage();
+        textSubtitleLanguage.setText(getLanguageName(subtitleLang));
+
+        // Set default toggles (these would normally be stored in preferences)
+        switchUseDoh.setChecked(true);
+        switchProgressiveCache.setChecked(true);
+        switchImageCdn.setChecked(true);
+    }
+
+    /**
+     * Show the settings panel with slide animation
+     */
+    private void showSettingsPanel() {
+        if (settingsPanelVisible) return;
+
+        settingsPanelVisible = true;
+        settingsPanelContainer.setVisibility(View.VISIBLE);
+
+        // Load latest values before showing
+        loadSettingsValues();
+
+        // Animate in
+        Animation slideIn = AnimationUtils.loadAnimation(this, R.anim.slide_in_right);
+        settingsPanel.startAnimation(slideIn);
+
+        // Hide video controls
+        hideControls();
+    }
+
+    /**
+     * Hide the settings panel with slide animation
+     */
+    private void hideSettingsPanel() {
+        if (!settingsPanelVisible) return;
+
+        // Animate out
+        Animation slideOut = AnimationUtils.loadAnimation(this, R.anim.slide_out_right);
+        slideOut.setAnimationListener(new Animation.AnimationListener() {
+            @Override
+            public void onAnimationStart(Animation animation) {}
+
+            @Override
+            public void onAnimationEnd(Animation animation) {
+                settingsPanelContainer.setVisibility(View.GONE);
+                settingsPanelVisible = false;
+            }
+
+            @Override
+            public void onAnimationRepeat(Animation animation) {}
+        });
+        settingsPanel.startAnimation(slideOut);
+    }
+
+    /**
+     * Show buffer size selection dialog
+     */
+    private void showBufferSizeDialog() {
+        String[] bufferOptions = {"5 min", "10 min", "15 min", "20 min", "30 min"};
+        int[] bufferValues = {5, 10, 15, 20, 30};
+        int currentValue = preferencesManager.getPlaybackBufferDuration();
+        int currentIndex = 0;
+        for (int i = 0; i < bufferValues.length; i++) {
+            if (bufferValues[i] == currentValue) {
+                currentIndex = i;
+                break;
+            }
+        }
+
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Buffer Duration");
+        builder.setSingleChoiceItems(bufferOptions, currentIndex, (dialog, which) -> {
+            preferencesManager.setPlaybackBufferDuration(bufferValues[which]);
+            textBufferSize.setText(bufferOptions[which]);
+            dialog.dismiss();
+            showToast("Buffer duration set to " + bufferOptions[which]);
+
+            // Restart player to apply new buffer settings
+            if (player != null) {
+                long currentPos = player.getCurrentPosition();
+                loadVideoSource(currentSourceIndex);
+                player.seekTo(currentPos);
+            }
+        });
+        builder.setNegativeButton("Cancel", null);
+        AlertDialog dialog = builder.create();
+        applyFocusHighlight(dialog);
+        dialog.show();
+    }
+
+    /**
+     * Show subtitle language selection dialog
+     */
+    private void showSubtitleLanguageDialog() {
+        String[] languages = {"English", "Spanish", "French", "German", "Portuguese", "Italian", "Japanese", "Korean", "Chinese", "Russian"};
+        String[] langCodes = {"en", "es", "fr", "de", "pt", "it", "ja", "ko", "zh", "ru"};
+
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Subtitle Language");
+        builder.setItems(languages, (dialog, which) -> {
+            preferencesManager.setSubtitleLanguage(langCodes[which]);
+            textSubtitleLanguage.setText(languages[which]);
+            dialog.dismiss();
+            showToast("Subtitle language set to " + languages[which]);
+        });
+        builder.setNegativeButton("Cancel", null);
+        AlertDialog dialog = builder.create();
+        applyFocusHighlight(dialog);
+        dialog.show();
+    }
+
+    /**
+     * Get language name from language code
+     */
+    private String getLanguageName(String langCode) {
+        if (langCode == null) return "English";
+        switch (langCode) {
+            case "en": return "English";
+            case "es": return "Spanish";
+            case "fr": return "French";
+            case "de": return "German";
+            case "pt": return "Portuguese";
+            case "it": return "Italian";
+            case "ja": return "Japanese";
+            case "ko": return "Korean";
+            case "zh": return "Chinese";
+            case "ru": return "Russian";
+            default: return "English";
+        }
+    }
+
+    @Override
+    public boolean dispatchKeyEvent(KeyEvent event) {
+        // Handle back button when settings panel is visible
+        if (settingsPanelVisible && event.getAction() == KeyEvent.ACTION_DOWN) {
+            if (event.getKeyCode() == KeyEvent.KEYCODE_BACK || event.getKeyCode() == KeyEvent.KEYCODE_ESCAPE) {
+                hideSettingsPanel();
+                return true;
+            }
+        }
+
+        return super.dispatchKeyEvent(event);
     }
 }

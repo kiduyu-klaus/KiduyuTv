@@ -383,4 +383,8 @@
         android:visibility="gone"
         app:tint="@android:color/white" />
 
+    <!-- Settings Panel (Slides from right) -->
+    <include
+        layout="@layout/settings_panel" />
+
 </RelativeLayout>

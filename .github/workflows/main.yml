@@ -19,13 +19,13 @@ on:
       release_notes:
         description: 'Release notes / changelog'
         required: false
-        default: 'Debug build — see commits for changes.'
+        default: ''
 # ── Explicit permissions required for GITHUB_TOKEN to create/update releases ──
 # Without this block GitHub defaults to read-only scope → 403 on release create.
 permissions:
   contents: write   # create tags, create/update releases, upload APK assets
   actions: read     # read workflow run metadata
-  
+
 jobs:
   build:
     name: Build Debug APK
@@ -107,7 +107,17 @@ jobs:
           echo "tag=${TAG}" >> $GITHUB_OUTPUT
           echo "Release tag: ${TAG}"
 
-      # ── 9. Create or update GitHub Release ────────────────────────────
+      # ── 9. Get last commit message ─────────────────────────────────────
+      - name: Get last commit message
+        id: commit_msg
+        if: github.event_name != 'pull_request'
+        run: |
+          MSG=$(git log -1 --pretty=%B | tr -d '\r')
+          echo "message<<EOF" >> $GITHUB_OUTPUT
+          echo "$MSG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      # ── 10. Create or update GitHub Release ───────────────────────────
       - name: Create or update GitHub Release
         if: github.event_name != 'pull_request'
         uses: softprops/action-gh-release@v2
@@ -124,7 +134,7 @@ jobs:
 
             ---
 
-            ${{ github.event.inputs.release_notes || 'Automated debug build from latest commit.' }}
+            ${{ github.event.inputs.release_notes || steps.commit_msg.outputs.message }}
 
             ---
 
@@ -132,14 +142,14 @@ jobs:
             1. Download `KiduyuTv-debug-*.apk` below
             2. Enable **Install unknown apps** on your Android TV / Fire TV device
             3. Sideload via ADB:
-               ```bash
-               adb connect <device-ip>:5555
-               adb install KiduyuTv-debug-*.apk
-               ```
+              ```bash
+              adb connect <device-ip>:5555
+              adb install KiduyuTv-debug-*.apk
+              ```
           files: ${{ steps.rename_apk.outputs.apk_path }}
           # If tag already exists → update the release (draft: false keeps it public)
           draft: false
           prerelease: true        # debug builds are pre-releases by convention
           make_latest: false      # don't override a signed release as "latest"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          env:
+            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
