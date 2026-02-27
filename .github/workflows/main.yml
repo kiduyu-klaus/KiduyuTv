@@ -151,5 +151,5 @@ jobs:
           draft: false
           prerelease: true        # debug builds are pre-releases by convention
           make_latest: false      # don't override a signed release as "latest"
-          env:
+        env:
             GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
