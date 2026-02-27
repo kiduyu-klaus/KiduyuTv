@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="320dp"
+    android:height="180dp"
+    android:viewportWidth="320"
+    android:viewportHeight="180">
+    <!-- Centered Play Button with gradient -->
+    <group
+        android:translateX="160"
+        android:translateY="90">
+        <!-- Outer glow circle -->
+        <path
+            android:pathData="M0,-50a50,50 0,1 1,0 100a50,50 0,1 1,0 -100"
+            android:fillAlpha="0.15">
+            <gradient
+                android:startX="-50"
+                android:startY="-50"
+                android:endX="50"
+                android:endY="50"
+                android:type="linear">
+                <item android:offset="0" android:color="#FFE94560"/>
+                <item android:offset="1" android:color="#FFFF6B9D"/>
+            </gradient>
+        </path>
+        <!-- Main circle background -->
+        <path
+            android:pathData="M0,-40a40,40 0,1 1,0 80a40,40 0,1 1,0 -80">
+            <gradient
+                android:startX="-40"
+                android:startY="-40"
+                android:endX="40"
+                android:endY="40"
+                android:type="linear">
+                <item android:offset="0" android:color="#FFE94560"/>
+                <item android:offset="1" android:color="#FFFF6B9D"/>
+            </gradient>
+        </path>
+        <!-- Play triangle -->
+        <path
+            android:pathData="M-8,-15l25,15l-25,15z"
+            android:fillColor="#FFFFFF"/>
+    </group>
+</vector>
