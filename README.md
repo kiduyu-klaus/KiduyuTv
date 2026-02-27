@@ -2,7 +2,6 @@
 
 <!-- ═══════════════════════  LOGO / HERO  ═══════════════════════ -->
 
-
 ```
 ██╗  ██╗  ██╗  ██████╗   ██╗   ██╗  ██╗   ██╗  ██╗   ██╗       ████████╗  ██╗   ██╗
 ██║ ██╔╝  ██║  ██╔══██╗  ██║   ██║  ╚██╗ ██╔╝  ██║   ██║       ╚══██╔══╝  ██║   ██║
@@ -15,18 +14,19 @@
 **Android TV & Fire TV streaming app — lean-back interface, built for the big screen.**
 
 <!-- ═══════════════════════  BADGES ROW 1  ═══════════════════════ -->
+
 <p>
   <!-- Build status -->
   <a href="https://github.com/kiduyu-klaus/KiduyuTv/actions/workflows/main.yml">
     <img src="https://img.shields.io/github/actions/workflow/status/kiduyu-klaus/KiduyuTv/main.yml?branch=main&style=for-the-badge&logo=github-actions&logoColor=white&label=BUILD&color=22c55e&labelColor=0d1117" alt="Build Status"/>
   </a>
   <!-- Latest release -->
-  <a href="../../releases/latest">
-    <img src="https://img.shields.io/github/v/release/KiduyuKlaus/KiduyuTv?include_prereleases&style=for-the-badge&logo=android&logoColor=white&label=RELEASE&color=3b82f6&labelColor=0d1117" alt="Latest Release"/>
+  <a href="https://github.com/kiduyu-klaus/KiduyuTv/releases/latest">
+    <img src="https://img.shields.io/github/v/release/kiduyu-klaus/KiduyuTv?include_prereleases&style=for-the-badge&logo=android&logoColor=white&label=RELEASE&color=3b82f6&labelColor=0d1117" alt="Latest Release"/>
   </a>
   <!-- Download APK -->
-  <a href="../../releases/latest">
-    <img src="https://img.shields.io/github/downloads/KiduyuKlaus/KiduyuTv/total?style=for-the-badge&logo=docusign&logoColor=white&label=DOWNLOADS&color=8b5cf6&labelColor=0d1117" alt="Downloads"/>
+  <a href="https://github.com/kiduyu-klaus/KiduyuTv/releases/latest">
+    <img src="https://img.shields.io/github/downloads/kiduyu-klaus/KiduyuTv/total?style=for-the-badge&logo=docusign&logoColor=white&label=DOWNLOADS&color=8b5cf6&labelColor=0d1117" alt="Downloads"/>
   </a>
 </p>
 
@@ -45,8 +45,8 @@
   <!-- TMDB -->
   <img src="https://img.shields.io/badge/TMDB-API-01D277?style=for-the-badge&logo=themoviedatabase&logoColor=white&labelColor=0d1117" alt="TMDB"/>
   <!-- License -->
-  <a href="LICENSE">
-    <img src="https://img.shields.io/github/license/KiduyuKlaus/KiduyuTv?style=for-the-badge&color=f59e0b&labelColor=0d1117&label=LICENSE" alt="License"/>
+  <a href="https://github.com/kiduyu-klaus/KiduyuTv/blob/main/LICENSE">
+    <img src="https://img.shields.io/github/license/kiduyu-klaus/KiduyuTv?style=for-the-badge&color=f59e0b&labelColor=0d1117&label=LICENSE" alt="License"/>
   </a>
 </p>
 
@@ -154,7 +154,7 @@ app/src/main/java/com/kiduyu/klaus/kiduyutv/
 
 ```bash
 # 1. Clone the repo
-git clone https://github.com/KiduyuKlaus/KiduyuTv.git
+git clone https://github.com/kiduyu-klaus/KiduyuTv.git
 cd KiduyuTv
 
 # 2. Add your TMDB API key in:
@@ -201,7 +201,7 @@ Output:   KiduyuTv-debug-<sha>.apk
 Release:  auto-tagged  v{versionName}-build{commitCount}
 ```
 
-The workflow at [`.github/workflows/build-release.yml`](.github/workflows/build-release.yml):
+The workflow at [`.github/workflows/main.yml`](.github/workflows/main.yml):
 
 - Builds `assembleDebug` with Gradle cache for fast incremental builds
 - Renames the APK with the short commit SHA for traceability
@@ -255,7 +255,7 @@ Focus animations (scale + elevation) are applied on every focusable card for cle
 KiduyuTv/
 ├── .github/
 │   └── workflows/
-│       └── build-release.yml       ← CI/CD pipeline
+│       └── main.yml       ← CI/CD pipeline
 ├── app/
 │   ├── build.gradle                ← versionName, minSdk 26, compileSdk 36
 │   └── src/main/
