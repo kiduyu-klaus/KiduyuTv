@@ -42,12 +42,14 @@ import com.kiduyu.klaus.kiduyutv.model.CastMember;
 import com.kiduyu.klaus.kiduyutv.model.Episode;
 import com.kiduyu.klaus.kiduyutv.model.MediaItems;
 import com.kiduyu.klaus.kiduyutv.model.Season;
+import com.kiduyu.klaus.kiduyutv.utils.PreferencesManager;
 import com.kiduyu.klaus.kiduyutv.utils.utils;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 public class DetailsActivityTv extends AppCompatActivity {
     private static final String TAG = "DetailsActivityTv";
@@ -92,6 +94,9 @@ public class DetailsActivityTv extends AppCompatActivity {
     private TmdbRepository mediaRepository;
     private int selectedSeasonNumber = 1;
 
+    // Watch history
+    private PreferencesManager preferencesManager;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -111,6 +116,7 @@ public class DetailsActivityTv extends AppCompatActivity {
         initializeViews();
         setupRecyclerViews();
         loadTvShowDetails();
+        preferencesManager = PreferencesManager.getInstance(this);
 
     }
 
@@ -229,6 +235,39 @@ public class DetailsActivityTv extends AppCompatActivity {
 
 
 
+    /**
+     * Build a unique watch history key for a TV episode.
+     * Format: {tmdbId}_S{season}_E{episode}
+     */
+    private String buildEpisodeHistoryId(String tmdbId, int season, int episodeNumber) {
+        //return tmdbId + "_S" + season + "_E" + episodeNumber;
+        return tmdbId;
+    }
+
+    /**
+     * Check if an episode has watch history and return the saved position, or 0 if none.
+     */
+    private long checkEpisodeWatchHistory(String tmdbId, int season, int episodeNumber) {
+        if (preferencesManager == null || tmdbId == null || tmdbId.isEmpty()) {
+            return 0;
+        }
+
+        String episodeId = buildEpisodeHistoryId(tmdbId, season, episodeNumber);
+        PreferencesManager.WatchHistoryItem historyItem = preferencesManager.getWatchHistory(episodeId);
+
+        if (historyItem != null && historyItem.currentPosition > 0 && !historyItem.isCompleted()) {
+            if (Objects.equals(historyItem.season, String.valueOf(season)) && Objects.equals(historyItem.episode, String.valueOf(episodeNumber))){
+                Log.i(TAG, "Watch history found for episode S" + season + "E" + episodeNumber
+                        + " at " + preferencesManager.formatTime((int) historyItem.currentPosition));
+                return historyItem.currentPosition;
+            }
+
+
+        }
+
+        return 0;
+    }
+
     private void playEpisode(Episode episode) {
         loadingOverlay.setVisibility(View.VISIBLE);
         loadingText.setText("Loading episode...");
@@ -243,6 +282,10 @@ public class DetailsActivityTv extends AppCompatActivity {
         episodeMedia.setYear(tvShow.getYear());
         episodeMedia.setPosterUrl(episode.getStillPath());
         episodeMedia.setFromTMDB(true);
+
+        // Set a unique ID for this episode so watch history is tracked per episode
+        String episodeId = buildEpisodeHistoryId(tvShow.getTmdbId(), selectedSeasonNumber, episode.getEpisodeNumber());
+        episodeMedia.setId(episodeId);
 
         String title = tvShow.getTitle();
         String year = String.valueOf(tvShow.getYear());
@@ -342,9 +385,21 @@ public class DetailsActivityTv extends AppCompatActivity {
                         Log.i(TAG, "Total unique sources: " + uniqueSources.size());
                         Log.i(TAG, "Total unique subtitles: " + uniqueSubtitles.size());
 
-                        // Launch player
+                        // Launch player, resuming from saved position if available
                         Intent intent = new Intent(DetailsActivityTv.this, PlayerActivity.class);
                         intent.putExtra("media_item", episodeMedia);
+
+                        long savedPosition = checkEpisodeWatchHistory(
+                                tvShow.getTmdbId(),
+                                selectedSeasonNumber,
+                                Integer.parseInt(episodeMedia.getEpisode())
+                        );
+                        if (savedPosition > 0) {
+                            intent.putExtra("start_position", savedPosition);
+                            Log.i(TAG, "Resuming episode from saved position: "
+                                    + preferencesManager.formatTime((int) savedPosition));
+                        }
+
                         startActivity(intent);
                     });
                 }

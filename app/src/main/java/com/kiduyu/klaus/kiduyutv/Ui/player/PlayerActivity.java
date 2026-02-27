@@ -1801,6 +1801,7 @@ public class PlayerActivity extends AppCompatActivity {
                     duration
             );
 
+
             Log.i(TAG, "Saved watch progress: " + formatTime(currentPos) + " / " + formatTime(duration));
         }
     }
