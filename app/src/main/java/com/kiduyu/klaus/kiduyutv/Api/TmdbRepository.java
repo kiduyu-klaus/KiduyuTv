@@ -238,6 +238,27 @@ public class TmdbRepository {
         });
     }
 
+    public JSONObject getMovieDetails(String tmdbId){
+        String url = TMDB_BASE_URL + "/movie/" + tmdbId + "?language=en-US";
+        try {
+            Connection.Response response = Jsoup.connect(url)
+                    .header("accept", "application/json")
+                    .header("Authorization", "Bearer " + TmdbApi.BEARER_TOKEN)
+                    .ignoreContentType(true)
+                    .timeout(TmdbApi.TIMEOUT_MS)
+                    .method(Connection.Method.GET)
+                    .execute();
+            if (response.statusCode() == 200) {
+                return new JSONObject(response.body());
+            }
+
+        } catch (Exception e) {
+            Log.e(TAG, "Error fetching movie details", e);
+            return null;
+        }
+
+        return null;
+    }
     public interface EpisodesCallback {
         void onSuccess(List<Episode> episodes);
 

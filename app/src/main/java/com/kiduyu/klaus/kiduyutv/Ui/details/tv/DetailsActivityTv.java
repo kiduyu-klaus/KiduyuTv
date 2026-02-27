@@ -112,6 +112,8 @@ public class DetailsActivityTv extends AppCompatActivity {
             finish();
             return;
         }
+        Log.i(TAG, "Genres" + tvShow.getGenres());
+
 
         initializeViews();
         setupRecyclerViews();
@@ -273,7 +275,7 @@ public class DetailsActivityTv extends AppCompatActivity {
         loadingText.setText("Loading episode...");
 
         MediaItems episodeMedia = new MediaItems();
-        episodeMedia.setTitle(tvShow.getTitle());
+        episodeMedia.setTitle(episode.getEpisodeTitle());
         episodeMedia.setDescription(episode.getOverview());
         episodeMedia.setTmdbId(tvShow.getTmdbId());
         episodeMedia.setMediaType("tv");
@@ -282,6 +284,7 @@ public class DetailsActivityTv extends AppCompatActivity {
         episodeMedia.setYear(tvShow.getYear());
         episodeMedia.setPosterUrl(episode.getStillPath());
         episodeMedia.setFromTMDB(true);
+        episodeMedia.setGenres(tvShow.getGenres());
 
         // Set a unique ID for this episode so watch history is tracked per episode
         String episodeId = buildEpisodeHistoryId(tvShow.getTmdbId(), selectedSeasonNumber, episode.getEpisodeNumber());

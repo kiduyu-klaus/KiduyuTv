@@ -52,7 +52,19 @@ public class TmdbApi {
 
             for (int i = 0; i < results.length() && i < 20; i++) { // Limit to 20 items
                 JSONObject movieJson = results.getJSONObject(i);
-                MediaItems movie = createMediaItemFromTMDB(movieJson, TmdbApi.ContentType.MOVIE);
+                //Log.i(TAG, "fetchMoviesFromTMDB: movieJson=" + movieJson);
+
+                // Get movie ID
+                int movieId = movieJson.optInt("id", -1);
+
+                if (movieId == -1) {
+                    Log.w(TAG, "Invalid movie id");
+                    continue;
+                }
+                JSONObject movieJsondetails =new TmdbRepository().getMovieDetails(String.valueOf(movieId));
+                Log.i(TAG, "fetchMoviesFromTMDB: movieJsondetails=" + movieJsondetails);
+
+                MediaItems movie = createMediaItemFromTMDB(movieJsondetails, TmdbApi.ContentType.MOVIE);
                 if (movie != null) {
                     movies.add(movie);
                 }
@@ -69,6 +81,8 @@ public class TmdbApi {
     public static MediaItems createMediaItemFromTMDB(JSONObject tmdbItem, ContentType contentType) {
         try {
             MediaItems mediaItems = new MediaItems();
+            //Log.i(TAG, "createMediaItemFromTMDB: tmdbItem=" + tmdbItem);
+
 
             // Basic info
             int id = tmdbItem.getInt("id");
@@ -123,24 +137,37 @@ public class TmdbApi {
                 mediaItems.setBackgroundImageUrl(IMAGE_BASE_URL + ORIGINAL_SIZE + posterPath);
                 mediaItems.setHeroImageUrl(IMAGE_BASE_URL + ORIGINAL_SIZE + posterPath);
             }
+// Handle genres from genre array
+            JSONArray genresArray = tmdbItem.optJSONArray("genres");
+            //Log.i(TAG, "createMediaItemFromTMDB: genresArray=" + genresArray);
 
-            // Handle genres from genre_ids array
-            JSONArray genreIds = tmdbItem.optJSONArray("genre_ids");
-            if (genreIds != null && genreIds.length() > 0) {
-                List<String> genres = new ArrayList<>();
-                for (int i = 0; i < genreIds.length(); i++) {
-                    String genreName = utils.getGenreName(genreIds.getInt(i));
-                    if (genreName != null) {
-                        genres.add(genreName);
+            if (genresArray != null && genresArray.length() > 0) {
+                List<String> genreNames = new ArrayList<>();
+
+                for (int i = 0; i < genresArray.length(); i++) {
+                    JSONObject genreObject = genresArray.optJSONObject(i);
+
+                    if (genreObject != null) {
+                        String genreName = genreObject.optString("name", null);
+                        //Log.i(TAG, "createMediaItemFromTMDB: genreName=" + genreName);
+
+                        if (!genreName.isEmpty()) {
+                            genreNames.add(genreName);
+                        }
                     }
                 }
-                mediaItems.setGenres(genres);
 
+                Log.i(TAG, "createMediaItemFromTMDB: genreNames=" + genreNames);
+                mediaItems.setGenres(genreNames);
                 // Set first genre as the genre string for backward compatibility
-                if (!genres.isEmpty()) {
-                    mediaItems.setGenre(genres.get(0));
+                if (!genreNames.isEmpty()) {
+                    mediaItems.setGenre(genreNames.get(0));
                 }
             }
+
+
+
+
 
             // Set from TMDB flag
             mediaItems.setFromTMDB(true);

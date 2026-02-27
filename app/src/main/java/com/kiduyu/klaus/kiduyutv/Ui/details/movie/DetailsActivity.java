@@ -212,6 +212,8 @@ public class DetailsActivity extends AppCompatActivity {
         genreContainer.removeAllViews(); // clear any stale views
 
         List<String> genres = mediaItems.getGenres();
+        Log.i(TAG, "populateGenres: genres=" + genres);
+
 
         // Fall back to the single-genre string if the list is empty/null
         if (genres == null || genres.isEmpty()) {
