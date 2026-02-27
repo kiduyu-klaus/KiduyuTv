@@ -218,6 +218,34 @@ public class CastRepository {
                                     creditJson.optString("release_date", "") :
                                     creditJson.optString("first_air_date", "");
 
+                            JSONObject movieJsondetails =new TmdbRepository().getMovieDetails(String.valueOf(id));
+                            // Handle genres from genre array
+                            JSONArray genresArray = movieJsondetails.optJSONArray("genres");
+                            Log.i(TAG, "createMediaItemFromTMDB: genresArray=" + genresArray);
+
+                            if (genresArray != null && genresArray.length() > 0) {
+                                List<String> genreNames = new ArrayList<>();
+
+                                for (int j = 0; j < genresArray.length(); j++) {
+                                    JSONObject genreObject = genresArray.optJSONObject(j);
+
+                                    if (genreObject != null) {
+                                        String genreName = genreObject.optString("name", null);
+                                        //Log.i(TAG, "createMediaItemFromTMDB: genreName=" + genreName);
+
+                                        genreNames.add(genreName);
+
+                                    }
+                                }
+
+                                Log.i(TAG, "createMediaItemFromTMDB: genreNames=" + genreNames);
+                                mediaItem.setGenres(genreNames);
+                                // Set first genre as the genre string for backward compatibility
+                                if (!genreNames.isEmpty()) {
+                                    mediaItem.setGenre(genreNames.get(0));
+                                }
+                            }
+
                             mediaItem.setId(String.valueOf(id));
                             mediaItem.setTitle(title);
                             mediaItem.setDescription(overview);

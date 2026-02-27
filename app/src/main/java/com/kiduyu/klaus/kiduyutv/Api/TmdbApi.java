@@ -151,9 +151,9 @@ public class TmdbApi {
                         String genreName = genreObject.optString("name", null);
                         //Log.i(TAG, "createMediaItemFromTMDB: genreName=" + genreName);
 
-                        if (!genreName.isEmpty()) {
+
                             genreNames.add(genreName);
-                        }
+
                     }
                 }
 
@@ -241,8 +241,9 @@ public class TmdbApi {
                 // Determine content type for parsing
                 ContentType contentType = "movie".equals(mediaType) ?
                         ContentType.MOVIE : ContentType.TV;
-
-                MediaItems item = createMediaItemFromTMDB(itemJson, contentType);
+                int movieId = itemJson.optInt("id", -1);
+                JSONObject movieJsondetails =new TmdbRepository().getMovieDetails(String.valueOf(movieId));
+                MediaItems item = createMediaItemFromTMDB(movieJsondetails, contentType);
                 if (item != null) {
                     recommendations.add(item);
                 }

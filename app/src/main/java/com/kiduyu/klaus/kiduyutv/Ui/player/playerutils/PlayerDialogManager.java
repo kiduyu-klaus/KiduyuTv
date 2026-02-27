@@ -4,6 +4,7 @@ import android.util.Log;
 import android.view.View;
 import android.widget.LinearLayout;
 import android.widget.RadioButton;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AlertDialog;
@@ -64,23 +65,80 @@ public class PlayerDialogManager {
             return;
         }
 
-        String[] serverLabels = new String[activity.videoSources.size()];
-        for (int i = 0; i < activity.videoSources.size(); i++) {
-            serverLabels[i] = activity.videoSources.get(i).getQuality();
-            Log.i(TAG, "Server label: " + activity.videoSources.get(i).getQuality());
-        }
+        // Inflate the server dialog layout (mirrors the quality dialog style)
+        View dialogView = activity.getLayoutInflater().inflate(R.layout.dialog_server, null);
+        LinearLayout container = dialogView.findViewById(R.id.serverOptionsContainer);
 
         AlertDialog.Builder builder = new AlertDialog.Builder(activity);
-        builder.setTitle("Select Server");
-        builder.setItems(serverLabels, (dialog, which) -> {
-            activity.currentSourceIndex = which;
-            activity.startPosition = activity.player.getCurrentPosition();
-            activity.playerCore.loadVideoSource(activity.currentSourceIndex);
-        });
-
+        builder.setView(dialogView);
         AlertDialog dialog = builder.create();
-        activity.controlsManager.applyFocusHighlight(dialog);
+
+        // Build one row per server, matching quality dialog row style exactly
+        for (int i = 0; i < activity.videoSources.size(); i++) {
+            final int index = i;
+            String label = activity.videoSources.get(i).getQuality();
+            Log.i(TAG, "Server label: " + label);
+
+            // Row container  (matches optionAuto / optionHigh sizing)
+            LinearLayout row = new LinearLayout(activity);
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            row.setGravity(android.view.Gravity.CENTER_VERTICAL);
+            LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, dpToPx(35));
+            rowParams.setMargins(dpToPx(5), dpToPx(5), dpToPx(5), dpToPx(5));
+            row.setLayoutParams(rowParams);
+            row.setBackgroundResource(R.drawable.quality_option_background);
+            row.setFocusable(true);
+
+            // Radio button (visual indicator only, not interactive)
+            android.widget.RadioButton radio = new android.widget.RadioButton(activity);
+            radio.setClickable(false);
+            radio.setFocusable(false);
+            radio.setChecked(index == activity.currentSourceIndex);
+            row.addView(radio);
+
+            // Server name label
+            TextView tvLabel = new TextView(activity);
+            tvLabel.setText(label);
+            tvLabel.setTextColor(android.graphics.Color.WHITE);
+            tvLabel.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 15);
+            LinearLayout.LayoutParams labelParams = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT);
+            labelParams.setMarginStart(dpToPx(16));
+            tvLabel.setLayoutParams(labelParams);
+            row.addView(tvLabel);
+
+            // "Active" badge for the currently selected server
+            if (index == activity.currentSourceIndex) {
+                TextView tvActive = new TextView(activity);
+                tvActive.setText("Active");
+                tvActive.setTextColor(android.graphics.Color.parseColor("#FF9800"));
+                tvActive.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 10);
+                LinearLayout.LayoutParams badgeParams = new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.WRAP_CONTENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT);
+                badgeParams.setMarginStart(dpToPx(8));
+                tvActive.setLayoutParams(badgeParams);
+                row.addView(tvActive);
+            }
+
+            row.setOnClickListener(v -> {
+                activity.currentSourceIndex = index;
+                activity.startPosition = activity.player.getCurrentPosition();
+                activity.playerCore.loadVideoSource(activity.currentSourceIndex);
+                dialog.dismiss();
+            });
+
+            container.addView(row);
+        }
+
         dialog.show();
+    }
+
+    private int dpToPx(int dp) {
+        float density = activity.getResources().getDisplayMetrics().density;
+        return Math.round(dp * density);
     }
 
     public void showQualityDialog() {

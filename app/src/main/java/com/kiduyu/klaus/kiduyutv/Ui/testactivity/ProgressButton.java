@@ -42,6 +42,9 @@ public class ProgressButton extends FrameLayout {
 
     // ── colours ───────────────────────────────────────────────────────────────
     private static final int PRIMARY_BLUE = Color.parseColor("#FD6C38");
+    private static final int FOCUS_COLOR = Color.parseColor("#FF8A65"); // lighter orange
+
+    private int currentBorderColor = PRIMARY_BLUE;
     private static final int WHITE        = Color.WHITE;
     private static final int STROKE_DP    = 2;
 
@@ -143,7 +146,7 @@ public class ProgressButton extends FrameLayout {
         float strokeWidth  = STROKE_DP * dp;
 
         Paint borderPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        borderPaint.setColor(PRIMARY_BLUE);
+        borderPaint.setColor(currentBorderColor);
         borderPaint.setStyle(Paint.Style.STROKE);
         borderPaint.setStrokeWidth(strokeWidth);
 
@@ -210,6 +213,30 @@ public class ProgressButton extends FrameLayout {
         if (isAnimating) return;
         this.defaultDuration = (int) durationMs;
         startAnimation();
+    }
+    private void animateFocusColor(boolean hasFocus) {
+
+        int startColor = currentBorderColor;
+        int endColor   = hasFocus ? FOCUS_COLOR : PRIMARY_BLUE;
+
+        ValueAnimator borderAnimator = ValueAnimator.ofObject(
+                new ArgbEvaluator(), startColor, endColor);
+
+        borderAnimator.setDuration(250);
+
+        borderAnimator.addUpdateListener(anim -> {
+            currentBorderColor = (int) anim.getAnimatedValue();
+            invalidate(); // redraw border
+        });
+
+        borderAnimator.start();
+
+        // Optional: subtle scale effect (recommended for TV)
+        animate()
+                .scaleX(hasFocus ? 1.05f : 1f)
+                .scaleY(hasFocus ? 1.05f : 1f)
+                .setDuration(200)
+                .start();
     }
 
     // ── loop API ──────────────────────────────────────────────────────────────
@@ -368,14 +395,21 @@ public class ProgressButton extends FrameLayout {
     @Override
     public void setOnFocusChangeListener(@Nullable OnFocusChangeListener listener) {
         super.setOnFocusChangeListener((v, hasFocus) -> {
+
+            animateFocusColor(hasFocus);   // 🔥 color animation
+
             if (hasFocus) {
                 if (!isAnimating) startAnimation();
             } else {
                 reset();
             }
-            if (listener != null) listener.onFocusChange(v, hasFocus);
+
+            if (listener != null) {
+                listener.onFocusChange(v, hasFocus);
+            }
         });
-        setFocusable(true); // ensure the view can actually receive focus events
+
+        setFocusable(true);
     }
 
     // ── helpers ───────────────────────────────────────────────────────────────
