@@ -15,11 +15,10 @@
 **Android TV & Fire TV streaming app — lean-back interface, built for the big screen.**
 
 <!-- ═══════════════════════  BADGES ROW 1  ═══════════════════════ -->
-
 <p>
   <!-- Build status -->
-  <a href="../../actions/workflows/main.yml">
-    <img src="https://img.shields.io/github/actions/workflow/status/KiduyuKlaus/KiduyuTv/main.yml?branch=main&style=for-the-badge&logo=github-actions&logoColor=white&label=BUILD&color=22c55e&labelColor=0d1117" alt="Build Status"/>
+  <a href="https://github.com/kiduyu-klaus/KiduyuTv/actions/workflows/main.yml">
+    <img src="https://img.shields.io/github/actions/workflow/status/kiduyu-klaus/KiduyuTv/main.yml?branch=main&style=for-the-badge&logo=github-actions&logoColor=white&label=BUILD&color=22c55e&labelColor=0d1117" alt="Build Status"/>
   </a>
   <!-- Latest release -->
   <a href="../../releases/latest">
