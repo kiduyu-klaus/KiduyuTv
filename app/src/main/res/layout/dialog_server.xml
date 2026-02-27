@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="500dp"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="@android:color/transparent">
+
+    <!-- Header -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Select Server"
+        android:textColor="@android:color/white"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        android:gravity="center"
+        android:background="#CC000000"
+        android:layout_marginBottom="2dp" />
+
+    <!-- Server Options Container -->
+    <ScrollView
+        android:layout_width="500dp"
+        android:layout_height="wrap_content"
+        android:maxHeight="400dp"
+        android:scrollbars="none"
+        android:background="#E6000000">
+
+        <!-- Server rows are added here programmatically -->
+        <LinearLayout
+            android:id="@+id/serverOptionsContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical" />
+
+    </ScrollView>
+
+</LinearLayout>
