@@ -42,7 +42,7 @@ public class FetchStreams {
     // Base URLs
     private static final String ENC_DEC_API = "https://enc-dec.app/";
     private static final String VIDEASY_API_BASE = "https://api.videasy.net";
-    private static final String HEXA_API_BASE = "https://themoviedb.hexa.su";
+    private static final String HEXA_API_BASE = "https://theemoviedb.hexa.su";
     private static final String MAPPLE_API_BASE = "https://mapple.uk";
     private static final String ONETOUCHTV_API_BASE = "https://api3.devcorp.me";
     private static final String SMASHYSTREAM_API_BASE = "https://api.smashystream.top";
@@ -146,9 +146,11 @@ public class FetchStreams {
     // Generic API interface for dynamic URLs
     interface GenericApi {
         @GET
-        @Headers("Accept: */*")
-        Call<String> getString(@Url String url, @Header("User-Agent") String userAgent,
-                               @Header("X-Api-Key") String apiKey);
+        @Headers("Accept: plain/text")  // ← Match Python: "Accept": "plain/text"
+        Call<String> getString(@Url String url,
+                               @Header("User-Agent") String userAgent,
+                               @Header("X-Api-Key") String apiKey,
+                               @Header("X-Fingerprint-Lite") String fingerprint);
 
         @GET
         @Headers("Accept: application/json")
@@ -423,10 +425,16 @@ public class FetchStreams {
     private MediaItems fetchHexaStreams(String url, String key) throws Exception {
         GenericApi api = createGenericApi(HEXA_API_BASE);
 
-        // Use X-Api-Key header as per Python implementation
-        Response<String> response = api.getString(url, getUserAgent(), key).execute();
+        // Pass fingerprint header matching Python HEADERS dict
+        Response<String> response = api.getString(
+                url,
+                getUserAgent(),
+                key,
+                "e9136c41504646444"   // ← X-Fingerprint-Lite value from Python
+        ).execute();
+
         if (!response.isSuccessful() || response.body() == null) {
-            throw new IOException("Failed to fetch encrypted data");
+            throw new IOException("Failed to fetch encrypted data: HTTP " + response.code());
         }
 
         String encrypted = response.body();
@@ -435,28 +443,15 @@ public class FetchStreams {
                 DecryptRequest.withKey(encrypted, key)).execute();
 
         if (!decResponse.isSuccessful() || decResponse.body() == null) {
-            throw new IOException("Failed to decrypt");
+            throw new IOException("Failed to decrypt hexa response");
         }
+
         DecryptResponse.Result result = decResponse.body().result;
-        Log.i(TAG, "DecryptResponse.Result: " + result.sources.toArray());
         String jsonStr = new com.google.gson.Gson().toJson(result);
+        Log.i(TAG, "fetchHexaStreams JSON: " + jsonStr);
 
-        Log.i(TAG, "fetchHexaMovie JSON: " + jsonStr);
         Map<String, String> responseHeaders = extractHeaders(response);
-
-
-        Log.i(TAG, "Response headers captured fetchHexaStreams: " + responseHeaders.size());
-        for (Map.Entry<String, String> header : responseHeaders.entrySet()) {
-            Log.i(TAG, "  " + header.getKey() + ": " +
-                    (header.getValue().length() > 100 ?
-                            header.getValue().substring(0, 100) + "..." :
-                            header.getValue()));
-        }
-
-
-        String refererUrl = "https://hexa.su/";
-
-        return parseStreamData(jsonStr, refererUrl, responseHeaders);
+        return parseStreamData(jsonStr, "https://hexa.su/", responseHeaders);
     }
 
     // ===================== ONETOUCHTV =====================
