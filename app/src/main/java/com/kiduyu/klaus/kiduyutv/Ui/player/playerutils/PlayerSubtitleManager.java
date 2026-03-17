@@ -139,11 +139,20 @@ public class PlayerSubtitleManager {
         // Try to get language code from 'lang' field first (usually 2-letter ISO code)
         String lang = subtitle.getLang();
         if (lang != null && !lang.isEmpty()) {
-            // Normalize language code to 2-letter ISO 639-1 if possible
+            // Normalize and validate language code using Locale
+            String normalized = Locale.forLanguageTag(lang).getLanguage();
+            if (normalized != null && !normalized.isEmpty()) {
+                normalized = normalized.toLowerCase(Locale.US);
+                Log.i(TAG, "Using normalized language code from subtitle metadata: " + normalized);
+                return normalized;
+            }
+
+            // Fallback to first two characters (still lowercased)
             if (lang.length() > 2) {
                 lang = lang.substring(0, 2);
             }
-            Log.i(TAG, "Using language code from subtitle metadata: " + lang);
+            lang = lang.toLowerCase(Locale.US);
+            Log.i(TAG, "Using truncated language code from subtitle metadata: " + lang);
             return lang;
         }
 

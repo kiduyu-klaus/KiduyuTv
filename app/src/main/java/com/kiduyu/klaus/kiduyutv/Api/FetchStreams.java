@@ -560,7 +560,7 @@ public class FetchStreams {
         }
 
         JSONObject json = new JSONObject(response.body().string());
-        String[] parts = json.getJSONObject("data").getString("data").split("/#");
+        String[] parts = json.getString("data").split("/#");
         String host = parts[0];
         String id = parts[1];
 
@@ -735,7 +735,7 @@ public class FetchStreams {
         }
 
         JSONObject json = new JSONObject(response.body().string());
-        String[] parts = json.getJSONObject("data").getString("data").split("/#");
+        String[] parts = json.getString("data").split("/#");
         String host = parts[0];
         String id = parts[1];
 

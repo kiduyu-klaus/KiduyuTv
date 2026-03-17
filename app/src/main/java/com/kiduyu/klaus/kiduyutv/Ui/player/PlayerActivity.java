@@ -253,6 +253,9 @@ public class PlayerActivity extends AppCompatActivity {
             return;
         }
 
+        Log.i(TAG, "Subtitles: " + mediaItems.getSubtitles().toString());
+
+
         // Initialize preferences manager
         preferencesManager = PreferencesManager.getInstance(this);
 

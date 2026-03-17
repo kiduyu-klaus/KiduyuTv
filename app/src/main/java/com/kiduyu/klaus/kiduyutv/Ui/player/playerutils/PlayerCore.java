@@ -74,12 +74,13 @@ public class PlayerCore {
                         .setSelectUndeterminedTextLanguage(true)  // Show subtitles even if language is undefined
         );
 
-        // Enable legacy text rendering for subtitle support
+        // Enable text rendering for subtitle support (CRITICAL FIX)
         activity.player = new ExoPlayer.Builder(activity)
                 .setLoadControl(loadControl)
                 .setTrackSelector(activity.trackSelector)
                 .setRenderersFactory(
                         new DefaultRenderersFactory(activity)
+                                .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
                 )
                 .build();
 
@@ -89,7 +90,7 @@ public class PlayerCore {
         activity.subtitleView.setUserDefaultTextSize();
         activity.subtitleView.bringToFront();
 
-        activity.player.setVideoSurfaceView(activity.videoSurface);
+        activity.player.setVideoSurfaceView(activity.videoSurface);        // CRITICAL FIX: Set as media overlay to ensure subtitles display on top\n        activity.videoSurface.setZOrderMediaOverlay(true);
 
         // Add player listener
         activity.player.addListener(new Player.Listener() {

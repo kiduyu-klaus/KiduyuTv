@@ -500,7 +500,7 @@ public class DetailsActivity extends AppCompatActivity {
         //fetchStreams.fetchVideasyMovie(title, year, tmdbId, callback);
 
         // 2. Fetch from Hexa
-        fetchStreams.fetchHexaMovie(tmdbId, callback);
+        //fetchStreams.fetchHexaMovie(tmdbId, callback);
 
         // 3. Fetch from Vidlink
         //fetchStreams.fetchVidlinkMovie(tmdbId, callback);
@@ -509,7 +509,7 @@ public class DetailsActivity extends AppCompatActivity {
         //fetchStreams.fetchSmashystreamMovie(imdbId, tmdbId, "1", callback);
 
         // 5. Fetch from SmashyStream/Vidstack Type 2
-        //fetchStreams.fetchSmashystreamMovie(imdbId, tmdbId, "2", callback);
+        fetchStreams.fetchSmashystreamMovie(imdbId, tmdbId, "2", callback);
 
         // 6. Fetch from XPrime (using "primebox" server)
         //fetchStreams.fetchXprimeMovie(title, year, tmdbId, imdbId, "primebox", callback);

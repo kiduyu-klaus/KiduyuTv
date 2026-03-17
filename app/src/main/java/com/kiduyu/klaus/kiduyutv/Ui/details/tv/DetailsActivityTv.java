@@ -413,7 +413,7 @@ public class DetailsActivityTv extends AppCompatActivity {
         //fetchStreams.fetchVideasyTV(title, year, tmdbId, season, episodeNumber, callback);
 
         // 2. Fetch from Hexa
-        fetchStreams.fetchHexaTV(tmdbId, season, episodeNumber, callback);
+        //fetchStreams.fetchHexaTV(tmdbId, season, episodeNumber, callback);
 
         // 3. Fetch from OneTouchTV (if you have the vodId)
         // Note: OneTouchTV might need a different ID format
@@ -424,7 +424,7 @@ public class DetailsActivityTv extends AppCompatActivity {
         //fetchStreams.fetchSmashystreamTV(imdbId, tmdbId, season, episodeNumber, "1", callback);
 
         // 5. Fetch from SmashyStream/Vidstack Type 2
-        //fetchStreams.fetchSmashystreamTV(imdbId, tmdbId, season, episodeNumber, "2", callback);
+        fetchStreams.fetchSmashystreamTV(imdbId, tmdbId, season, episodeNumber, "2", callback);
 
         // 6. Fetch from XPrime (requires server selection - use "primebox" or other available servers)
         //fetchStreams.fetchXprimeTV(title, year, tmdbId, imdbId, season, episodeNumber, "primebox", callback);
